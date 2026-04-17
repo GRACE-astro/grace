@@ -61,11 +61,15 @@ struct z4c_system_t
     private:
     using base_t = fd_evolution_system_t<z4c_system_t>  ;
 
-    // Persistent per-cell scratch filled by compute_curvature_pre_impl
-    // and consumed by compute_curvature_update_impl.  Holds Ricci (W2Rdd
-    // [6], Rtrace) and second Christoffel (Gammatudd[18]) so the update
+    // Persistent per-cell scratch filled by the three pre-kernels
+    // (compute_matter_sources_impl, compute_curvature_wave_impl,
+    // compute_curvature_conn_impl) and consumed by
+    // compute_curvature_update_impl.  Holds Ricci (W2Rdd[6], Rtrace),
+    // second Christoffel (Gammatudd[18]) and matter sources so the update
     // kernel does not have to re-load ddgtdd_dx2[36], ddchi_dx2[6] or
     // dGammat_dx[9].  GammatDu is cheap and is recomputed inline.
+    // The RICCI_*_ slots act as a running accumulator: wave writes into
+    // them, conn reads them back and += the connection/conformal pieces.
     var_array_t _curv_scratch ;
 
     double k1,k2,eta,chi_safeguard,alp_min,epsdiss;
@@ -175,8 +179,9 @@ struct z4c_system_t
         }
     }
 
-    // Legacy monolithic Z4c update — replaced by the three-kernel pipeline
-    // (compute_advective_update_impl + compute_curvature_pre_impl +
+    // Legacy monolithic Z4c update — replaced by the multi-kernel pipeline
+    // (compute_advective_update_impl + compute_matter_sources_impl +
+    // compute_curvature_wave_impl + compute_curvature_conn_impl +
     // compute_curvature_update_impl).  Kept only so the CRTP base's
     // compute_update wrapper remains instantiable for parity with BSSN.
     // Not dispatched anywhere from evolve.cpp; body is a no-op.
@@ -464,31 +469,78 @@ struct z4c_system_t
 #endif  // ----- end legacy monolithic implementation -----
 
     // ---------------------------------------------------------------------
-    // Kernel B1: curvature pre — build per-cell Ricci + second Christoffel
-    // and persist to _curv_scratch so the RHS-assembly kernel can drop the
-    // second-derivative loads (ddgtdd_dx2[36], ddchi_dx2[6], dGammat_dx[9])
-    // and the Christoffel / Ricci helpers from its live set.  This is the
-    // heaviest geometric pass; isolating it into its own kernel keeps the
-    // downstream RHS-assembly pass's register footprint low enough for
-    // good GPU occupancy.  GammatDu is deliberately not persisted — it is
-    // one cheap contraction of gtuu against Gammatudd and is recomputed
-    // inline in the next kernel.
+    // Kernel B1a: matter sources — GRMHD → Z4c coupling terms, written to
+    // _curv_scratch.  Isolated from the geometric kernels so the EOS /
+    // primitive reads don't add noise to the heavy Ricci working set, and
+    // so the kernel can be skipped entirely in vacuum runs.
     // ---------------------------------------------------------------------
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    compute_curvature_pre_impl( int const q
-                              , VEC( int const i
-                                   , int const j
-                                   , int const k)
-                              , grace::scalar_array_t<GRACE_NSPACEDIM> const _idx
-                              , grace::var_array_t const /*state_new*/
-                              , grace::staggered_variable_arrays_t /*sstate_new*/
-                              , double const /*dt*/
-                              , double const /*dtfact*/
-                              , grace::device_coordinate_system /*coords*/ ) const
+    compute_matter_sources_impl( int const q
+                               , VEC( int const i
+                                    , int const j
+                                    , int const k)
+                               , grace::scalar_array_t<GRACE_NSPACEDIM> const /*_idx*/
+                               , grace::var_array_t const /*state_new*/
+                               , grace::staggered_variable_arrays_t /*sstate_new*/
+                               , double const /*dt*/
+                               , double const /*dtfact*/
+                               , grace::device_coordinate_system /*coords*/ ) const
+    {
+        using namespace Kokkos ;
+        auto cs = subview(this->_curv_scratch,i,j,k,ALL(),q) ;
+
+        double rho{0}, Strace{0}, Si[3] = {0,0,0}, Sij[6] = {0,0,0,0,0,0} ;
+        if (!is_vacuum) {
+            auto s  = subview(this->_state,i,j,k,ALL(),q) ;
+            auto a  = subview(this->_aux,i,j,k,ALL(),q) ;
+            double chi{s(CHI_)}, alp{s(ALP_)} ;
+            double gtdd[6] = {
+                s(GTXX_), s(GTXY_), s(GTXZ_),
+                s(GTYY_), s(GTYZ_), s(GTZZ_)
+            } ;
+            double gtuu[6] ;
+            z4c_get_inverse_conf_metric(gtdd, 1.0, &gtuu) ;
+            double beta[3] = {s(BETAX_), s(BETAY_), s(BETAZ_)} ;
+            double rho0{a(RHO_)}, eps{a(EPS_)}, press{a(PRESS_)} ;
+            double z[3] = {a(ZVECX_), a(ZVECY_), a(ZVECZ_)} ;
+            double B[3] = {a(BX_), a(BY_), a(BZ_)} ;
+            z4c_get_matter_sources(
+                gtdd, beta, alp, chi, gtuu, z, B, rho0, press, eps,
+                &rho, &Strace, &Si, &Sij
+            ) ;
+        }
+        cs(SRC_RHO_)    = rho ;
+        cs(SRC_STRACE_) = Strace ;
+        cs(SRC_SX_)     = Si[0] ;
+        cs(SRC_SY_)     = Si[1] ;
+        cs(SRC_SZ_)     = Si[2] ;
+        #pragma unroll 6
+        for (int aa=0; aa<6; ++aa) cs(SRC_SXX_ + aa) = Sij[aa] ;
+    }
+
+    // ---------------------------------------------------------------------
+    // Kernel B1b: Ricci wave — the ddgtdd_dx2[36]-heavy piece,
+    //   W2R_ij ← −½ W² g̃^kl ∂_k∂_l g̃_ij
+    // Writes the wave contribution into the RICCI_*_ slots of
+    // _curv_scratch.  The conn kernel reads those back and accumulates
+    // the remaining Ricci pieces on top.  Keeping this kernel separate
+    // lets the 36-wide second-derivative array fall out of scope before
+    // the large Γ̃·Γ̃ CSE block runs.
+    // ---------------------------------------------------------------------
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    compute_curvature_wave_impl( int const q
+                               , VEC( int const i
+                                    , int const j
+                                    , int const k)
+                               , grace::scalar_array_t<GRACE_NSPACEDIM> const _idx
+                               , grace::var_array_t const /*state_new*/
+                               , grace::staggered_variable_arrays_t /*sstate_new*/
+                               , double const /*dt*/
+                               , double const /*dtfact*/
+                               , grace::device_coordinate_system /*coords*/ ) const
     {
         using namespace Kokkos ;
         auto s  = subview(this->_state,i,j,k,ALL(),q) ;
-        auto a  = subview(this->_aux,i,j,k,ALL(),q) ;
         auto cs = subview(this->_curv_scratch,i,j,k,ALL(),q) ;
 
         double chi{s(CHI_)} ;
@@ -496,75 +548,88 @@ struct z4c_system_t
             s(GTXX_), s(GTXY_), s(GTXZ_),
             s(GTYY_), s(GTYZ_), s(GTZZ_)
         } ;
-
         double gtuu[6] ;
         z4c_get_inverse_conf_metric(gtdd, 1.0, &gtuu) ;
 
-        // Matter sources — small live set, written to scratch and reused by
-        // compute_curvature_update_impl and the fast constraint pass.  Done
-        // up front so all matter temporaries die before the heavy Ricci
-        // block is built.
+        double idx0 = _idx(0,q) ;
+        double W2Rdd[6] = {0.,0.,0.,0.,0.,0.} ;
         {
-            double rho{0}, Strace{0}, Si[3] = {0,0,0}, Sij[6] = {0,0,0,0,0,0} ;
-            if (!is_vacuum) {
-                double alp{s(ALP_)} ;
-                double beta[3] = {s(BETAX_), s(BETAY_), s(BETAZ_)} ;
-                double rho0{a(RHO_)}, eps{a(EPS_)}, press{a(PRESS_)} ;
-                double z[3] = {a(ZVECX_), a(ZVECY_), a(ZVECZ_)} ;
-                double B[3] = {a(BX_), a(BY_), a(BZ_)} ;
-                z4c_get_matter_sources(
-                    gtdd, beta, alp, chi, gtuu, z, B, rho0, press, eps,
-                    &rho, &Strace, &Si, &Sij
-                ) ;
-            }
-            cs(SRC_RHO_)    = rho ;
-            cs(SRC_STRACE_) = Strace ;
-            cs(SRC_SX_)     = Si[0] ;
-            cs(SRC_SY_)     = Si[1] ;
-            cs(SRC_SZ_)     = Si[2] ;
-            #pragma unroll 6
-            for (int aa=0; aa<6; ++aa) cs(SRC_SXX_ + aa) = Sij[aa] ;
+            double ddgtdd_dx2[36] ;
+            fill_second_deriv_tensor(this->_state,i,j,k,GTXX_,q,ddgtdd_dx2,idx0) ;
+            z4c_get_Ricci_wave(chi, gtuu, ddgtdd_dx2, &W2Rdd) ;
         }
 
-        double idx[3] = {_idx(0,q), _idx(1,q), _idx(2,q)} ;
+        cs(RICCI_XX_) = W2Rdd[0] ;
+        cs(RICCI_XY_) = W2Rdd[1] ;
+        cs(RICCI_XZ_) = W2Rdd[2] ;
+        cs(RICCI_YY_) = W2Rdd[3] ;
+        cs(RICCI_YZ_) = W2Rdd[4] ;
+        cs(RICCI_ZZ_) = W2Rdd[5] ;
+    }
 
-        // Centered first derivatives of χ and g̃_ij
+    // ---------------------------------------------------------------------
+    // Kernel B1c: Ricci connection + conformal — everything that depends
+    // on Christoffels and / or ∂χ.  Reads the wave piece back from
+    // _curv_scratch, += Ricci_dgamma + Ricci_gammagamma + Ricci_conf,
+    // then computes Rtrace and persists the final Ricci + Rtrace +
+    // Gammatudd.  This is the register-heaviest of the three (the Γ̃·Γ̃
+    // block alone has ~130 CSE temps) but ddgtdd_dx2[36] is no longer
+    // live here.
+    // ---------------------------------------------------------------------
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    compute_curvature_conn_impl( int const q
+                               , VEC( int const i
+                                    , int const j
+                                    , int const k)
+                               , grace::scalar_array_t<GRACE_NSPACEDIM> const _idx
+                               , grace::var_array_t const /*state_new*/
+                               , grace::staggered_variable_arrays_t /*sstate_new*/
+                               , double const /*dt*/
+                               , double const /*dtfact*/
+                               , grace::device_coordinate_system /*coords*/ ) const
+    {
+        using namespace Kokkos ;
+        auto s  = subview(this->_state,i,j,k,ALL(),q) ;
+        auto cs = subview(this->_curv_scratch,i,j,k,ALL(),q) ;
+
+        double chi{s(CHI_)} ;
+        double gtdd[6] = {
+            s(GTXX_), s(GTXY_), s(GTXZ_),
+            s(GTYY_), s(GTYZ_), s(GTZZ_)
+        } ;
+        double gtuu[6] ;
+        z4c_get_inverse_conf_metric(gtdd, 1.0, &gtuu) ;
+
+        double idx0 = _idx(0,q) ;
+
+        // Seed accumulator with wave contribution written by the wave kernel.
+        double W2Rdd[6] = {
+            cs(RICCI_XX_), cs(RICCI_XY_), cs(RICCI_XZ_),
+            cs(RICCI_YY_), cs(RICCI_YZ_), cs(RICCI_ZZ_)
+        } ;
+
         double dchi_dx[3] ;
-        fill_deriv_scalar(this->_state,i,j,k,CHI_,q,dchi_dx,idx[0]) ;
+        fill_deriv_scalar(this->_state,i,j,k,CHI_,q,dchi_dx,idx0) ;
         double dgtdd_dx[18] ;
-        fill_deriv_tensor(this->_state,i,j,k,GTXX_,q,dgtdd_dx,idx[0]) ;
+        fill_deriv_tensor(this->_state,i,j,k,GTXX_,q,dgtdd_dx,idx0) ;
 
-        // Christoffel (first + second).  GammatDu is a temp consumed by
-        // z4c_get_Ricci below and does not need to survive the kernel.
         double Gammatddd[18], Gammatudd[18], GammatDu[3] ;
         z4c_get_first_Christoffel(dgtdd_dx, &Gammatddd) ;
         z4c_get_second_Christoffel(gtuu, Gammatddd, &Gammatudd) ;
         z4c_get_contracted_Christoffel(gtuu, Gammatudd, &GammatDu) ;
 
-        // Ricci — split into three pieces so the 36-wide ddgtdd_dx2 and the
-        // 9-wide dGammat_dx fall out of scope before the heavy Γ̃·Γ̃ block
-        // (which has ~130 CSE temps).  The register pressure in that block
-        // is the whole reason for the kernel split in the first place.
-        double W2Rdd[6] = {0.,0.,0.,0.,0.,0.} ;
-        // (i) Laplacian −½ g̃^kl ∂_k∂_l g̃_ij
-        {
-            double ddgtdd_dx2[36] ;
-            fill_second_deriv_tensor(this->_state,i,j,k,GTXX_,q,ddgtdd_dx2,idx[0]) ;
-            z4c_get_Ricci_wave(chi, gtuu, ddgtdd_dx2, &W2Rdd) ;
-        }
-        // (ii) g̃_k(i ∂_j) Γ̃^k + ½ Γ̃^k (Γ̃_ijk + Γ̃_jik) block
+        // (ii) g̃_k(i ∂_j) Γ̃^k + ½ Γ̃^k (Γ̃_ijk + Γ̃_jik)
         {
             double dGammat_dx[9] ;
-            fill_deriv_vector(this->_state,i,j,k,GAMMATX_,q,dGammat_dx,idx[0]) ;
+            fill_deriv_vector(this->_state,i,j,k,GAMMATX_,q,dGammat_dx,idx0) ;
             z4c_get_Ricci_dgamma(gtdd, chi, Gammatddd, GammatDu, dGammat_dx, &W2Rdd) ;
         }
-        // (iii) Γ̃·Γ̃ contractions — the big CSE block, run with ddgtdd_dx2
-        // and dGammat_dx already retired.
+        // (iii) Γ̃·Γ̃ contractions
         z4c_get_Ricci_gammagamma(chi, gtuu, Gammatddd, Gammatudd, &W2Rdd) ;
-        // Conformal correction — needs ddchi_dx2[6].
+        // Conformal correction
         {
             double ddchi_dx2[6] ;
-            fill_second_deriv_scalar(this->_state,i,j,k,CHI_,q,ddchi_dx2,idx[0]) ;
+            fill_second_deriv_scalar(this->_state,i,j,k,CHI_,q,ddchi_dx2,idx0) ;
             z4c_get_Ricci_conf(
                 gtdd, chi, gtuu, Gammatudd, dchi_dx, ddchi_dx2, &W2Rdd
             ) ;
@@ -572,7 +637,6 @@ struct z4c_system_t
         double Rtrace ;
         z4c_get_Ricci_trace(gtuu, W2Rdd, &Rtrace) ;
 
-        // Persist to scratch.  Index layout mirrors z4c_curv_scratch_idx.
         cs(RICCI_XX_) = W2Rdd[0] ;
         cs(RICCI_XY_) = W2Rdd[1] ;
         cs(RICCI_XZ_) = W2Rdd[2] ;
@@ -590,7 +654,8 @@ struct z4c_system_t
     // Kernel B2: curvature / non-advective RHS
     //
     // Reads Ricci, second Christoffel, and matter sources from _curv_scratch
-    // (all filled by compute_curvature_pre_impl) and assembles every RHS
+    // (filled by compute_matter_sources_impl + compute_curvature_wave_impl
+    // + compute_curvature_conn_impl) and assembles every RHS
     // contribution that does not involve the upwind shift-transport stencil
     // — i.e. the centered-derivative Lie correction terms on tensorial
     // equations, DiDjα, algebraic damping, and the Γ-driver coupling.
@@ -697,7 +762,7 @@ struct z4c_system_t
             z4c_get_DiDialp(gtuu, W2DiDjalp, &DiDialp) ;
         }
 
-        // matter sources — loaded from scratch (filled by compute_curvature_pre_impl)
+        // matter sources — loaded from scratch (filled by compute_matter_sources_impl)
         double const rho    = cs(SRC_RHO_) ;
         double const Strace = cs(SRC_STRACE_) ;
         double const Si[3]  = {cs(SRC_SX_), cs(SRC_SY_), cs(SRC_SZ_)} ;
@@ -856,9 +921,8 @@ struct z4c_system_t
         z4c_get_contracted_Christoffel(
             gtuu, Gammatudd, &GammatDu
         ) ;
-        // Ricci — same three-way split as compute_curvature_pre_impl so
-        // ddgtdd_dx2 and dGammat_dx fall out of scope before the heavy
-        // Γ̃·Γ̃ block.
+        // Ricci — same three-part split as the pre-kernels so ddgtdd_dx2
+        // and dGammat_dx fall out of scope before the heavy Γ̃·Γ̃ block.
         double Rtrace ;
         double W2Rdd[6] = {0.,0.,0.,0.,0.,0.} ;
         {
@@ -910,7 +974,7 @@ struct z4c_system_t
 
     // ---------------------------------------------------------------------
     // Fast constraint pass.  Reuses Ricci, Gammatudd, Rtrace and matter
-    // sources from _curv_scratch (populated by compute_curvature_pre_impl
+    // sources from _curv_scratch (populated by the three pre-kernels
     // during the last RK substep of the step being closed), so only gtuu,
     // Atuu, AA, GammatDu and five centered first derivatives have to be
     // rebuilt here.  Safe to call whenever scratch is guaranteed to hold

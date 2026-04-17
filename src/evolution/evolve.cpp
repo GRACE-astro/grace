@@ -392,8 +392,9 @@ void evolve_impl() {
 
     #ifdef GRACE_ENABLE_Z4C_METRIC
     // Fill Hamiltonian and momentum constraints once per full RK step.
-    // Reuses Ricci/Γ̃/matter cached in _z4c_curv_scratch by the last KB1
-    // of this RK step — much cheaper than rebuilding the whole geometry
+    // Reuses Ricci/Γ̃/matter cached in _z4c_curv_scratch by the last set
+    // of pre-kernels (matter/wave/conn) of this RK step — much cheaper
+    // than rebuilding the whole geometry
     // pass.  Post-regrid / post-initial-data paths call the full
     // compute_constraint_violations() in their own files.
     compute_constraint_violations_fast() ;
@@ -1271,11 +1272,32 @@ void update_fd(
                     z4c_eq_system.compute_advective_update(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact,dev_coords);
                 }) ;
     //**************************************************************************************************/
-    parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_curvature_pre")
+    // Matter sources — cheap, mostly GRMHD/aux reads; dispatched first so it
+    // can overlap with wave on hardware that exposes concurrent kernel
+    // execution.  Body is a near-no-op in vacuum runs (branched on is_vacuum
+    // inside the functor).
+    parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_matter_sources")
                 , curvature_pre_policy
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                 {
-                    z4c_eq_system.compute_curvature_pre(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact,dev_coords);
+                    z4c_eq_system.compute_matter_sources(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact,dev_coords);
+                }) ;
+    //**************************************************************************************************/
+    // Ricci wave — writes W2R_ij (wave) into _curv_scratch[RICCI_*].
+    parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_ricci_wave")
+                , curvature_pre_policy
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                {
+                    z4c_eq_system.compute_curvature_wave(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact,dev_coords);
+                }) ;
+    //**************************************************************************************************/
+    // Ricci connection + conformal — reads wave piece back, accumulates,
+    // stores final Ricci + Rtrace + Gammatudd.  Must follow z4c_ricci_wave.
+    parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_ricci_conn")
+                , curvature_pre_policy
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                {
+                    z4c_eq_system.compute_curvature_conn(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact,dev_coords);
                 }) ;
     //**************************************************************************************************/
     parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_curvature_update")
@@ -1445,7 +1467,8 @@ void compute_constraint_violations() {
 
 // Fast variant: requires _z4c_curv_scratch to hold Ricci + Gammatudd + matter
 // sources consistent with the current state (true immediately after the last
-// KB1 dispatch of an RK step, invalid after regrid or fresh initial data).
+// matter/wave/conn dispatch of an RK step, invalid after regrid or fresh
+// initial data).
 // Avoids rebuilding Christoffel / Ricci / matter from scratch; only recomputes
 // gtuu/Atuu/AA, GammatDu and 5 centered first-deriv stencils before calling
 // z4c_get_constraints.
