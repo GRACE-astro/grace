@@ -150,8 +150,15 @@ variable_list_impl_t::variable_list_impl_t()
     #endif 
     Kokkos::realloc( _emf
                    , VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz)
-                   , GRACE_NSPACEDIM 
-                   , nq ) ; 
+                   , GRACE_NSPACEDIM
+                   , nq ) ;
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    Kokkos::realloc( _z4c_curv_scratch
+                   , VEC(nx + 2*ngz, ny + 2*ngz, nz + 2*ngz)
+                   , N_Z4C_CURV_SCRATCH
+                   , nq
+                   ) ;
+    #endif
     _staggered_vars.realloc( VEC(nx,ny,nz),ngz,nq
                            , N_FC_X
                            , N_EC_YZ
