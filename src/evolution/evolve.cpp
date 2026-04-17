@@ -392,10 +392,11 @@ void evolve_impl() {
 
     #ifdef GRACE_ENABLE_Z4C_METRIC
     // Fill Hamiltonian and momentum constraints once per full RK step.
-    // Keeping this out of compute_curvature_update_impl trims dgtdd_dx[18]
-    // and dAtdd_dx[18] from that kernel's live set (occupancy headroom),
-    // at the cost of one extra read-only geometry pass per step.
-    compute_constraint_violations() ;
+    // Reuses Ricci/Γ̃/matter cached in _z4c_curv_scratch by the last KB1
+    // of this RK step — much cheaper than rebuilding the whole geometry
+    // pass.  Post-regrid / post-initial-data paths call the full
+    // compute_constraint_violations() in their own files.
+    compute_constraint_violations_fast() ;
     #endif
 }
 
@@ -1380,8 +1381,8 @@ void advance_substep( double const t, double const dt, double const dtfact
 
 #ifdef GRACE_ENABLE_Z4C_METRIC
 void compute_constraint_violations() {
-    using namespace grace ; 
-    using namespace Kokkos  ; 
+    using namespace grace ;
+    using namespace Kokkos  ;
     DECLARE_GRID_EXTENTS ;
     //**************************************************************************************************/
     // fetch some stuff
@@ -1394,18 +1395,47 @@ void compute_constraint_violations() {
     //**************************************************************************************************/
     z4c_system_t z4c_eq_system(state,aux,dummy,curv_scratch) ;
     //**************************************************************************************************/
-    auto policy = 
+    auto policy =
     MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
               {VEC(ngz,ngz,ngz),0}
             , {VEC(nx+ngz,ny+ngz,nz+ngz),nq}
         ) ;
     parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_compute_constraint_violations")
                 , policy
-                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                 {
                     z4c_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, idx, dev_coords);
-                }) ; 
+                }) ;
     //**************************************************************************************************/
+}
+
+// Fast variant: requires _z4c_curv_scratch to hold Ricci + Gammatudd + matter
+// sources consistent with the current state (true immediately after the last
+// KB1 dispatch of an RK step, invalid after regrid or fresh initial data).
+// Avoids rebuilding Christoffel / Ricci / matter from scratch; only recomputes
+// gtuu/Atuu/AA, GammatDu and 5 centered first-deriv stencils before calling
+// z4c_get_constraints.
+void compute_constraint_violations_fast() {
+    using namespace grace ;
+    using namespace Kokkos ;
+    DECLARE_GRID_EXTENTS ;
+    auto& idx          = grace::variable_list::get().getinvspacings() ;
+    auto& aux          = grace::variable_list::get().getaux() ;
+    auto& state        = grace::variable_list::get().getstate() ;
+    auto& curv_scratch = grace::variable_list::get().getz4ccurvscratch() ;
+    auto dummy         = grace::variable_list::get().getstaggeredstate() ;
+    z4c_system_t z4c_eq_system(state,aux,dummy,curv_scratch) ;
+    auto policy =
+    MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+              {VEC(ngz,ngz,ngz),0}
+            , {VEC(nx+ngz,ny+ngz,nz+ngz),nq}
+        ) ;
+    parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_compute_constraint_violations_fast")
+                , policy
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                {
+                    z4c_eq_system.compute_constraints_fast(VEC(i,j,k), q, idx) ;
+                }) ;
 }
 
 void enforce_algebraic_constraints(grace::var_array_t& state) {
