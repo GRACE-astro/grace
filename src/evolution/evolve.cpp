@@ -390,10 +390,13 @@ void evolve_impl() {
     Kokkos::deep_copy(state_p,state) ;
     grace::deep_copy(sstate_p,sstate) ;
 
-    // Hamiltonian/momentum constraints are now filled in-flight by the
-    // curvature half of the Z4c update, so no separate pass is needed here.
-    // The standalone compute_constraint_violations() entry point is kept
-    // for post-regrid diagnostic refreshes and initial-data setup.
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    // Fill Hamiltonian and momentum constraints once per full RK step.
+    // Keeping this out of compute_curvature_update_impl trims dgtdd_dx[18]
+    // and dAtdd_dx[18] from that kernel's live set (occupancy headroom),
+    // at the cost of one extra read-only geometry pass per step.
+    compute_constraint_violations() ;
+    #endif
 }
 
 template< typename eos_t >

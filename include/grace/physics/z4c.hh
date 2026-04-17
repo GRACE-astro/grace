@@ -540,16 +540,17 @@ struct z4c_system_t
     }
 
     // ---------------------------------------------------------------------
-    // Kernel B2: curvature / non-advective RHS + in-flight constraints
+    // Kernel B2: curvature / non-advective RHS
     //
     // Reads Ricci + second Christoffel from _curv_scratch (filled by
     // compute_curvature_pre_impl) and assembles every RHS contribution
     // that does not involve the upwind shift-transport stencil — i.e.
     // the centered-derivative Lie correction terms on tensorial equations,
     // DiDjα, matter sources, algebraic damping, and the Γ-driver coupling.
-    // The Hamiltonian and momentum constraints are filled here as a
-    // by-product; one extra centered tensor derivative (dAtdd_dx[18]) is
-    // needed for the momentum constraint.
+    // Constraints are NOT filled here; they are computed by a standalone
+    // compute_constraint_violations() pass once per full RK step.  Pulling
+    // the constraint block out drops dgtdd_dx[18] + dAtdd_dx[18] from the
+    // live set and buys back occupancy headroom.
     // ---------------------------------------------------------------------
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     compute_curvature_update_impl( int const q
@@ -726,25 +727,6 @@ struct z4c_system_t
         z4c_get_Bdriver_rhs(
             Bdriver, etaL, dGammat, zero_upw_vec, zero_upw_vec, &dBdr
         ) ;
-
-        // Constraints: reuse every quantity already computed.  Needs the
-        // centered derivatives of g̃_ij and Ã_ij for the momentum constraint.
-        {
-            double dgtdd_dx[18], dAtdd_dx[18] ;
-            fill_deriv_tensor(this->_state,i,j,k,GTXX_,q,dgtdd_dx,idx[0]) ;
-            fill_deriv_tensor(this->_state,i,j,k,ATXX_,q,dAtdd_dx,idx[0]) ;
-            double H, Mi[3] ;
-            z4c_get_constraints(
-                Atdd, chi, theta, Khat, rho, Si, gtuu, Atuu, AA,
-                Gammatudd, GammatDu, Rtrace, dgtdd_dx, dAtdd_dx,
-                dKhat_dx, dchi_dx, dtheta_dx,
-                &H, &Mi
-            ) ;
-            a(HAM_)  = H ;
-            a(MOMX_) = Mi[0] ;
-            a(MOMY_) = Mi[1] ;
-            a(MOMZ_) = Mi[2] ;
-        }
 
         // accumulate into new_state
         auto n = subview(state_new,i,j,k,ALL(),q) ;
