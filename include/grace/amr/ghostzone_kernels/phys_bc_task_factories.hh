@@ -61,138 +61,312 @@
 
 namespace grace {
 
-template< amr::element_kind_t elem_kind 
-        , amr::element_kind_t bc_kind 
+template< amr::element_kind_t elem_kind
+        , amr::element_kind_t bc_kind
         , var_staggering_t stag >
-task_id_t 
+task_id_t
 make_gpu_phys_bc_task(
     std::vector<size_t> const& qid_h,
     std::vector<uint8_t> const& eid_h,
-    std::vector<std::array<int8_t,3>> const& dir_h, 
+    std::vector<std::array<int8_t,3>> const& dir_h,
     std::unordered_set<task_id_t> const& deps,
     Kokkos::View<bc_t*> var_bc,
     Kokkos::View<double*[3]> var_refl,
-    device_stream_t& stream, 
+    device_stream_t& stream,
     task_id_t& task_counter,
     grace::var_array_t data_array,
     size_t nx, size_t ny, size_t nz, size_t nv, size_t ngz,
     std::vector<std::unique_ptr<task_t>>& task_list, bool is_cbuf=false
 )
 {
-    auto& idx = grace::variable_list::get().getinvspacings() ; 
+    auto& idx = grace::variable_list::get().getinvspacings() ;
     auto coords = grace::coordinate_system::get().get_device_coord_system();
-    std::unordered_map<amr::element_kind_t,std::string> const name = {
-        {amr::FACE,"face"}, {amr::EDGE,"edge"}, {amr::CORNER,"corner"}
-    } ; 
 
-    bool rx = get_param<bool>("amr","reflection_symmetries", "x") ; 
-    bool ry = get_param<bool>("amr","reflection_symmetries", "y") ; 
-    bool rz = get_param<bool>("amr","reflection_symmetries", "z") ; 
+    bool rx = get_param<bool>("amr","reflection_symmetries", "x") ;
+    bool ry = get_param<bool>("amr","reflection_symmetries", "y") ;
+    bool rz = get_param<bool>("amr","reflection_symmetries", "z") ;
 
-    GRACE_TRACE("Registering phys-bc task ({}-{}, tid {}) number of elements {} staggering {}", 
-        detail::elem_kind_names[static_cast<int>(elem_kind)], 
-        detail::elem_kind_names[static_cast<int>(bc_kind)], task_counter, qid_h.size(), static_cast<int>(stag)) ; 
-    Kokkos::View<size_t*> qid_d{"qid", qid_h.size()}; 
-    Kokkos::View<uint8_t*> eid_d{"eid", qid_h.size()} ; 
-    Kokkos::View<int8_t*[3]> dir_d{"dir", qid_h.size()} ; 
-    Kokkos::View<int*[3]> ext_d{"extension", qid_h.size()} ; 
-    Kokkos::View<int*[3]> off_d{"offset", qid_h.size()} ; 
+    GRACE_TRACE("Registering phys-bc task ({}-{}, tid {}) number of elements {} staggering {}",
+        detail::elem_kind_names[static_cast<int>(elem_kind)],
+        detail::elem_kind_names[static_cast<int>(bc_kind)], task_counter, qid_h.size(), static_cast<int>(stag)) ;
+    int const N_elems = static_cast<int>(qid_h.size()) ;
+    Kokkos::View<size_t*> qid_d{"qid", qid_h.size()};
+    Kokkos::View<uint8_t*> eid_d{"eid", qid_h.size()} ;
+    Kokkos::View<int8_t*[3]> dir_d{"dir", qid_h.size()} ;
+    // Deprecated kernel-side views — still populated as empty placeholders
+    // so the `phys_bc_op` ctor signature keeps taking them, but the MDRange
+    // operators don't read them (the cbuf EDGE-FACE extension is baked into
+    // `bnd_*` at setup time below).
+    Kokkos::View<int*[3]> ext_d{"extension", qid_h.size()} ;
+    Kokkos::View<int*[3]> off_d{"offset", qid_h.size()} ;
 
-    auto ext_h = Kokkos::create_mirror_view(ext_d) ; 
-    auto off_h = Kokkos::create_mirror_view(off_d) ; 
-    for( int i=0; i<qid_h.size(); ++i) {
-        if (elem_kind == amr::EDGE and bc_kind == amr::FACE and is_cbuf ) {
-            auto eid = eid_h[i] ; 
-            ext_h(i,eid/4) = 2 * ngz ; 
-            off_h(i,eid/4) = -ngz ; 
+    grace::deep_copy_vec_to_view(qid_d,qid_h) ;
+    grace::deep_copy_vec_to_view(eid_d,eid_h) ;
+    grace::deep_copy_vec_to_2D_view(dir_d,dir_h) ;
+
+    // ---- Precompute per-element bounds on host ----
+    auto const off = get_index_staggerings(stag) ;
+    size_t const snx = nx + off[0] ;
+    size_t const sny = ny + off[1] ;
+    size_t const snz = nz + off[2] ;
+
+    Kokkos::View<int*[3]> bnd_lmin_d   {"bnd_lmin",    qid_h.size()} ;
+    Kokkos::View<int*[3]> bnd_idir_d   {"bnd_idir",    qid_h.size()} ;
+    Kokkos::View<int*[3]> bnd_extents_d{"bnd_extents", qid_h.size()} ;
+    Kokkos::View<int*[3]> bnd_pdim_d   {"bnd_pdim",    qid_h.size()} ;
+    Kokkos::View<int*[3]> bnd_npdim_d  {"bnd_npdim",   qid_h.size()} ;
+
+    auto bnd_lmin_h    = Kokkos::create_mirror_view(bnd_lmin_d) ;
+    auto bnd_idir_h    = Kokkos::create_mirror_view(bnd_idir_d) ;
+    auto bnd_extents_h = Kokkos::create_mirror_view(bnd_extents_d) ;
+    auto bnd_pdim_h    = Kokkos::create_mirror_view(bnd_pdim_d) ;
+    auto bnd_npdim_h   = Kokkos::create_mirror_view(bnd_npdim_d) ;
+
+    // Per-element `max_ext_par` is the max over the parallel axes — used
+    // to size the MDRange policy.  FACE has 2 parallel axes, EDGE 1,
+    // CORNER none; the value is only consulted for FACE / EDGE.
+    int max_ext_par = 0 ;
+
+    for (int iq = 0; iq < N_elems; ++iq) {
+        int8_t const d[3] = {dir_h[iq][0], dir_h[iq][1], dir_h[iq][2]} ;
+        uint8_t const _eid = eid_h[iq] ;
+        int lmin[3], idir[3], extents[3], pdim[3] = {0,0,0}, npdim[3] = {0,0,0} ;
+        compute_bounds_classical_host(
+            elem_kind, bc_kind, /*extended*/ false,
+            d, _eid, snx, sny, snz, ngz,
+            lmin, idir, extents, pdim, npdim
+        ) ;
+
+        // Cbuf EDGE-FACE along-edge extension — was previously done
+        // per-thread inside the kernel via `extents += exloop / lmin += offloop`.
+        // Folded into the precomputed `bnd_*` here so the kernel stays
+        // cbuf-agnostic and all launches share one code path.
+        if constexpr (elem_kind == amr::element_kind_t::EDGE
+                      && bc_kind == amr::element_kind_t::FACE) {
+            if (is_cbuf) {
+                int const ax = _eid / 4 ;
+                extents[ax] += 2 * static_cast<int>(ngz) ;
+                lmin[ax]    -= static_cast<int>(ngz) ;
+            }
+        }
+
+        for (int ii = 0; ii < 3; ++ii) {
+            bnd_lmin_h(iq,ii)    = lmin[ii] ;
+            bnd_idir_h(iq,ii)    = idir[ii] ;
+            bnd_extents_h(iq,ii) = extents[ii] ;
+            bnd_pdim_h(iq,ii)    = pdim[ii] ;
+            bnd_npdim_h(iq,ii)   = npdim[ii] ;
+        }
+
+        if constexpr (elem_kind == amr::element_kind_t::FACE) {
+            max_ext_par = std::max(max_ext_par, extents[pdim[0]]) ;
+            max_ext_par = std::max(max_ext_par, extents[pdim[1]]) ;
+        } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
+            max_ext_par = std::max(max_ext_par, extents[pdim[0]]) ;
         }
     }
-    Kokkos::deep_copy(ext_d,ext_h) ; 
-    Kokkos::deep_copy(off_d,off_h) ; 
-
-    grace::deep_copy_vec_to_view(qid_d,qid_h) ; 
-    grace::deep_copy_vec_to_view(eid_d,eid_h) ; 
-    grace::deep_copy_vec_to_2D_view(dir_d,dir_h) ;
+    Kokkos::deep_copy(bnd_lmin_d,    bnd_lmin_h) ;
+    Kokkos::deep_copy(bnd_idir_d,    bnd_idir_h) ;
+    Kokkos::deep_copy(bnd_extents_d, bnd_extents_h) ;
+    Kokkos::deep_copy(bnd_pdim_d,    bnd_pdim_h) ;
+    Kokkos::deep_copy(bnd_npdim_d,   bnd_npdim_h) ;
 
     auto exec_space = grace::make_exec_space(stream) ;
 
     gpu_task_t task{} ;
 
-    auto const off = get_index_staggerings(stag) ; 
     amr::phys_bc_op<elem_kind,bc_kind,decltype(data_array)> functor{
-       data_array, data_array, idx, coords, qid_d, eid_d, dir_d, 
-       ext_d,off_d,var_refl, var_bc, VEC(nx+off[0],ny+off[1],nz+off[2]),ngz, nv, is_cbuf, stag,rx,ry,rz
-    } ; 
-    
-    Kokkos::TeamPolicy
-        policy{
-            exec_space, static_cast<int>(qid_h.size()), Kokkos::AUTO
-        } ; 
+       data_array, data_array, idx, coords, qid_d, eid_d, dir_d,
+       ext_d, off_d, var_refl, var_bc,
+       VEC(snx, sny, snz), ngz, nv, is_cbuf, stag, rx, ry, rz
+    } ;
+    functor.bnd_lmin    = bnd_lmin_d ;
+    functor.bnd_idir    = bnd_idir_d ;
+    functor.bnd_extents = bnd_extents_d ;
+    functor.bnd_pdim    = bnd_pdim_d ;
+    functor.bnd_npdim   = bnd_npdim_d ;
 
-    
-    task._run = [functor, policy] (view_alias_t alias) mutable {
-        functor.template set_data_ptr<stag>(alias) ; 
-        #ifdef INSERT_FENCE_DEBUG_TASKS_
-        GRACE_TRACE("Fill phys start") ; 
-        #endif 
-        Kokkos::parallel_for("fill_phys_ghostzones", policy, functor) ; 
-        #ifdef INSERT_FENCE_DEBUG_TASKS_
-        Kokkos::fence() ; 
-        GRACE_TRACE("Fill phys done") ; 
-        #endif 
-    };
+    int const N_vars = static_cast<int>(nv) ;
 
-    task.stream = &stream ; 
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    constexpr bool need_z4c_constr = (stag == STAG_CENTER) ;
+    #else
+    constexpr bool need_z4c_constr = false ;
+    #endif
+
+    // One MDRange policy per elem_kind.  `bc_kind` affects bounds (already
+    // baked into bnd_*) but never changes the iteration-space shape.
+    if constexpr (elem_kind == amr::element_kind_t::FACE) {
+        Kokkos::MDRangePolicy<Kokkos::Rank<4>, amr::phys_bc_md_face_tag> bc_policy(
+            exec_space,
+            {0, 0, 0, 0},
+            {max_ext_par, max_ext_par, N_vars, N_elems}
+        ) ;
+        if constexpr (need_z4c_constr) {
+            Kokkos::MDRangePolicy<Kokkos::Rank<3>, amr::phys_bc_md_face_z4c_tag> constr_policy(
+                exec_space,
+                {0, 0, 0},
+                {max_ext_par, max_ext_par, N_elems}
+            ) ;
+            task._run = [functor, bc_policy, constr_policy] (view_alias_t alias) mutable {
+                functor.template set_data_ptr<stag>(alias) ;
+                Kokkos::parallel_for("fill_phys_ghostzones_face",      bc_policy,     functor) ;
+                Kokkos::parallel_for("fill_phys_ghostzones_face_z4c",  constr_policy, functor) ;
+            } ;
+        } else {
+            task._run = [functor, bc_policy] (view_alias_t alias) mutable {
+                functor.template set_data_ptr<stag>(alias) ;
+                Kokkos::parallel_for("fill_phys_ghostzones_face", bc_policy, functor) ;
+            } ;
+        }
+    } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
+        Kokkos::MDRangePolicy<Kokkos::Rank<3>, amr::phys_bc_md_edge_tag> bc_policy(
+            exec_space,
+            {0, 0, 0},
+            {max_ext_par, N_vars, N_elems}
+        ) ;
+        if constexpr (need_z4c_constr) {
+            Kokkos::MDRangePolicy<Kokkos::Rank<2>, amr::phys_bc_md_edge_z4c_tag> constr_policy(
+                exec_space,
+                {0, 0},
+                {max_ext_par, N_elems}
+            ) ;
+            task._run = [functor, bc_policy, constr_policy] (view_alias_t alias) mutable {
+                functor.template set_data_ptr<stag>(alias) ;
+                Kokkos::parallel_for("fill_phys_ghostzones_edge",     bc_policy,     functor) ;
+                Kokkos::parallel_for("fill_phys_ghostzones_edge_z4c", constr_policy, functor) ;
+            } ;
+        } else {
+            task._run = [functor, bc_policy] (view_alias_t alias) mutable {
+                functor.template set_data_ptr<stag>(alias) ;
+                Kokkos::parallel_for("fill_phys_ghostzones_edge", bc_policy, functor) ;
+            } ;
+        }
+    } else {
+        Kokkos::MDRangePolicy<Kokkos::Rank<2>, amr::phys_bc_md_corner_tag> bc_policy(
+            exec_space,
+            {0, 0},
+            {N_vars, N_elems}
+        ) ;
+        if constexpr (need_z4c_constr) {
+            Kokkos::RangePolicy<amr::phys_bc_md_corner_z4c_tag> constr_policy(
+                exec_space, 0, N_elems
+            ) ;
+            task._run = [functor, bc_policy, constr_policy] (view_alias_t alias) mutable {
+                functor.template set_data_ptr<stag>(alias) ;
+                Kokkos::parallel_for("fill_phys_ghostzones_corner",     bc_policy,     functor) ;
+                Kokkos::parallel_for("fill_phys_ghostzones_corner_z4c", constr_policy, functor) ;
+            } ;
+        } else {
+            task._run = [functor, bc_policy] (view_alias_t alias) mutable {
+                functor.template set_data_ptr<stag>(alias) ;
+                Kokkos::parallel_for("fill_phys_ghostzones_corner", bc_policy, functor) ;
+            } ;
+        }
+    }
+
+    task.stream = &stream ;
     auto tid = task_counter++ ;
-    task.task_id = tid ; 
+    task.task_id = tid ;
 
-    // set deps 
+    // set deps
     for( auto const dep_id : deps ) {
         ASSERT(dep_id < task_list.size(), "Dep-id out-of-range") ;
-        task._dependencies.push_back(dep_id) ; 
-        task_list[dep_id]->_dependents.push_back(tid) ; 
+        task._dependencies.push_back(dep_id) ;
+        task_list[dep_id]->_dependents.push_back(tid) ;
     }
 
     task_list.push_back(
         std::make_unique<gpu_task_t>(std::move(task))
-    ) ; 
-    return tid; 
+    ) ;
+    return tid;
 }
 
-// Host-side mirror of `phys_bc_op<FACE,FACE,..,extended=true>::compute_bounds`
-// for a single face. Used by `make_gpu_phys_bc_face_ext_task` to precompute
-// per-face geometry so the GPU kernel can skip `compute_bounds` per-thread
-// and instead read a small per-face View. Mirrors:
-//   * `compute_zero_dir` for the (extended=true, FACE, FACE) branch
-//   * `compute_bounds_impl` for dir<0, dir>0
-//   * `compute_bounds` driver that fills (lmin, idir, extents, pdim, npdim)
-// Caller passes the staggered (nx, ny, nz) — same shape that the functor
-// constructor uses.
-inline void compute_bounds_face_ext_host(
+// Host-side mirror of `phys_bc_op::compute_bounds` + `compute_zero_dir`,
+// dispatched on runtime element/BC kind.  Used by every phys-BC task
+// factory to precompute per-element geometry so the GPU kernel can skip
+// `compute_bounds` per-thread and instead read small per-element Views.
+//
+// Handles all combinations of (elem_kind, bc_kind, extended) that the GPU
+// operator() family supports:
+//   - classical (extended=false) FACE-FACE:     interior slab  [ngz, n+ngz)
+//   - classical (extended=false) EDGE-FACE:     along-edge full, perp ghost
+//   - classical (extended=false) CORNER-*:      ghost-only per axis
+//   - classical (extended=false) EDGE-EDGE:     ghost per ghost dir
+//   - extended (FACE-FACE only):                full extent  [0, n+2*ngz)
+//
+// The *classical* FACE-FACE sweep deliberately *skips* the ghost zones at
+// face corners/edges — those are written by separate EDGE-*/CORNER-* kernels
+// after FACE-FACE, ordered by task-graph dependencies.  The extended variant
+// absorbs those regions into the face sweep (FACE_EXT fused kernel only).
+//
+// Caller passes the staggered (nx, ny, nz) — the same shape the functor
+// sees.  `eid` matters only for elem_kind != FACE and for EDGE+FACE.
+inline void compute_bounds_classical_host(
+    amr::element_kind_t elem_kind,
+    amr::element_kind_t bc_kind,
+    bool extended,
     int8_t const dir[3],
+    uint8_t eid,
     size_t nx, size_t ny, size_t nz, size_t ngz,
     int lmin[3], int idir[3], int extents[3],
     int pdim[3], int npdim[3])
 {
-    size_t const _ncells[3] = {nx, ny, nz};
+    size_t const ncells[3] = {nx, ny, nz};
     int npc = 0, pc = 0;
-    for (int ii=0; ii<3; ++ii) {
+    for (int ii = 0; ii < 3; ++ii) {
         int8_t const d = dir[ii];
-        size_t const n = _ncells[ii];
+        size_t const n = ncells[ii];
         if (d < 0) {
-            lmin[ii] = static_cast<int>(ngz) - 1;
-            idir[ii] = -1;
+            lmin[ii]    = static_cast<int>(ngz) - 1;
+            idir[ii]    = -1;
             extents[ii] = static_cast<int>(ngz);
         } else if (d > 0) {
-            lmin[ii] = static_cast<int>(n + ngz);
-            idir[ii] = +1;
+            lmin[ii]    = static_cast<int>(n + ngz);
+            idir[ii]    = +1;
             extents[ii] = static_cast<int>(ngz);
         } else {
-            // FACE_EXT (extended=true, FACE, FACE) sweep: covers full face
-            // including adjacent edge/corner ghost regions.
-            lmin[ii] = 0;
-            idir[ii] = +1;
-            extents[ii] = static_cast<int>(n + 2*ngz);
+            // Mirror of phys_bc_op::compute_zero_dir — runtime dispatch
+            // because elem/bc are compile-time template params inside the
+            // kernel but runtime enums here.
+            if (elem_kind == amr::element_kind_t::CORNER) {
+                lmin[ii]    = ((eid >> ii) & 1) ? static_cast<int>(n + ngz) : 0;
+                idir[ii]    = +1;
+                extents[ii] = static_cast<int>(ngz);
+            } else if (elem_kind == amr::element_kind_t::EDGE
+                       && bc_kind == amr::element_kind_t::FACE) {
+                if (eid / 4 == ii) {
+                    // along-edge direction -> full interior sweep
+                    lmin[ii]    = static_cast<int>(ngz);
+                    idir[ii]    = +1;
+                    extents[ii] = static_cast<int>(n);
+                } else {
+                    int side_bit;
+                    if (eid < 4) {
+                        side_bit = (eid >> ((ii + 1) % 2)) & 1;
+                    } else if (eid < 8) {
+                        side_bit = (eid >> (ii / 2)) & 1;
+                    } else {
+                        side_bit = (eid >> ii) & 1;
+                    }
+                    lmin[ii]    = side_bit ? static_cast<int>(n + ngz) : 0;
+                    idir[ii]    = +1;
+                    extents[ii] = static_cast<int>(ngz);
+                }
+            } else if (extended
+                       && elem_kind == amr::element_kind_t::FACE
+                       && bc_kind   == amr::element_kind_t::FACE) {
+                // FACE_EXT (fused) — covers full face + adjacent ghost regions
+                lmin[ii]    = 0;
+                idir[ii]    = +1;
+                extents[ii] = static_cast<int>(n + 2 * ngz);
+            } else {
+                // Classical interior-only face sweep — skips ghost zones.
+                // EDGE-* and CORNER-* kernels fill those separately.
+                lmin[ii]    = static_cast<int>(ngz);
+                idir[ii]    = +1;
+                extents[ii] = static_cast<int>(n);
+            }
         }
         if (d != 0) {
             npdim[npc++] = ii;
@@ -268,8 +442,12 @@ make_gpu_phys_bc_face_ext_task(
     for (size_t iq=0; iq<qid_h.size(); ++iq) {
         int8_t const d[3] = {dir_h[iq][0], dir_h[iq][1], dir_h[iq][2]} ;
         int lmin[3], idir[3], extents[3], pdim[3]={0,0,0}, npdim[3]={0,0,0} ;
-        compute_bounds_face_ext_host(d, snx, sny, snz, ngz,
-                                     lmin, idir, extents, pdim, npdim) ;
+        // FACE_EXT = FACE elem, FACE bc, extended=true
+        compute_bounds_classical_host(
+            amr::element_kind_t::FACE, amr::element_kind_t::FACE,
+            /*extended*/ true,
+            d, eid_h[iq], snx, sny, snz, ngz,
+            lmin, idir, extents, pdim, npdim) ;
         for (int ii=0; ii<3; ++ii) {
             bnd_lmin_h(iq,ii)    = lmin[ii] ;
             bnd_idir_h(iq,ii)    = idir[ii] ;
