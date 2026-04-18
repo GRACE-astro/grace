@@ -61,6 +61,17 @@
 
 namespace grace {
 
+// Forward decl — definition below, used inside make_gpu_phys_bc_task.
+inline void compute_bounds_classical_host(
+    amr::element_kind_t elem_kind,
+    amr::element_kind_t bc_kind,
+    bool extended,
+    int8_t const dir[3],
+    uint8_t eid,
+    size_t nx, size_t ny, size_t nz, size_t ngz,
+    int lmin[3], int idir[3], int extents[3],
+    int pdim[3], int npdim[3]) ;
+
 template< amr::element_kind_t elem_kind
         , amr::element_kind_t bc_kind
         , var_staggering_t stag >
