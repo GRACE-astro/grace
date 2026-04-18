@@ -169,31 +169,37 @@ void initialize_loggers() {
 
 void initialize(int& argc, char* argv[])
 {
-    /* Find param file in argv */ 
-    std::vector<int> iarg ; 
-    std::string parfile("./params.yaml") ; 
+    /* Find param file in argv */
+    std::vector<int> iarg ;
+    std::string parfile("./params.yaml") ;
     for(int i=1; i<argc; ++i) {
         if( std::string(argv[i]) == "--grace-parfile") {
-            iarg.push_back(i) ; 
+            iarg.push_back(i) ;
             if( i+1 < argc ){
                 parfile = std::string(argv[i+1]) ;
                 iarg.push_back(i+1) ;
             }
         }
     }
-    int argc_new = argc-iarg.size() ; 
-    char* argv_new[argc_new] ; 
-    int inew=0 ; 
-    for( int i=0; i < argc; ++i){
-        bool exclude=false ; 
-        for( auto const& ii: iarg) exclude = (ii==i) ; 
-        if ( not exclude) {
-            argv_new[inew] = argv[i] ; 
-            inew++ ; 
+    // Persistent buffer (static so MPI_Init-retained pointers stay valid,
+    // and so we can reassign the caller's argv to it).  NULL-terminated —
+    // POSIX / C11 require argv[argc]==NULL, and OpenMPI's opal_argv_join
+    // walks until NULL.  The earlier VLA version neither NULL-terminated
+    // nor propagated argv back to the caller, which crashed MPI_Init on
+    // OpenMPI 5.0.
+    static std::vector<char*> argv_new ;
+    argv_new.clear() ;
+    argv_new.reserve(argc + 1) ;
+    for( int i=0; i < argc; ++i) {
+        bool exclude = false ;
+        for( auto const& ii : iarg) {
+            if (ii == i) { exclude = true ; break ; }
         }
+        if (!exclude) argv_new.push_back(argv[i]) ;
     }
-    argc = argc_new;
-    argv = argv_new; 
+    argv_new.push_back(nullptr) ;
+    argc = static_cast<int>(argv_new.size()) - 1 ;
+    argv = argv_new.data() ;
     /* Initialize global objects in correct order */ 
     install_signal_handlers(); 
     grace::config_parser::initialize(parfile) ; 
