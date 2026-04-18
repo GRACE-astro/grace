@@ -132,9 +132,8 @@ struct em_energy_diagnostic {
                 std::array<double,3> B{{prims[BXL],prims[BYL],prims[BZL]}} ; 
 
                 double const z2 = metric.contract_vec_vec(z,z);
-                double const W2 = 1 + z2 ; 
-                double const v2 = z2/W2  ;
-                double const W  = Kokkos::sqrt(W2) ;  
+                double const W2 = 1 + z2 ;
+                double const W  = Kokkos::sqrt(W2) ;
 
                 std::array<double,3> v = {
                     z[0]/W, z[1]/W, z[2]/W 

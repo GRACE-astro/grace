@@ -298,31 +298,27 @@ grace::tabulated_eos_t read_scollapse_table(std::string const& fname, std::strin
     for (int k = 0; k < nye; k++)
     for (int j = 0; j < ntemp; j++)
     for (int i = 0; i < nrho; i++) {
-        double pressL, epsL, rhoL, eL ; 
-        rhoL = exp(logrho[i]) ; 
-        { // press 
-            int idx = tabulated_eos_t::TEOS_VIDX::TABPRESS + NTABLES * i;
-
-            alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABPRESS) = alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABPRESS) * log(10.0) + log(uconv.pressure) ; 
-            pressL = exp(alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABPRESS)) ; 
+        double pressL, epsL, rhoL ;
+        rhoL = exp(logrho[i]) ;
+        { // press
+            alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABPRESS) = alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABPRESS) * log(10.0) + log(uconv.pressure) ;
+            pressL = exp(alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABPRESS)) ;
         }
 
-        { // eps 
-            int idx = tabulated_eos_t::TEOS_VIDX::TABEPS + NTABLES * i; 
+        { // eps
             double epsT =  pow(10,alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABEPS))* SQR(uconv.velocity);
-            epsL = ( epsT - energy_shift  )  ; 
-            alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABEPS) = log(epsT) ; 
+            epsL = ( epsT - energy_shift  )  ;
+            alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABEPS) = log(epsT) ;
         }
 
         const double hL = 1. + epsL + pressL / rhoL;
-        hmax = fmax(hmax, hL) ; 
-        hmin = fmin(hmin, hL) ; 
+        hmax = fmax(hmax, hL) ;
+        hmin = fmin(hmin, hL) ;
 
-        epsmax = fmax(epsmax, epsL) ; 
-        epsmin = fmin(epsmin, epsL) ; 
+        epsmax = fmax(epsmax, epsL) ;
+        epsmin = fmin(epsmin, epsL) ;
 
-        { // cs2 
-            int idx = tabulated_eos_t::TEOS_VIDX::TABCSND2 + NTABLES * i;  
+        { // cs2
             double cs2L = alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABCSND2) * SQR(uconv.velocity) ;
             
             if (!have_rel_cs2) {
@@ -437,11 +433,7 @@ grace::tabulated_eos_t read_compose_table(std::string const& fname, std::string 
     READ_ATTR_HDF5_COMPOSE(parameters,"pointst", &ntemp, H5T_NATIVE_INT);
     READ_ATTR_HDF5_COMPOSE(parameters,"pointsyq", &nye, H5T_NATIVE_INT);
 
-    std::vector<double> logrho(nrho), logtemp(ntemp), yes(nye) ; 
-
-
-    auto num_points =
-        std::array<size_t, 3>{size_t(nrho), size_t(ntemp), size_t(nye)};
+    std::vector<double> logrho(nrho), logtemp(ntemp), yes(nye) ;
 
     // Read additional tables and variables
     READ_EOS_HDF5_COMPOSE(parameters,"nb", logrho.data(), H5T_NATIVE_DOUBLE, H5S_ALL);

@@ -202,7 +202,6 @@ struct fmtorus_id_t {
         double  uu1 = 0.0;
         double  uu2 = 0.0;
         double  uu3 = 0.0;
-        double  urad = 0.0;
 
         double  perturbation = 0.0;
         // Overwrite primitives inside torus

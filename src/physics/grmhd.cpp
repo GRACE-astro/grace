@@ -183,20 +183,20 @@ static double get_max_press()
     return pmax ; 
 }
 
-static double get_max_rho()
+[[maybe_unused]] static double get_max_rho()
 {
-    DECLARE_GRID_EXTENTS ; 
+    DECLARE_GRID_EXTENTS ;
     using namespace grace ;
     using namespace Kokkos ;
 
-    auto& aux   = variable_list::get().getaux() ; 
+    auto& aux   = variable_list::get().getaux() ;
 
     MinMaxScalar<double> rhomax_loc ;
-    double rhomax ; 
+    double rhomax ;
     auto policy =
-            MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
-    parallel_reduce( GRACE_EXECUTION_TAG("IO","find_max_rho_loc") 
-                       , policy 
+            MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ;
+    parallel_reduce( GRACE_EXECUTION_TAG("IO","find_max_rho_loc")
+                       , policy
                        , KOKKOS_LAMBDA(VEC(int i, int j, int k), int q, MinMaxScalar<double>& lres)
         {
             lres.max_val = lres.max_val < aux(VEC(i,j,k),RHO_,q) ? aux(VEC(i,j,k),RHO_,q) : lres.max_val    ; 
