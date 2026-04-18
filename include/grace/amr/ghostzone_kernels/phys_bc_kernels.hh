@@ -164,6 +164,11 @@ struct sommerfeld_bc_t
  */
 using outflow_bc_t = extrap_bc_t<0> ;
 
+// Work tags for the precomputed-bounds, (face x var)-parallel FACE_EXT launch
+// and the follow-up Z4c algebraic-constraint enforcement pass.
+struct phys_bc_face_ext_md_tag    {} ;
+struct phys_bc_z4c_constr_tag     {} ;
+
 KOKKOS_INLINE_FUNCTION 
 static void get_somm_props(int iv, double *v, double *f0) {
     #ifdef GRACE_ENABLE_Z4C_METRIC
@@ -200,6 +205,17 @@ struct phys_bc_op {
     //   4..7 : adjacent type=FACE corners (f2c ordering: AloBlo, AhiBlo, AloBhi, AhiBhi)
     // Unused (empty view) when `extended == false`.
     readonly_view_t<uint8_t> guard_mask ;
+
+    // Precomputed per-face geometry, populated by the task factory at setup
+    // time. Used by `phys_bc_face_ext_md_tag` and `phys_bc_z4c_constr_tag`
+    // operator() variants to avoid redundant per-thread `compute_bounds`
+    // calls. Empty (extent(0)==0) for legacy TeamPolicy launches that still
+    // call `compute_bounds` inline.
+    readonly_twod_view_t<int,3> bnd_lmin    ;
+    readonly_twod_view_t<int,3> bnd_idir    ;
+    readonly_twod_view_t<int,3> bnd_extents ;
+    readonly_twod_view_t<int,3> bnd_pdim    ;
+    readonly_twod_view_t<int,3> bnd_npdim   ;
 
     view_t data, data_p ;
 
@@ -592,25 +608,150 @@ struct phys_bc_op {
                 } 
             ) ;
         } else {
-            // loop not unrollable 
+            // loop not unrollable
             for (int kg = lmin[2]; kg != lmax[2]; kg += idir[2])
             for (int jg = lmin[1]; jg != lmax[1]; jg += idir[1])
             for (int ig = lmin[0]; ig != lmax[0]; ig += idir[0]) {
-                int ijk[3] = {ig,jg,kg} ; 
+                int ijk[3] = {ig,jg,kg} ;
                 for( int iv=0; iv<nv; ++iv) {
-                    apply_bc_impl(iv,ijk,_dir,_qid) ; 
+                    apply_bc_impl(iv,ijk,_dir,_qid) ;
                 }
                 #ifdef GRACE_ENABLE_Z4C_METRIC
-                if (stag==var_staggering_t::STAG_CENTER) impose_algebraic_constraintz_z4c(ijk,_qid) ; 
-                #endif 
+                if (stag==var_staggering_t::STAG_CENTER) impose_algebraic_constraintz_z4c(ijk,_qid) ;
+                #endif
             }
-        }       
-        
+        }
+
     }
 
-    
+    // FACE_EXT-only: returns true if the (ijk[pdim[0]], ijk[pdim[1]]) cell
+    // is in an adjacent edge/corner region that the guard mask says we should
+    // skip. Returns false for interior-of-face cells (no skip) and for cells
+    // whose corresponding guard bit is set (apply BC).
+    KOKKOS_INLINE_FUNCTION
+    bool guard_skip(size_t iq, int const ijk[3], int const pdim[3]) const
+    {
+        if constexpr (!extended || elem_kind != element_kind_t::FACE) {
+            return false;
+        } else {
+            uint8_t const mask = guard_mask(iq);
+            size_t const _ncells[3] = {nx, ny, nz};
+            size_t const nA = _ncells[pdim[0]];
+            size_t const nB = _ncells[pdim[1]];
+            int const pA = ijk[pdim[0]];
+            int const pB = ijk[pdim[1]];
+            int const clsA = (pA < (int)ngz) ? 0 : ((pA >= (int)(nA + ngz)) ? 2 : 1);
+            int const clsB = (pB < (int)ngz) ? 0 : ((pB >= (int)(nB + ngz)) ? 2 : 1);
+            if (clsA == 1 && clsB == 1) return false;
+            int bit;
+            if (clsA == 1) {
+                bit = (clsB == 0) ? 2 : 3;
+            } else if (clsB == 1) {
+                bit = (clsA == 0) ? 0 : 1;
+            } else {
+                int const aHi = (clsA == 2) ? 1 : 0;
+                int const bHi = (clsB == 2) ? 1 : 0;
+                bit = 4 + (bHi << 1) + aHi;
+            }
+            return !((mask >> bit) & 1);
+        }
+    }
 
-} ; 
+    // FACE_EXT MDRange operator. Iteration space is (i, j, iv, iq) where
+    // i,j are the two parallel in-face axes bounded by `max_ext_par` (max
+    // across all faces — ragged faces predicate out-of-bounds). The swept
+    // ghost-depth axis (`ngz`) is an inner serial loop, which avoids pinning
+    // one wavefront per face and lets the driver tile (i, j, iv, iq) freely.
+    //
+    // Z4c algebraic constraint enforcement is *not* run here — it requires
+    // all six metric components written first. Use phys_bc_z4c_constr_tag
+    // as a follow-up launch when stag == STAG_CENTER.
+    KOKKOS_INLINE_FUNCTION
+    void operator() (
+        phys_bc_face_ext_md_tag,
+        int i, int j, int iv, int iq
+    ) const
+    {
+        if constexpr (!(extended
+                        && elem_kind == element_kind_t::FACE
+                        && bc_kind   == element_kind_t::FACE)) {
+            return ;
+        } else {
+            int const pdim0  = bnd_pdim(iq, 0) ;
+            int const pdim1  = bnd_pdim(iq, 1) ;
+            int const npdim0 = bnd_npdim(iq, 0) ;
+
+            int const e_p0 = bnd_extents(iq, pdim0) ;
+            int const e_p1 = bnd_extents(iq, pdim1) ;
+            if (i >= e_p0 || j >= e_p1) return ;
+
+            int ijk[3] ;
+            ijk[pdim0] = bnd_lmin(iq, pdim0) + bnd_idir(iq, pdim0) * i ;
+            ijk[pdim1] = bnd_lmin(iq, pdim1) + bnd_idir(iq, pdim1) * j ;
+
+            int const pdim_l[3] = {pdim0, pdim1, npdim0} ;
+            if (guard_skip(iq, ijk, pdim_l)) return ;
+
+            int8_t const _dir[3] = {dir(iq,0), dir(iq,1), dir(iq,2)} ;
+            size_t const _qid = qid(iq) ;
+
+            int const lm_n0 = bnd_lmin(iq, npdim0) ;
+            int const id_n0 = bnd_idir(iq, npdim0) ;
+            int const e_n0  = bnd_extents(iq, npdim0) ;
+
+            for (int k = 0; k < e_n0; ++k) {
+                ijk[npdim0] = lm_n0 + id_n0 * k ;
+                apply_bc_impl(iv, ijk, _dir, _qid) ;
+            }
+        }
+    }
+
+    // Z4c algebraic-constraint follow-up pass. Rank<3>(i, j, iq) with the
+    // swept axis serial, calls `impose_algebraic_constraintz_z4c` once per
+    // (i,j,k). Only meaningful for STAG_CENTER under GRACE_ENABLE_Z4C_METRIC;
+    // the task factory only launches this in that case.
+    KOKKOS_INLINE_FUNCTION
+    void operator() (
+        phys_bc_z4c_constr_tag,
+        int i, int j, int iq
+    ) const
+    {
+        #ifdef GRACE_ENABLE_Z4C_METRIC
+        if constexpr (!(extended
+                        && elem_kind == element_kind_t::FACE
+                        && bc_kind   == element_kind_t::FACE)) {
+            return ;
+        } else {
+            int const pdim0  = bnd_pdim(iq, 0) ;
+            int const pdim1  = bnd_pdim(iq, 1) ;
+            int const npdim0 = bnd_npdim(iq, 0) ;
+
+            int const e_p0 = bnd_extents(iq, pdim0) ;
+            int const e_p1 = bnd_extents(iq, pdim1) ;
+            if (i >= e_p0 || j >= e_p1) return ;
+
+            int ijk[3] ;
+            ijk[pdim0] = bnd_lmin(iq, pdim0) + bnd_idir(iq, pdim0) * i ;
+            ijk[pdim1] = bnd_lmin(iq, pdim1) + bnd_idir(iq, pdim1) * j ;
+
+            int const pdim_l[3] = {pdim0, pdim1, npdim0} ;
+            if (guard_skip(iq, ijk, pdim_l)) return ;
+
+            size_t const _qid = qid(iq) ;
+
+            int const lm_n0 = bnd_lmin(iq, npdim0) ;
+            int const id_n0 = bnd_idir(iq, npdim0) ;
+            int const e_n0  = bnd_extents(iq, npdim0) ;
+
+            for (int k = 0; k < e_n0; ++k) {
+                ijk[npdim0] = lm_n0 + id_n0 * k ;
+                impose_algebraic_constraintz_z4c(ijk, _qid) ;
+            }
+        }
+        #endif
+    }
+
+} ;
 
 }} /* namespace grace::amr */
 // supercalifragilistichespiralidoso! 

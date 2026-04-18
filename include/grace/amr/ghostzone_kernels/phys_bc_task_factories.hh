@@ -50,6 +50,7 @@
 
 #include <Kokkos_Core.hpp>
 
+#include <algorithm>
 #include <unordered_set>
 #include <vector>
 #include <numeric>
@@ -158,6 +159,49 @@ make_gpu_phys_bc_task(
     return tid; 
 }
 
+// Host-side mirror of `phys_bc_op<FACE,FACE,..,extended=true>::compute_bounds`
+// for a single face. Used by `make_gpu_phys_bc_face_ext_task` to precompute
+// per-face geometry so the GPU kernel can skip `compute_bounds` per-thread
+// and instead read a small per-face View. Mirrors:
+//   * `compute_zero_dir` for the (extended=true, FACE, FACE) branch
+//   * `compute_bounds_impl` for dir<0, dir>0
+//   * `compute_bounds` driver that fills (lmin, idir, extents, pdim, npdim)
+// Caller passes the staggered (nx, ny, nz) — same shape that the functor
+// constructor uses.
+inline void compute_bounds_face_ext_host(
+    int8_t const dir[3],
+    size_t nx, size_t ny, size_t nz, size_t ngz,
+    int lmin[3], int idir[3], int extents[3],
+    int pdim[3], int npdim[3])
+{
+    size_t const _ncells[3] = {nx, ny, nz};
+    int npc = 0, pc = 0;
+    for (int ii=0; ii<3; ++ii) {
+        int8_t const d = dir[ii];
+        size_t const n = _ncells[ii];
+        if (d < 0) {
+            lmin[ii] = static_cast<int>(ngz) - 1;
+            idir[ii] = -1;
+            extents[ii] = static_cast<int>(ngz);
+        } else if (d > 0) {
+            lmin[ii] = static_cast<int>(n + ngz);
+            idir[ii] = +1;
+            extents[ii] = static_cast<int>(ngz);
+        } else {
+            // FACE_EXT (extended=true, FACE, FACE) sweep: covers full face
+            // including adjacent edge/corner ghost regions.
+            lmin[ii] = 0;
+            idir[ii] = +1;
+            extents[ii] = static_cast<int>(n + 2*ngz);
+        }
+        if (d != 0) {
+            npdim[npc++] = ii;
+        } else {
+            pdim[pc++] = ii;
+        }
+    }
+}
+
 // Fused FACE_EXT kernel: handles (FACE-FACE) + absorbed (EDGE-FACE of type=FACE)
 // + absorbed (CORNER-FACE of type=FACE) in a single launch.  The per-quad
 // `guard_mask_h` decides which adjacent edge/corner regions are written by
@@ -201,33 +245,117 @@ make_gpu_phys_bc_face_ext_task(
     grace::deep_copy_vec_to_2D_view(dir_d, dir_h) ;
     grace::deep_copy_vec_to_view(guard_d, guard_mask_h) ;
 
+    // Precompute per-face geometry on host so the GPU kernel can skip
+    // `compute_bounds` per-thread. Use the same staggered (nx,ny,nz) the
+    // functor sees.
+    auto const off = get_index_staggerings(stag) ;
+    size_t const snx = nx + off[0] ;
+    size_t const sny = ny + off[1] ;
+    size_t const snz = nz + off[2] ;
+
+    Kokkos::View<int*[3]> bnd_lmin_d   {"bnd_lmin_ext",    qid_h.size()} ;
+    Kokkos::View<int*[3]> bnd_idir_d   {"bnd_idir_ext",    qid_h.size()} ;
+    Kokkos::View<int*[3]> bnd_extents_d{"bnd_extents_ext", qid_h.size()} ;
+    Kokkos::View<int*[3]> bnd_pdim_d   {"bnd_pdim_ext",    qid_h.size()} ;
+    Kokkos::View<int*[3]> bnd_npdim_d  {"bnd_npdim_ext",   qid_h.size()} ;
+
+    auto bnd_lmin_h    = Kokkos::create_mirror_view(bnd_lmin_d) ;
+    auto bnd_idir_h    = Kokkos::create_mirror_view(bnd_idir_d) ;
+    auto bnd_extents_h = Kokkos::create_mirror_view(bnd_extents_d) ;
+    auto bnd_pdim_h    = Kokkos::create_mirror_view(bnd_pdim_d) ;
+    auto bnd_npdim_h   = Kokkos::create_mirror_view(bnd_npdim_d) ;
+
+    for (size_t iq=0; iq<qid_h.size(); ++iq) {
+        int8_t const d[3] = {dir_h[iq][0], dir_h[iq][1], dir_h[iq][2]} ;
+        int lmin[3], idir[3], extents[3], pdim[3]={0,0,0}, npdim[3]={0,0,0} ;
+        compute_bounds_face_ext_host(d, snx, sny, snz, ngz,
+                                     lmin, idir, extents, pdim, npdim) ;
+        for (int ii=0; ii<3; ++ii) {
+            bnd_lmin_h(iq,ii)    = lmin[ii] ;
+            bnd_idir_h(iq,ii)    = idir[ii] ;
+            bnd_extents_h(iq,ii) = extents[ii] ;
+            bnd_pdim_h(iq,ii)    = pdim[ii] ;
+            bnd_npdim_h(iq,ii)   = npdim[ii] ;
+        }
+    }
+    Kokkos::deep_copy(bnd_lmin_d,    bnd_lmin_h) ;
+    Kokkos::deep_copy(bnd_idir_d,    bnd_idir_h) ;
+    Kokkos::deep_copy(bnd_extents_d, bnd_extents_h) ;
+    Kokkos::deep_copy(bnd_pdim_d,    bnd_pdim_h) ;
+    Kokkos::deep_copy(bnd_npdim_d,   bnd_npdim_h) ;
+
     auto exec_space = grace::make_exec_space(stream) ;
 
     gpu_task_t task{} ;
-    auto const off = get_index_staggerings(stag) ;
     amr::phys_bc_op<amr::element_kind_t::FACE,amr::element_kind_t::FACE,decltype(data_array),true> functor{
        data_array, data_array, idx, coords, qid_d, eid_d, dir_d,
        ext_d, off_d, var_refl, var_bc,
-       VEC(nx+off[0], ny+off[1], nz+off[2]), ngz, nv,
+       VEC(snx, sny, snz), ngz, nv,
        /*is_cbuf*/ false, stag, rx, ry, rz,
        guard_d
     } ;
+    // Wire precomputed bounds Views (struct fields are public).
+    functor.bnd_lmin    = bnd_lmin_d ;
+    functor.bnd_idir    = bnd_idir_d ;
+    functor.bnd_extents = bnd_extents_d ;
+    functor.bnd_pdim    = bnd_pdim_d ;
+    functor.bnd_npdim   = bnd_npdim_d ;
 
-    Kokkos::TeamPolicy policy{
-        exec_space, static_cast<int>(qid_h.size()), Kokkos::AUTO
-    } ;
+    int const N_faces = static_cast<int>(qid_h.size()) ;
+    int const N_vars  = static_cast<int>(nv) ;
 
-    task._run = [functor, policy] (view_alias_t alias) mutable {
-        functor.template set_data_ptr<stag>(alias) ;
-        #ifdef INSERT_FENCE_DEBUG_TASKS_
-        GRACE_TRACE("Fill phys face-ext start") ;
-        #endif
-        Kokkos::parallel_for("fill_phys_ghostzones_face_ext", policy, functor) ;
-        #ifdef INSERT_FENCE_DEBUG_TASKS_
-        Kokkos::fence() ;
-        GRACE_TRACE("Fill phys face-ext done") ;
-        #endif
-    };
+    // MDRange bound for the two parallel in-face axes. FACE_EXT sweeps
+    // `n + 2*ngz` cells along each parallel axis, so the loose upper bound
+    // that covers every face regardless of which (pdim[0], pdim[1]) slot
+    // lands where is max(snx, sny, snz) + 2*ngz. Smaller faces are handled
+    // by the ragged-extent predicate inside the kernel.
+    int const max_n = static_cast<int>(std::max({snx, sny, snz})) ;
+    int const max_ext_par = max_n + 2 * static_cast<int>(ngz) ;
+
+    Kokkos::MDRangePolicy<Kokkos::Rank<4>, amr::phys_bc_face_ext_md_tag> bc_policy(
+        exec_space,
+        {0, 0, 0, 0},
+        {max_ext_par, max_ext_par, N_vars, N_faces}
+    ) ;
+
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    constexpr bool need_z4c_constr = (stag == STAG_CENTER) ;
+    #else
+    constexpr bool need_z4c_constr = false ;
+    #endif
+
+    if constexpr (need_z4c_constr) {
+        Kokkos::MDRangePolicy<Kokkos::Rank<3>, amr::phys_bc_z4c_constr_tag> constr_policy(
+            exec_space,
+            {0, 0, 0},
+            {max_ext_par, max_ext_par, N_faces}
+        ) ;
+        task._run = [functor, bc_policy, constr_policy] (view_alias_t alias) mutable {
+            functor.template set_data_ptr<stag>(alias) ;
+            #ifdef INSERT_FENCE_DEBUG_TASKS_
+            GRACE_TRACE("Fill phys face-ext start") ;
+            #endif
+            Kokkos::parallel_for("fill_phys_ghostzones_face_ext", bc_policy, functor) ;
+            Kokkos::parallel_for("fill_phys_ghostzones_face_ext_z4c_constr",
+                                 constr_policy, functor) ;
+            #ifdef INSERT_FENCE_DEBUG_TASKS_
+            Kokkos::fence() ;
+            GRACE_TRACE("Fill phys face-ext done") ;
+            #endif
+        };
+    } else {
+        task._run = [functor, bc_policy] (view_alias_t alias) mutable {
+            functor.template set_data_ptr<stag>(alias) ;
+            #ifdef INSERT_FENCE_DEBUG_TASKS_
+            GRACE_TRACE("Fill phys face-ext start") ;
+            #endif
+            Kokkos::parallel_for("fill_phys_ghostzones_face_ext", bc_policy, functor) ;
+            #ifdef INSERT_FENCE_DEBUG_TASKS_
+            Kokkos::fence() ;
+            GRACE_TRACE("Fill phys face-ext done") ;
+            #endif
+        };
+    }
 
     task.stream = &stream ;
     auto tid = task_counter++ ;
