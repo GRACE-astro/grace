@@ -99,7 +99,30 @@ endif()
 # fallbacks, so if a tuning header does not set a macro (or the generic
 # header is chosen) the source-level default applies.  LaunchBounds is a
 # no-op on CPU backends, so headers are safe to include unconditionally.
-if(Kokkos_ARCH_AMD_GFX942)
+#
+# Selection order:
+#   1. User-provided -DGRACE_PERF_TUNING=<name> — short name matching a
+#      subdirectory of performance_tuning/ (e.g. Mi300A, A100).  Useful when
+#      Kokkos_ARCH_* doesn't propagate out of an installed Kokkos into the
+#      parent CMake (common with find_package(Kokkos)).
+#   2. Auto-detect from Kokkos_ARCH_* cache variables.
+#   3. Fall through to generic (no arch detected).
+set(GRACE_PERF_TUNING "" CACHE STRING
+    "Select performance-tuning header by name (Mi300A|Mi250X|A100|H100|generic). Leave empty to auto-detect from Kokkos_ARCH_*.")
+
+if(GRACE_PERF_TUNING)
+    set(_grace_tuning_candidate "${CMAKE_SOURCE_DIR}/performance_tuning/${GRACE_PERF_TUNING}/tuning.h")
+    if(GRACE_PERF_TUNING STREQUAL "generic")
+        set(_grace_tuning_candidate "${CMAKE_SOURCE_DIR}/performance_tuning/generic.h")
+    endif()
+    if(NOT EXISTS "${_grace_tuning_candidate}")
+        message(FATAL_ERROR
+            "GRACE_PERF_TUNING=${GRACE_PERF_TUNING} but no header at ${_grace_tuning_candidate}. "
+            "Available: Mi300A, Mi250X, A100, H100, generic.")
+    endif()
+    set(GRACE_PERF_TUNING_HEADER "${_grace_tuning_candidate}")
+    message(STATUS "Perf-tuning header: ${GRACE_PERF_TUNING} (user-selected)")
+elseif(Kokkos_ARCH_AMD_GFX942)
     set(GRACE_PERF_TUNING_HEADER "${CMAKE_SOURCE_DIR}/performance_tuning/Mi300A/tuning.h")
     message(STATUS "Perf-tuning header: Mi300A (gfx942)")
 elseif(Kokkos_ARCH_AMD_GFX90A)
@@ -113,7 +136,7 @@ elseif(Kokkos_ARCH_HOPPER90)
     message(STATUS "Perf-tuning header: H100 (sm_90)")
 else()
     set(GRACE_PERF_TUNING_HEADER "${CMAKE_SOURCE_DIR}/performance_tuning/generic.h")
-    message(STATUS "Perf-tuning header: generic (CPU backend or untuned GPU)")
+    message(STATUS "Perf-tuning header: generic (no arch detected — override with -DGRACE_PERF_TUNING=<name>)")
 endif()
 
 configure_file("${CMAKE_SOURCE_DIR}/include/grace/grace_config.h.in" grace_config.h)
