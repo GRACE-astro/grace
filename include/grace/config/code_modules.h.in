@@ -42,7 +42,8 @@ const std::vector< std::string > code_modules {
     "evolution"
     #ifdef GRACE_ENABLE_GRMHD
     , "grmhd"
-    #endif 
+    , "b_field_injection"
+    #endif
     #ifdef GRACE_ENABLE_Z4C_METRIC
     , "z4c"
     #endif
@@ -72,6 +73,7 @@ const std::vector< std::string > code_modules_default_configs {
      "${CMAKE_SOURCE_DIR}/parameters/evolution.yaml"
      #ifdef GRACE_ENABLE_GRMHD
      , "${CMAKE_SOURCE_DIR}/parameters/grmhd.yaml"
+     , "${CMAKE_SOURCE_DIR}/parameters/b_field_injection.yaml"
      #endif
      #ifdef GRACE_ENABLE_Z4C_METRIC
      , "${CMAKE_SOURCE_DIR}/parameters/z4c.yaml"

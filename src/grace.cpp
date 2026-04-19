@@ -47,6 +47,9 @@
 #include <grace/IO/scalar_output.hh>
 #include <grace/IO/output_diagnostics.hh>
 #include <grace/IO/diagnostics/co_tracker.hh>
+#ifdef GRACE_ENABLE_GRMHD
+#include <grace/physics/b_field_injection.hh>
+#endif
 #ifdef GRACE_ENABLE_Z4C_METRIC
 #include <grace/IO/diagnostics/apparent_horizon.hh>
 #endif
@@ -182,6 +185,12 @@ int main(int argc, char* argv[])
         /* Update COs surfaces if needed                                                  */
         /**********************************************************************************/
         grace::co_tracker::get().update_and_write() ;
+        /**********************************************************************************/
+        /* Inject B field mid-run if requested                                            */
+        /**********************************************************************************/
+        #ifdef GRACE_ENABLE_GRMHD
+        grace::maybe_inject_b_field() ;
+        #endif
         /**********************************************************************************/
         /* Find apparent horizons if needed                                               */
         /**********************************************************************************/

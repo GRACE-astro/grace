@@ -50,6 +50,9 @@
 #include <grace/amr/p4est_headers.hh>
 
 #include <grace/IO/diagnostics/co_tracker.hh>
+#ifdef GRACE_ENABLE_GRMHD
+#include <grace/physics/b_field_injection.hh>
+#endif
 #ifdef GRACE_ENABLE_Z4C_METRIC
 #include <grace/IO/diagnostics/apparent_horizon.hh>
 #endif
@@ -587,10 +590,29 @@ void checkpoint_handler_impl_t::save_checkpoint()
             HDF5_CALL(err, H5Dclose(dset_id));
             HDF5_CALL(err, H5Sclose(space_id));
         }
-        for( int ico=0; ico<ncos; ++ico) write_co_dset(tracker_grp, ico, co_tracker.get(ico)) ; 
+        for( int ico=0; ico<ncos; ++ico) write_co_dset(tracker_grp, ico, co_tracker.get(ico)) ;
 
         HDF5_CALL(err, H5Gclose(tracker_grp));
     }
+
+    // persist mid-run B-field injection state
+    #ifdef GRACE_ENABLE_GRMHD
+    {
+        int has_fired = static_cast<int>(grace::b_field_injection_has_fired()) ;
+        hid_t inj_grp ;
+        HDF5_CALL(inj_grp, H5Gcreate2(file_id, "b_field_injection", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
+        {
+            hid_t space_id, dset_id;
+            HDF5_CALL(space_id, H5Screate(H5S_SCALAR));
+            HDF5_CALL(dset_id, H5Dcreate2(inj_grp, "has_fired", H5T_NATIVE_INT,
+                                          space_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
+            HDF5_CALL(err, H5Dwrite(dset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, dxpl, &has_fired));
+            HDF5_CALL(err, H5Dclose(dset_id));
+            HDF5_CALL(err, H5Sclose(space_id));
+        }
+        HDF5_CALL(err, H5Gclose(inj_grp));
+    }
+    #endif
 
     // if active, write apparent horizon finder state
     #ifdef GRACE_ENABLE_Z4C_METRIC
@@ -959,6 +981,26 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
         for( int ico=0; ico<ncos; ++ico ) read_co_dataset(tracker_grp,ico,co_list) ;
         co_tracker.set_co_list(std::move(co_list)) ;
     }
+
+    // if present, load mid-run B-field injection state
+    #ifdef GRACE_ENABLE_GRMHD
+    {
+        htri_t exists = H5Lexists(file_id, "b_field_injection", H5P_DEFAULT) ;
+        if (exists > 0) {
+            hid_t inj_grp ;
+            HDF5_CALL(inj_grp, H5Gopen2(file_id, "b_field_injection", H5P_DEFAULT));
+            int has_fired_int = 0 ;
+            {
+                hid_t dset_id;
+                HDF5_CALL(dset_id, H5Dopen2(inj_grp, "has_fired", H5P_DEFAULT));
+                HDF5_CALL(err, H5Dread(dset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &has_fired_int));
+                HDF5_CALL(err, H5Dclose(dset_id));
+            }
+            grace::b_field_injection_set_fired(has_fired_int != 0) ;
+            HDF5_CALL(err, H5Gclose(inj_grp));
+        }
+    }
+    #endif
 
     // if present, load apparent horizon finder state
     #ifdef GRACE_ENABLE_Z4C_METRIC
