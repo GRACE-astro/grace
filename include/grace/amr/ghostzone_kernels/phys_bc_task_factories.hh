@@ -134,8 +134,11 @@ make_gpu_phys_bc_task(
     auto bnd_npdim_h   = Kokkos::create_mirror_view(bnd_npdim_d) ;
 
     // Per-element `max_ext_par` is the max over the parallel axes — used
-    // to size the MDRange policy.  FACE has 2 parallel axes, EDGE 1,
-    // CORNER none; the value is only consulted for FACE / EDGE.
+    // to size the MDRange policy.  The count of parallel axes is determined
+    // by `bc_kind` (FACE=2, EDGE=1, CORNER=0), because pdim/npdim are
+    // populated purely from the count of zero components in `dir`
+    // (= 3 - bc_kind), independent of `elem_kind`.  Only consulted for
+    // bc_kind FACE / EDGE.
     int max_ext_par = 0 ;
 
     for (int iq = 0; iq < N_elems; ++iq) {
@@ -169,10 +172,16 @@ make_gpu_phys_bc_task(
             bnd_npdim_h(iq,ii)   = npdim[ii] ;
         }
 
-        if constexpr (elem_kind == amr::element_kind_t::FACE) {
+        // Iteration shape is driven by `bc_kind`, NOT `elem_kind`:
+        //   bc_kind=FACE   -> 2 parallel axes (pdim[0], pdim[1])
+        //   bc_kind=EDGE   -> 1 parallel axis  (pdim[0])
+        //   bc_kind=CORNER -> 0 parallel axes  (max_ext_par unused)
+        // Using `elem_kind` here (the old bug) under-sized the MDRange for
+        // EDGE-FACE and left bnd_npdim(iq,1) uninitialized in the kernel.
+        if constexpr (bc_kind == amr::element_kind_t::FACE) {
             max_ext_par = std::max(max_ext_par, extents[pdim[0]]) ;
             max_ext_par = std::max(max_ext_par, extents[pdim[1]]) ;
-        } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
+        } else if constexpr (bc_kind == amr::element_kind_t::EDGE) {
             max_ext_par = std::max(max_ext_par, extents[pdim[0]]) ;
         }
     }
@@ -205,9 +214,13 @@ make_gpu_phys_bc_task(
     constexpr bool need_z4c_constr = false ;
     #endif
 
-    // One MDRange policy per elem_kind.  `bc_kind` affects bounds (already
-    // baked into bnd_*) but never changes the iteration-space shape.
-    if constexpr (elem_kind == amr::element_kind_t::FACE) {
+    // One MDRange policy per `bc_kind`.  `elem_kind` affects per-axis extents
+    // (already baked into bnd_*) but never changes the iteration-space shape —
+    // that is fixed by the count of parallel axes (= 3 - bc_kind).
+    // In particular, EDGE-FACE elements (elem_kind=EDGE, bc_kind=FACE) —
+    // common along the perimeter of physical faces, especially in cbufs at
+    // z-symmetry — must iterate in the Rank<4> FACE shape, not Rank<3> EDGE.
+    if constexpr (bc_kind == amr::element_kind_t::FACE) {
         Kokkos::MDRangePolicy<Kokkos::Rank<4>, amr::phys_bc_md_face_tag> bc_policy(
             exec_space,
             {0, 0, 0, 0},
@@ -230,7 +243,7 @@ make_gpu_phys_bc_task(
                 Kokkos::parallel_for("fill_phys_ghostzones_face", bc_policy, functor) ;
             } ;
         }
-    } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
+    } else if constexpr (bc_kind == amr::element_kind_t::EDGE) {
         Kokkos::MDRangePolicy<Kokkos::Rank<3>, amr::phys_bc_md_edge_tag> bc_policy(
             exec_space,
             {0, 0, 0},

@@ -593,13 +593,15 @@ struct phys_bc_op {
     // ------------------------------------------------------------------
 
     // FACE classical: (i, j, iv, iq), 2 parallel axes + 1 serial ghost axis.
+    // Dispatched on `bc_kind == FACE` (not elem_kind) — covers elem_kind
+    // FACE, EDGE, and CORNER when combined with a bc_kind=FACE region.
     KOKKOS_INLINE_FUNCTION
     void operator() (
         phys_bc_md_face_tag,
         int i, int j, int iv, int iq
     ) const
     {
-        if constexpr (extended || elem_kind != element_kind_t::FACE) {
+        if constexpr (extended || bc_kind != element_kind_t::FACE) {
             return ;
         } else {
             int const pdim0  = bnd_pdim(iq, 0) ;
@@ -629,13 +631,15 @@ struct phys_bc_op {
     }
 
     // EDGE classical: (i, iv, iq), 1 parallel axis + 2 serial ghost axes.
+    // Dispatched on `bc_kind == EDGE` — covers elem_kind EDGE and CORNER
+    // when combined with a bc_kind=EDGE region.
     KOKKOS_INLINE_FUNCTION
     void operator() (
         phys_bc_md_edge_tag,
         int i, int iv, int iq
     ) const
     {
-        if constexpr (extended || elem_kind != element_kind_t::EDGE) {
+        if constexpr (extended || bc_kind != element_kind_t::EDGE) {
             return ;
         } else {
             int const pdim0  = bnd_pdim(iq, 0) ;
@@ -669,13 +673,14 @@ struct phys_bc_op {
     }
 
     // CORNER classical: (iv, iq), 0 parallel + 3 serial ghost axes.
+    // Dispatched on `bc_kind == CORNER` — only elem_kind=CORNER reaches here.
     KOKKOS_INLINE_FUNCTION
     void operator() (
         phys_bc_md_corner_tag,
         int iv, int iq
     ) const
     {
-        if constexpr (extended || elem_kind != element_kind_t::CORNER) {
+        if constexpr (extended || bc_kind != element_kind_t::CORNER) {
             return ;
         } else {
             int8_t const _dir[3] = {dir(iq,0), dir(iq,1), dir(iq,2)} ;
@@ -709,7 +714,7 @@ struct phys_bc_op {
     ) const
     {
         #ifdef GRACE_ENABLE_Z4C_METRIC
-        if constexpr (extended || elem_kind != element_kind_t::FACE) {
+        if constexpr (extended || bc_kind != element_kind_t::FACE) {
             return ;
         } else {
             int const pdim0  = bnd_pdim(iq, 0) ;
@@ -744,7 +749,7 @@ struct phys_bc_op {
     ) const
     {
         #ifdef GRACE_ENABLE_Z4C_METRIC
-        if constexpr (extended || elem_kind != element_kind_t::EDGE) {
+        if constexpr (extended || bc_kind != element_kind_t::EDGE) {
             return ;
         } else {
             int const pdim0  = bnd_pdim(iq, 0) ;
@@ -783,7 +788,7 @@ struct phys_bc_op {
     ) const
     {
         #ifdef GRACE_ENABLE_Z4C_METRIC
-        if constexpr (extended || elem_kind != element_kind_t::CORNER) {
+        if constexpr (extended || bc_kind != element_kind_t::CORNER) {
             return ;
         } else {
             size_t const _qid = qid(iq) ;
