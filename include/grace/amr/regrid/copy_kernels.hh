@@ -33,6 +33,7 @@
 #include <grace/utils/inline.h>
 
 #include <grace/amr/ghostzone_kernels/type_helpers.hh>
+#include <grace/data_structures/memory_defaults.hh>
 #include <Kokkos_Core.hpp>
 
 namespace grace {
@@ -237,7 +238,7 @@ gpu_task_t make_copy(
 
     regrid_copy_op functor(data_in,data_out,qid_dst,qid_src) ; 
 
-    DefaultExecutionSpace exec_space{stream} ; 
+    auto exec_space = grace::make_exec_space(stream) ;
 
     auto s = get_index_staggerings(stag) ;
 
@@ -293,7 +294,7 @@ gpu_task_t make_copy_face(
 
     regrid_copy_fine_data_op functor(data_in,data_out,info_d,nx,ngz) ; 
 
-    DefaultExecutionSpace exec_space{stream} ; 
+    auto exec_space = grace::make_exec_space(stream) ;
 
     MDRangePolicy<Rank<4,Iterate::Left>>
     policy{
@@ -302,21 +303,21 @@ gpu_task_t make_copy_face(
     
     task._run = [functor, policy] (view_alias_t dummy) {
         parallel_for("regrid_copy", policy, functor) ;
-        #ifdef GRACE_DEBUG 
-        Kokkos::fence() ; 
-        GRACE_TRACE("Face copy done") ; 
+        #ifdef GRACE_DEBUG
+        Kokkos::fence() ;
+        GRACE_TRACE("Face copy done") ;
         #endif
-    } ; 
+    } ;
 
-    task.stream = &stream ; 
-    task.task_id = task_counter++ ; 
+    task.stream = &stream ;
+    task.task_id = task_counter++ ;
 
-    return task ; 
+    return task ;
 
 }
 
 
-template<typename view_t> 
+template<typename view_t>
 gpu_task_t make_pack_face(
     view_t& data, 
     amr::face_buffer_t& buffer,
@@ -341,7 +342,7 @@ gpu_task_t make_pack_face(
 
     regrid_pack_fine_data_op functor(data,buffer,info_d,nx,ngz,rank) ; 
 
-    DefaultExecutionSpace exec_space{stream} ; 
+    auto exec_space = grace::make_exec_space(stream) ;
 
     MDRangePolicy<Rank<4,Iterate::Left>>
     policy{
@@ -350,22 +351,22 @@ gpu_task_t make_pack_face(
     
     task._run = [functor, policy] (view_alias_t dummy) {
         parallel_for("regrid_copy", policy, functor) ;
-        #ifdef GRACE_DEBUG 
-        Kokkos::fence() ; 
+        #ifdef GRACE_DEBUG
+        Kokkos::fence() ;
         #endif
-    } ; 
+    } ;
 
-    task.stream = &stream ; 
-    task.task_id = task_counter++ ; 
+    task.stream = &stream ;
+    task.task_id = task_counter++ ;
 
-    task_list[send_tid]->_dependencies.push_back(task.task_id) ; 
-    task._dependents.push_back(send_tid) ; 
+    task_list[send_tid]->_dependencies.push_back(task.task_id) ;
+    task._dependents.push_back(send_tid) ;
 
-    return task ; 
+    return task ;
 
 }
 
-template<typename view_t> 
+template<typename view_t>
 gpu_task_t make_unpack_face(
     view_t& data, 
     amr::face_buffer_t& buffer,
@@ -389,7 +390,7 @@ gpu_task_t make_unpack_face(
 
     regrid_unpack_fine_data_op functor(data,buffer,info_d,nx,ngz,rank) ; 
 
-    DefaultExecutionSpace exec_space{stream} ; 
+    auto exec_space = grace::make_exec_space(stream) ;
 
     MDRangePolicy<Rank<4,Iterate::Left>>
     policy{
@@ -398,18 +399,18 @@ gpu_task_t make_unpack_face(
     
     task._run = [functor, policy] (view_alias_t dummy) {
         parallel_for("regrid_copy", policy, functor) ;
-        #ifdef GRACE_DEBUG 
-        Kokkos::fence() ; 
+        #ifdef GRACE_DEBUG
+        Kokkos::fence() ;
         #endif
-    } ; 
+    } ;
 
-    task.stream = &stream ; 
-    task.task_id = task_counter++ ;    
+    task.stream = &stream ;
+    task.task_id = task_counter++ ;
 
-    task_list[recv_tid]->_dependents.push_back(task.task_id) ; 
-    task._dependencies.push_back(recv_tid) ; 
+    task_list[recv_tid]->_dependents.push_back(task.task_id) ;
+    task._dependencies.push_back(recv_tid) ;
 
-    return task ; 
+    return task ;
 
 }
 } /* namespace grace */

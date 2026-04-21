@@ -96,6 +96,8 @@ void evolve() {
         }
     } else if ( eos_type == "tabulated" ) {
         evolve_impl<grace::tabulated_eos_t>() ;
+    } else if  ( eos_type == "ideal_gas") {
+        evolve_impl<grace::ideal_gas_eos_t>() ;
     } else {
         ERROR("Unknown EOS " << eos_type) ; 
     }
@@ -134,6 +136,18 @@ void evolve_impl() {
     //amr::apply_boundary_conditions(state) ; 
     Kokkos::deep_copy(state_p, state) ; 
     grace::deep_copy(sstate_p, sstate) ; 
+    // reset mass error once per timestep
+    #ifdef GRACE_ENABLE_GRMHD 
+    #ifndef GRACE_FREEZE_HYDRO
+    Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>,default_execution_space>
+        policy({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq}) ;
+    parallel_for(GRACE_EXECUTION_TAG("EVOL","reset_d_err"), policy 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+    {
+        aux(i,j,k,C2P_DENS_ERR_,q) = 0.0 ; 
+    });
+    #endif
+    #endif 
     if ( tstepper == "euler" ) {
         //compute_auxiliary_quantities<eos_t>(state, aux) ;
         advance_substep<eos_t>(t,dt,1.0,state,state_p,sstate,sstate_p) ; 
@@ -444,34 +458,50 @@ void compute_fluxes(
     ) ; 
     #endif 
     //**************************************************************************************************/
-    // loop ranges 
-    auto flux_x_policy = 
+    // loop ranges: extended for mhd (need vbar at faces for emf)
+    auto flux_x_policy_mhd = 
         MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
               {VEC(ngz,0,0),0}
             , {VEC(nx+ngz+1,ny+2*ngz,nz+2*ngz),nq}
         ) ;
-    auto flux_y_policy = 
+    auto flux_y_policy_mhd = 
         MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
               {VEC(0,ngz,0),0}
             , {VEC(nx+2*ngz,ny+ngz+1,nz+2*ngz),nq}
         ) ;
-    auto flux_z_policy = 
+    auto flux_z_policy_mhd = 
         MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
               {VEC(0,0,ngz),0}
             , {VEC(nx+2*ngz,ny+2*ngz,nz+ngz+1),nq}
+        ) ; 
+    // non-mhd 
+    auto flux_x_policy = 
+        MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+              {VEC(ngz,ngz,ngz),0}
+            , {VEC(nx+ngz+1,ny+ngz,nz+ngz),nq}
+        ) ;
+    auto flux_y_policy = 
+        MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+              {VEC(ngz,ngz,ngz),0}
+            , {VEC(nx+ngz,ny+ngz+1,nz+ngz),nq}
+        ) ;
+    auto flux_z_policy = 
+        MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+              {VEC(ngz,ngz,ngz),0}
+            , {VEC(nx+ngz,ny+ngz,nz+ngz+1),nq}
         ) ;
     //**************************************************************************************************/
     //**************************************************************************************************/
     // compute x flux 
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_x_flux")
-                , flux_x_policy 
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_grmhd_x_flux")
+                , flux_x_policy_mhd 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
         #ifndef GRACE_FREEZE_HYDRO
         grmhd_eq_system.template compute_x_flux<recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact) ;
         #endif 
     }) ; 
     #ifdef GRACE_ENABLE_M1
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_x_flux_M1")
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_M1_x_flux")
                 , flux_x_policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
          m1_eq_system.template compute_x_flux<slope_limited_reconstructor_t<MCbeta>,0>(
@@ -488,16 +518,16 @@ void compute_fluxes(
     }) ; 
     #endif 
     //**************************************************************************************************/
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_y_flux")
-                , flux_y_policy 
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_grmhd_y_flux")
+                , flux_y_policy_mhd 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
         #ifndef GRACE_FREEZE_HYDRO
         grmhd_eq_system.template compute_y_flux<recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact);
         #endif 
     }) ;
     #ifdef GRACE_ENABLE_M1
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_y_flux_M1")
-                , flux_x_policy 
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_M1_y_flux")
+                , flux_y_policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
          m1_eq_system.template compute_y_flux<slope_limited_reconstructor_t<MCbeta>,0>(
             q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
@@ -513,16 +543,16 @@ void compute_fluxes(
     }) ; 
     #endif 
     //**************************************************************************************************/
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_z_flux")
-                , flux_z_policy 
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_grmhd_z_flux")
+                , flux_z_policy_mhd 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
         #ifndef GRACE_FREEZE_HYDRO
         grmhd_eq_system.template compute_z_flux<recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact);
         #endif 
     }) ; 
     #ifdef GRACE_ENABLE_M1
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_z_flux_M1")
-                , flux_x_policy 
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_M1_z_flux")
+                , flux_z_policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
          m1_eq_system.template compute_z_flux<slope_limited_reconstructor_t<MCbeta>,0>(
             q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
@@ -1053,7 +1083,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     //**************************************************************************************************/
     reflux_correct_emfs(emf_context) ;
     //**************************************************************************************************/
-    update_CT(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ; 
+    update_CT(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ;
     //**************************************************************************************************/
     update_fd(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ; 
     //**************************************************************************************************/
@@ -1159,5 +1189,6 @@ void evolve_impl<EOS>()
 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
 INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;
+INSTANTIATE_TEMPLATE(grace::ideal_gas_eos_t) ;
 #undef INSTANTIATE_TEMPLATE
 }

@@ -1,8 +1,8 @@
 name: "grace"
 amr: {
-  npoints_block_x: 32,
-  npoints_block_y: 32,
-  npoints_block_z: 32,
+  npoints_block_x: 64,
+  npoints_block_y: 64,
+  npoints_block_z: 64,
 
   xmin: -0.5,
   xmax: 0.5,
@@ -10,8 +10,8 @@ amr: {
   ymin: -0.5,
   ymax: 0.5,
 
-  zmin: -0.1,
-  zmax: 0.1,
+  zmin: -0.125,
+  zmax: 0.125,
 
   periodic_z: true,
 
@@ -26,7 +26,7 @@ amr: {
 
 IO: {
 
-  plane_surface_output_cell_variables: ["hydro"],
+  plane_surface_output_cell_variables: ["hydro","c2p_err","smallb2","dens","tau"],
   plane_surface_output_every: 10,
 
   info_output_every: 2,
@@ -47,14 +47,17 @@ IO: {
 }
 
 evolution: {
-  time_stepper: "rk4",
+  time_stepper: "rk3",
   cfl_factor: 0.25,
   final_time: 0.45
 }
 
 grmhd: {
   id_type: "magnetic_rotor",
-  B_field_initialization: "direct"
+  B_field_initialization: "direct",
+  c2p: {
+    use_c2p_entropy_backup: false
+  }
 }
 
 system: {

@@ -100,7 +100,7 @@ make_div_preserving_prolongation_task(
     }
     Kokkos::deep_copy(have_fine_data_d,have_fine_data_h) ; 
 
-    auto exec_space = Kokkos::DefaultExecutionSpace{stream} ; 
+    auto exec_space = grace::make_exec_space(stream) ;
 
     gpu_task_t task{} ;
 
@@ -182,7 +182,7 @@ make_prolongation_task(
     grace::deep_copy_vec_to_view(varlist_ho_d,varlist_ho) ;
     grace::deep_copy_vec_to_view(ho_prolong_coeffs_d,ho_prolong_coeffs) ;
 
-    auto exec_space = Kokkos::DefaultExecutionSpace{stream} ; 
+    auto exec_space = grace::make_exec_space(stream) ;
 
     gpu_task_t task{} ;
 

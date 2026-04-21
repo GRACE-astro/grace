@@ -63,7 +63,7 @@ struct device_event_t {
     //! Move-only class
     device_event_t(const device_event_t&) = delete;
     device_event_t(device_event_t&& other) noexcept : _event(other._event) {
-        other._event = nullptr;
+        other._event = event_t{};
     }
 
     device_event_t& operator=(const device_event_t&) = delete;
@@ -73,7 +73,7 @@ struct device_event_t {
                 EVENT_DESTROY(_event);
             }
             _event = other._event;
-            other._event = nullptr;
+            other._event = event_t{};
         }
         return *this;
     }

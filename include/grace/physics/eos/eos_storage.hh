@@ -36,6 +36,7 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/hybrid_eos.hh>
 #include <grace/physics/eos/piecewise_polytropic_eos.hh>
+#include <grace/physics/eos/ideal_gas_eos.hh>
 #include <grace/physics/eos/tabulated_eos.hh>
 
 #include <Kokkos_Core.hpp>
@@ -97,6 +98,18 @@ class eos_storage_t {
     get_tabulated() {
         return _tabulated ; 
     }
+    /**
+     * @brief Get the ideal gas EOS object.
+     * 
+     * This should only be called if the active EOS type is 
+     * ideal gas.
+     * 
+     * @return decltype(auto) The ideal gas EOS object.
+     */
+    decltype(auto) GRACE_ALWAYS_INLINE 
+    get_ideal_gas() {
+        return _gammalaw ; 
+    }
     //**************************************************************************************************
     /**
      * @brief Get an eos object.
@@ -110,6 +123,8 @@ class eos_storage_t {
             return _hybrid_pwpoly; 
         } else if constexpr ( std::is_same_v<eos_t,tabulated_eos_t> ) {
             return _tabulated ; 
+        } else if constexpr ( std::is_same_v<eos_t,ideal_gas_eos_t> ) {
+            return _gammalaw; 
         } else {
             ERROR("Requested EOS type is not implemented.") ; 
         }
@@ -135,6 +150,8 @@ class eos_storage_t {
     hybrid_eos_t<piecewise_polytropic_eos_t> _hybrid_pwpoly ;
     //! The tabulated EOS object. 
     tabulated_eos_t _tabulated ;  
+    //! The ideal gas EOS object.
+    ideal_gas_eos_t _gammalaw ; 
     //! Give access.
     friend class utils::singleton_holder<eos_storage_t, memory::default_create>  ;
     //! Give access.

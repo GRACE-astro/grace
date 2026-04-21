@@ -135,17 +135,21 @@
     #define EVENT_SYNCHRONIZE(event) 
     #define EVENT_ELAPSED_TIME(ms, start, stop) 
     #define EVENT_QUERY(event) DEVICE_SUCCESS // always return success 
-#else 
+#else
+    using device_err_t = int ;
+    #define DEVICE_SUCCESS 0
+    #define DEVICE_NOT_READY -1
     using stream_t = char ;
-    #define STREAM_CREATE(stream) 
-    #define STREAM_DESTROY(stream) 
-    #define STREAM_SYNCHRONIZE(stream) 
+    #define STREAM_CREATE(stream)
+    #define STREAM_DESTROY(stream)
+    #define STREAM_SYNCHRONIZE(stream)
     using event_t = char ;
-    #define EVENT_CREATE(event) 
-    #define EVENT_DESTROY(event) 
-    #define EVENT_RECORD(event, stream) 
-    #define EVENT_SYNCHRONIZE(event) 
-    #define EVENT_ELAPSED_TIME(ms, start, stop) 
-#endif 
+    #define EVENT_CREATE(event)
+    #define EVENT_DESTROY(event)
+    #define EVENT_RECORD(event, stream)
+    #define EVENT_SYNCHRONIZE(event)
+    #define EVENT_ELAPSED_TIME(ms, start, stop)
+    #define EVENT_QUERY(event) DEVICE_SUCCESS
+#endif
 
 #endif 

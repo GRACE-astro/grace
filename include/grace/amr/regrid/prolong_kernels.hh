@@ -26,6 +26,7 @@
  */
 
 #ifndef GRACE_AMR_REGRID_PROLONG_KERNEL_HH
+#define GRACE_AMR_REGRID_PROLONG_KERNEL_HH
 
 #include <grace_config.h>
 
@@ -35,7 +36,7 @@
 
 #include <grace/amr/ghostzone_kernels/type_helpers.hh>
 #include <grace/amr/ghostzone_kernels/pr_helpers.hh>
-
+#include <grace/data_structures/memory_defaults.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -249,7 +250,7 @@ struct regrid_div_free_prolong_op {
                 
                 // now we need to fill the last face at the end 
                 // if there is no fine data 
-                if ( i_f == n+g-2 and (not have_fine_data_x(1,iq)) ) {
+                if ( (i_f == n+g-2) and (not have_fine_data_x(1,iq)) ) {
                     fill_inside_face(
                         i_c+1,j_c,k_c,
                         i_f+2,j_f,k_f,ivar,
@@ -258,7 +259,7 @@ struct regrid_div_free_prolong_op {
                         limiter,
                         true,false,false) ; 
                 }
-                if ( j_f == n+g-2 and (not have_fine_data_y(1,iq)) ) {
+                if ( (j_f == n+g-2) and (not have_fine_data_y(1,iq)) ) {
                     fill_inside_face(
                         i_c,j_c+1,k_c,
                         i_f,j_f+2,k_f,ivar,
@@ -267,7 +268,7 @@ struct regrid_div_free_prolong_op {
                         limiter,
                         false,true,false) ; 
                 }
-                if ( k_f == n+g-2 and (not have_fine_data_z(1,iq)) ) {
+                if ( (k_f == n+g-2) and (not have_fine_data_z(1,iq)) ) {
                     fill_inside_face(
                         i_c,j_c,k_c+1,
                         i_f,j_f,k_f+2,ivar,
@@ -374,7 +375,7 @@ gpu_task_t make_prolong(
     regrid_prolong_op<prolong_op_ho,view_t>
         functor_ho(data_in,data_out,qid_dst,qid_src,varidx_ho,prolong_op_ho{ho_prolong_coeffs_d}, nx, ngz) ; 
 
-    DefaultExecutionSpace exec_space{stream} ; 
+    auto exec_space = grace::make_exec_space(stream) ;
     // loop over fine quad_ids --> qid_in 
     MDRangePolicy<Rank<5,Iterate::Left>>
     policy_lo{
@@ -437,16 +438,16 @@ gpu_task_t make_div_free_prolong(
             have_fine_h_z(j,i) = have_fine_z[i][j];
         }
     }
-    deep_copy(have_fine_h_x,have_fine_data_x) ;
-    deep_copy(have_fine_h_y,have_fine_data_y) ;
-    deep_copy(have_fine_h_z,have_fine_data_z) ;
+    deep_copy(have_fine_data_x,have_fine_h_x) ;
+    deep_copy(have_fine_data_y,have_fine_h_y) ;
+    deep_copy(have_fine_data_z,have_fine_h_z) ;
 
     gpu_task_t task {} ; 
 
     regrid_div_free_prolong_op
         functor(data_in,data_out,qid_dst,qid_src,have_fine_data_x,have_fine_data_y,have_fine_data_z, nx, ngz,nvars) ; 
 
-    DefaultExecutionSpace exec_space{stream} ; 
+    auto exec_space = grace::make_exec_space(stream) ;
     // loop over fine quad_ids --> qid_in 
     TeamPolicy
     policy{
@@ -455,20 +456,20 @@ gpu_task_t make_div_free_prolong(
     
     task._run = [functor, policy] (view_alias_t dummy) {
         parallel_for("regrid_div_free_prolong", policy, functor) ;
-        #ifdef GRACE_DEBUG 
-        Kokkos::fence() ; 
+        #ifdef GRACE_DEBUG
+        Kokkos::fence() ;
         #endif
-    } ; 
+    } ;
 
-    task.stream = &stream ; 
-    task.task_id = task_counter++ ; 
+    task.stream = &stream ;
+    task.task_id = task_counter++ ;
     for( auto tid: dependencies ) {
-        task._dependencies.push_back(tid) ; 
-        task_list[tid]->_dependents.push_back(task.task_id) ; 
+        task._dependencies.push_back(tid) ;
+        task_list[tid]->_dependents.push_back(task.task_id) ;
     }
-    
+
     return task ;
 
-} 
+}
 }
 #endif 

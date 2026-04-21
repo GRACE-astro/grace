@@ -1,6 +1,8 @@
 /**
  * @file import_kadath.cpp
  * @author Konrad Topolski (topolski@itp.uni-frankfurt.de)
+ * Modified by Carlo Musolino <carlo.musolino@aei.mpg.de>: remove copies of data and coordinates,
+ * read e instead of rho and eps.
  * Subject to GPL and adapted from the work of author(s)/maintainer(s):
  * Samuel David Tootle <tootle@itp.uni-frankfurt.de>
  * Ludwig Jens Papenfort <papenfort@th.physik.uni-frankfurt.de>
@@ -46,6 +48,7 @@
 #include <grace/parallel/mpi_wrappers.hh>
 // #include <grace/system/runtime_functions.hh>
 #include <grace/config/config_parser.hh>
+#include <grace/data_structures/memory_defaults.hh>
 #include <grace/errors/error.hh>
 #include <grace/system/print.hh>
 #include <Kokkos_Core.hpp>
@@ -61,169 +64,105 @@
 #include "Solvers/bhns_xcts/bhns_exporter.hpp"
 #endif 
 
-//template function that handles moving the space-time values to GRACE state
-template<typename T, typename S>
-void import_data(std::vector<std::reference_wrapper<T>>& state_ref, S& exported_vals) {
 
-    GRACE_INFO("Moving Vacuum Data to output vars");
-    const int nfields = NUM_VOUT;
-    const int npoints = int(state_ref.size()/nfields);
-    GRACE_INFO("Initializing {} fields on {} points", nfields, npoints) ;
-
-    #pragma omp parallel for collapse(2) 
-    for (int i = 0; i < npoints; ++i) {
-      for (int idx_field=0; idx_field<nfields; idx_field++){
-        state_ref[i*nfields+idx_field].get() = exported_vals[i][idx_field]; 
-        }
-      }
-
-    bool set_shift_to_zero_on_import = grace::get_param<bool>("grmhd","fuka", "set_shift_to_zero_on_import");
-    if(set_shift_to_zero_on_import){
-        for (int i = 0; i < npoints; ++i) {
-            state_ref[i*nfields+K_BETAX].get() = 0.0; 
-            state_ref[i*nfields+K_BETAY].get() = 0.0; 
-            state_ref[i*nfields+K_BETAZ].get() = 0.0; 
-        }   
-      }
-    
-}
-
-//template function that handles moving the space-time and matter field values to their GRACE couterparts
-// note that the two are separate in case we ever need to add matter-specific statements here:
-
-template<typename T, typename S>
-void import_data_wmatter(std::vector<std::reference_wrapper<T>>& state_ref, S& exported_vals) {
-
-    GRACE_INFO("Moving Matter Data to output vars");
-
-    const int nfields = NUM_OUT;
-    const int npoints = int(state_ref.size()/nfields);
-    
-    #pragma omp parallel for collapse(2) 
-    for (int i = 0; i < npoints; ++i) {
-      for (int idx_field=0; idx_field<nfields; idx_field++){
-        state_ref[i*nfields+idx_field].get() = exported_vals[i][idx_field]; 
-      }
-    }
-
-    bool set_shift_to_zero_on_import = grace::get_param<bool>("grmhd","fuka", "set_shift_to_zero_on_import");
-    if(set_shift_to_zero_on_import){
-        for (int i = 0; i < npoints; ++i) {
-            state_ref[i*nfields+K_BETAX].get() = 0.0; 
-            state_ref[i*nfields+K_BETAY].get() = 0.0; 
-            state_ref[i*nfields+K_BETAZ].get() = 0.0; 
-        }   
-      }
-}
-
-
-
-void KadathImporter(const std::string kadath_id, const std::string  filename,
-                    std::vector<std::reference_wrapper<double>>& state_ref,
-                     const std::vector<std::array<double,GRACE_NSPACEDIM>>& pcoords,
-                     const int nfields, const int npoints) {
  
-  GRACE_INFO("Setting up coordinates");
+void KadathImporter(const std::string kadath_id, const std::string  filename,
+                    const std::vector<double> & xx, 
+                    const std::vector<double> & yy, 
+                    const std::vector<double> & zz,
+                    Kokkos::View<double *****, grace::default_space>& ddata, 
+                    const int nfields, const int npoints, size_t nx, size_t ny, size_t nz, size_t ngz) {
+ 
+  GRACE_INFO("Importing FUKA data onto the grid...");
   std::string id_type{kadath_id};
-  std::vector<double> xx(npoints), yy(npoints), zz(npoints);
-                
-  #pragma omp parallel for
-  for (int i = 0; i < npoints; ++i) {
-    xx[i] = pcoords[i][0];
-    yy[i] = pcoords[i][1];
-    zz[i] = pcoords[i][2];
-  }
-
-
   auto clock_start = std::chrono::high_resolution_clock::now() ; 
-
-  // legacy serial version 
-  #ifdef KADATH_EXPORTERS_SERIAL
-    GRACE_TRACE("Utilizing serial exporters");
-    const double interpolation_offset = grace::get_param<double>("grmhd", "fuka", "id_interpolation_offset");
-    const int interp_order = grace::get_param<int>("grmhd", "fuka","junk_interp_order");
-    const double delta_r_rel = grace::get_param<double>("grmhd", "fuka","delta_r_rel");
-    if(id_type == "BH") {
-    auto exported_vals = std::move(KadathExportBH(npoints, xx.data(), yy.data(), zz.data(),
-                         filename.c_str(), interpolation_offset, interp_order, delta_r_rel));
-    import_data(state_ref,exported_vals);
-  } else if(id_type == "BBH") {
-    auto exported_vals = std::move(KadathExportBBH(npoints, xx.data(), yy.data(), zz.data(), 
-                         filename.c_str(), interpolation_offset, interp_order, delta_r_rel));
-    import_data(state_ref,exported_vals);
-  } else if(id_type == "NS") {
-    auto exported_vals = std::move(KadathExportNS(npoints, xx.data(), yy.data(), zz.data(), filename.c_str()));
-    import_data_wmatter(state_ref,exported_vals);
-  } else if(id_type == "BNS") {
-    auto exported_vals = std::move(KadathExportBNS(npoints, xx.data(), yy.data(), zz.data(), filename.c_str()));
-    import_data_wmatter(state_ref,exported_vals);
-  } else if(id_type == "BHNS") {
-    auto exported_vals = std::move(KadathExportBHNS(npoints, xx.data(), yy.data(), zz.data(), 
-                         filename.c_str(), interpolation_offset, interp_order, delta_r_rel));
-    import_data_wmatter(state_ref,exported_vals);
-  } 
-  #endif
+  auto data = Kokkos::create_mirror_view(ddata) ; 
 
   // new exporters with OpenMP support
-  #ifdef KADATH_EXPORTERS_PARALLEL
-    GRACE_TRACE("Utilizing parallel exporters");
+  #ifndef KADATH_EXPORTERS_PARALLEL
+  ERROR("Only OpenMP parallel exporters are supported.") ; 
+  #endif 
+  GRACE_TRACE("Utilizing parallel exporters");
 
-    auto interp_data_helper = []<typename reader_t, bool has_matter = false>(reader_t& input_reader,
-                                    std::vector<double>& xgrid,
-                                    std::vector<double>& ygrid,
-                                    std::vector<double>& zgrid)
-      {
-        using kadath_output_t =
-          std::vector<std::array<double, NUM_VOUT + NUM_MATTER * static_cast<int>(has_matter)>>;
+  auto interp_data_helper = [&]<typename reader_t, bool has_matter = false>(reader_t& input_reader,
+                                  std::vector<double> const & xgrid,
+                                  std::vector<double> const & ygrid,
+                                  std::vector<double> const & zgrid
+                                )
+    {
+      using kadath_output_t =
+        std::vector<std::array<double, NUM_VOUT + NUM_MATTER * static_cast<int>(has_matter)>>;
+    
+      #pragma omp parallel for firstprivate(input_reader)
+      for (size_t idx = 0; idx < xgrid.size(); ++idx) {
+        size_t const i = idx%(nx+2*ngz); 
+        size_t const j = (idx/(nx+2*ngz)) % (ny+2*ngz) ;
+        size_t const k = 
+                (idx/(nx+2*ngz)/(ny+2*ngz)) % (nz+2*ngz) ;
+        size_t const q = 
+                (idx/(nx+2*ngz)/(ny+2*ngz)/(nz+2*ngz)) ; 
+        auto all_data_pt = input_reader.export_pointwise(xgrid[idx], ygrid[idx], zgrid[idx]) ;
+        data(K_ALPHA,i,j,k,q) = all_data_pt[K_ALPHA] ; 
 
-        kadath_output_t all_data(xgrid.size());
-      
-	#pragma omp parallel for firstprivate(input_reader)
-	for (size_t idx = 0; idx < xgrid.size(); ++idx) {
-	  all_data[idx] = input_reader.export_pointwise(xgrid[idx], ygrid[idx], zgrid[idx]);
-	}
+        data(K_BETAX,i,j,k,q) = all_data_pt[K_BETAX] ;
+        data(K_BETAY,i,j,k,q) = all_data_pt[K_BETAY] ;
+        data(K_BETAZ,i,j,k,q) = all_data_pt[K_BETAZ] ;
 
-        return std::move(all_data);
-      };
+        data(K_GXX,i,j,k,q) = all_data_pt[K_GXX] ;
+        data(K_GXY,i,j,k,q) = all_data_pt[K_GXY] ;
+        data(K_GXZ,i,j,k,q) = all_data_pt[K_GXZ] ;
+        data(K_GYY,i,j,k,q) = all_data_pt[K_GYY] ;
+        data(K_GYZ,i,j,k,q) = all_data_pt[K_GYZ] ;
+        data(K_GZZ,i,j,k,q) = all_data_pt[K_GZZ] ;
+
+        data(K_KXX,i,j,k,q) = all_data_pt[K_KXX] ;
+        data(K_KXY,i,j,k,q) = all_data_pt[K_KXY] ;
+        data(K_KXZ,i,j,k,q) = all_data_pt[K_KXZ] ;
+        data(K_KYY,i,j,k,q) = all_data_pt[K_KYY] ;
+        data(K_KYZ,i,j,k,q) = all_data_pt[K_KYZ] ;
+        data(K_KZZ,i,j,k,q) = all_data_pt[K_KZZ] ;
+        if (has_matter) {
+          data(K_RHO,i,j,k,q) =  all_data_pt[K_RHO] * ( 1 + all_data_pt[K_EPS] ) ; 
+
+          data(K_RHO+1,i,j,k,q) =  all_data_pt[K_VELX] ; 
+          data(K_RHO+2,i,j,k,q) =  all_data_pt[K_VELY] ;
+          data(K_RHO+3,i,j,k,q) =  all_data_pt[K_VELZ] ;
+        }
+        
+
+      }
+    };
                                 
   if(id_type == "BH") {
     using config_t = Kadath::FUKA_Config::kadath_config_boost<Kadath::FUKA_Config::BCO_BH_INFO>;
     using reader_t = Kadath::FUKA_Solvers::CFMS_BH_Exporter;
     reader_t input_reader(filename.c_str()); 
-    auto exported_vals = std::move(interp_data_helper.template operator()<reader_t, false>(input_reader, xx,yy,zz)); 
-    import_data(state_ref,exported_vals);
+    interp_data_helper.template operator()<reader_t, true>(input_reader, xx,yy,zz);
   } else if(id_type == "BBH") {
     using config_t = Kadath::FUKA_Config::kadath_config_boost<Kadath::FUKA_Config::BIN_INFO>;
     using reader_t = Kadath::FUKA_Solvers::CFMS_BBH_Exporter;
     reader_t input_reader(filename.c_str()); 
-    auto exported_vals = std::move(interp_data_helper.template operator()<reader_t, false>(input_reader, xx,yy,zz));
-    import_data(state_ref,exported_vals);
+    interp_data_helper.template operator()<reader_t, true>(input_reader, xx,yy,zz);
   } else if(id_type == "NS") {
     using config_t = Kadath::FUKA_Config::kadath_config_boost<Kadath::FUKA_Config::BCO_NS_INFO>;
     using reader_t = Kadath::FUKA_Solvers::CFMS_NS_Exporter;
     reader_t input_reader(filename.c_str()); 
-    auto exported_vals = std::move(interp_data_helper.template operator()<reader_t, true>(input_reader, xx,yy,zz)); 
-    import_data_wmatter(state_ref,exported_vals);
+    interp_data_helper.template operator()<reader_t, true>(input_reader, xx,yy,zz);
   } else if(id_type == "BNS") {
     using config_t = Kadath::FUKA_Config::kadath_config_boost<Kadath::FUKA_Config::BIN_INFO>;
     using reader_t = Kadath::FUKA_Solvers::CFMS_BNS_Exporter;
     reader_t input_reader(filename.c_str()); 
-    auto exported_vals = std::move(interp_data_helper.template operator()<reader_t, true>(input_reader, xx,yy,zz));
-    import_data_wmatter(state_ref,exported_vals);
+    interp_data_helper.template operator()<reader_t, true>(input_reader, xx,yy,zz);
   } else if(id_type == "BHNS") {
     using config_t = Kadath::FUKA_Config::kadath_config_boost<Kadath::FUKA_Config::BIN_INFO>;
     using reader_t = Kadath::FUKA_Solvers::CFMS_BHNS_Exporter;
     reader_t input_reader(filename.c_str()); 
-    auto exported_vals = std::move(interp_data_helper.template operator()<reader_t, true>(input_reader, xx,yy,zz));
-    import_data_wmatter(state_ref,exported_vals);
+    interp_data_helper.template operator()<reader_t, true>(input_reader, xx,yy,zz);
   } 
-  #endif
   
   GRACE_INFO("Finished Kadath import") ;
   auto clock_end = std::chrono::high_resolution_clock::now() ; 
   auto currentTime = double(std::chrono::duration_cast <std::chrono::seconds> (clock_end - clock_start).count());
   GRACE_VERBOSE("Filling FUKA ID took {:.3e} s.",currentTime) ;
-
+  Kokkos::deep_copy(ddata,data) ; 
 }
-
- 

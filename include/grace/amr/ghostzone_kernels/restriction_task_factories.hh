@@ -118,7 +118,7 @@ task_id_t insert_restriction_tasks(
         state, coarse_buffers, quad_id_d, cbuf_id_d, varlist_ho_d, restrict_ho_op(ho_restrict_coeffs_d,nx,ny,nz,ngz), ngz
     ) ;
 
-    Kokkos::DefaultExecutionSpace exec_space{stream} ;
+    auto exec_space = grace::make_exec_space(stream) ;
 
     Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
         policy{
@@ -186,7 +186,7 @@ task_id_t insert_div_preserving_restriction_tasks(
         state, coarse_buffers, quad_id_d, cbuf_id_d, ngz
     ) ; 
 
-    Kokkos::DefaultExecutionSpace exec_space{stream} ;
+    auto exec_space = grace::make_exec_space(stream) ;
     int loff[3] = {stag_dir==0,stag_dir==1,stag_dir==2} ; 
     Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
         policy{
@@ -232,17 +232,17 @@ auto get_iter_policy(
     int off = static_cast<int>(stag_loop) ; 
     if constexpr ( elem_kind == FACE ) {
         return MDRangePolicy<Rank<4>, ghost_restrict_face_tag>(
-            DefaultExecutionSpace{stream},
+            grace::make_exec_space(stream),
             {0,0,0,0}, {n/2+off,n/2+off,nv,nq}
         ) ; 
     } else if constexpr (elem_kind == EDGE) {
         return MDRangePolicy<Rank<3>, ghost_restrict_edge_tag>(
-            DefaultExecutionSpace{stream},
+            grace::make_exec_space(stream),
             {0,0,0}, {n/2+off,nv,nq}
         ) ; 
     } else {
         return MDRangePolicy<Rank<2>, ghost_restrict_corner_tag>(
-            DefaultExecutionSpace{stream},
+            grace::make_exec_space(stream),
             {0,0}, {nv,nq}
         ) ; 
     }

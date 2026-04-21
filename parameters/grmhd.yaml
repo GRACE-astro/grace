@@ -139,8 +139,8 @@ grmhd:
       Parameters for initialization of vector potential at cell edges 
     Avec_kind:
       type: keyword 
-      allowed: ["current_loop"]
-      default: "current_loop"
+      allowed: ["poloidal_confined"]
+      default: "poloidal_confined"
       description: >
         Avec prescription 
     cutoff_var: 
@@ -153,19 +153,22 @@ grmhd:
       range: "(0,1)"
       default: 0.02 
       description: > 
-        Fraction of max(var) at below which A is zero 
-    A_phi:
+        Fraction of max(var) at below which A is zero
+
+    Bmax_target:
       type: double 
       range: "[0,*)"
       default: 0.0
       description: >
-        Rescaling factor of A_phi 
+        Target |B|_max at cell center, in code units
+    
     A_n: 
       type: double 
       range: "[0,*)"
       default: 1.0 
       description: >
         Power law index of A(var) dependence
+    
     is_binary:
       type: bool 
       default: false 
@@ -189,6 +192,13 @@ grmhd:
       default: 0.0 
       description: >
         Only for binary: center of second star 
+    radius_1:
+      type: double 
+      range: "(0,*)"
+      default: 100
+      description: >
+        Approximate radius of star 1, must not overlap with companion, must contain star.
+
     x_c_2:
       type: double 
       range: "(*,*)"
@@ -207,6 +217,12 @@ grmhd:
       default: 0.0 
       description: >
         Only for binary: center of second star 
+    radius_2:
+      type: double 
+      range: "(0,*)"
+      default: 1
+      description: >
+        Approximate radius of star 2, must not overlap with companion, must contain star.
   
   bondi_flow: 
     type: schema
@@ -546,8 +562,8 @@ grmhd:
       description: >
         Directory containing the FUKA ID
     fuka_id_type: 
-      type: string 
-      default: "" 
+      type: keyword 
+      default: "BNS" 
       allowed: ["BH", "BBH", "NS", "BNS", "BHNS"]
       description: >
         type of FUKA data
@@ -570,7 +586,7 @@ grmhd:
       range: "(0,*)"
       description: >
         Relative radial offset for interpolation grid adjustment
-    set_shift_to_zero_on_import:
+    set_shift_to_zero:
       type: bool 
       default: true 
       description: >

@@ -64,6 +64,8 @@ void set_initial_data() {
         }
     } else if ( eos_type == "tabulated" ) {
         set_initial_data_impl<grace::tabulated_eos_t>() ; 
+    } else if ( eos_type == "ideal_gas" ) {
+        set_initial_data_impl<grace::ideal_gas_eos_t>() ; 
     }
 }
 
@@ -92,5 +94,6 @@ template                            \
 void set_initial_data_impl<EOS>()
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
 INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;
+INSTANTIATE_TEMPLATE(grace::ideal_gas_eos_t) ;
 #undef INSTANTIATE_TEMPLATE
 }

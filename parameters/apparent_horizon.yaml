@@ -1,0 +1,110 @@
+apparent_horizon:
+  type: schema
+  description: >
+    Apparent horizon finder. Solves for h(theta,phi) as the trapped surface
+    radius using a spectral expansion in real spherical harmonics and
+    Newton-Raphson iteration on the expansion scalar Theta.
+
+  n_horizons:
+    type: int
+    range: "[0,*)"
+    default: 0
+    description: >
+      Number of apparent horizons to search for.
+
+  find_every:
+    type: int
+    range: "[-1,*)"
+    default: -1
+    description: >
+      How often to search for apparent horizons (in iterations).
+      Set to -1 to disable.
+
+  verbose:
+    type: bool
+    default: false
+    description: >
+      Print per-iteration convergence information.
+
+  compute_fluxes:
+    type: bool
+    default: false
+    description: >
+      When true, compute GRMHD surface fluxes (Mdot, Edot, Ldot, Phi)
+      on each found apparent horizon. Requires GRMHD auxiliary variables.
+
+  horizons:
+    type: list
+    item_type: node
+    min_items: 0
+
+    item_schema:
+      name:
+        type: string
+        default: "AH0"
+        description: >
+          Unique name for this horizon. Used in output filenames.
+
+      l_max:
+        type: int
+        range: "[1,20]"
+        default: 8
+        description: >
+          Maximum spherical harmonic degree.
+          Collocation grid has (l_max+1) x (2*l_max+1) points.
+
+      initial_radius:
+        type: double
+        range: "(0,*)"
+        default: 0.5
+        description: >
+          Initial guess radius for the horizon (coordinate units).
+
+      center_x:
+        type: double
+        range: "(*,*)"
+        default: 0.0
+        description: >
+          Initial x coordinate of the horizon center.
+
+      center_y:
+        type: double
+        range: "(*,*)"
+        default: 0.0
+        description: >
+          Initial y coordinate of the horizon center.
+
+      center_z:
+        type: double
+        range: "(*,*)"
+        default: 0.0
+        description: >
+          Initial z coordinate of the horizon center.
+
+      tolerance:
+        type: double
+        range: "(0,*)"
+        default: 1.0e-10
+        description: >
+          Convergence tolerance on the L2 norm of the expansion residual.
+
+      max_iterations:
+        type: int
+        range: "[1,*)"
+        default: 50
+        description: >
+          Maximum number of Newton-Raphson iterations per find attempt.
+
+      jacobian_eps:
+        type: double
+        range: "(0,*)"
+        default: 1.0e-6
+        description: >
+          Perturbation size for finite-difference Jacobian computation.
+
+      track_center:
+        type: bool
+        default: true
+        description: >
+          If true, update the horizon center to the centroid of the
+          previously found horizon. Provides tracking.

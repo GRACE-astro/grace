@@ -53,10 +53,12 @@
 #include <grace/IO/spherical_surfaces.hh>
 #include <grace/IO/output_diagnostics.hh>
 #ifdef GRACE_ENABLE_Z4C_METRIC
-#include <grace/IO/diagnostics/puncture_tracker.hh>
 #include <grace/evolution/evolve.hh>
 #endif 
-#include <grace/IO/diagnostics/ns_tracker.hh>
+#include <grace/IO/diagnostics/co_tracker.hh>
+#ifdef GRACE_ENABLE_Z4C_METRIC
+#include <grace/IO/diagnostics/apparent_horizon.hh>
+#endif
 
 #include <grace/amr/grace_amr.hh>
 
@@ -229,6 +231,12 @@ void initialize(int& argc, char* argv[])
         grace::amr::detail::_ny = grace::config_parser::get()["amr"]["npoints_block_y"].as<int64_t>() ;
         grace::amr::detail::_nz = grace::config_parser::get()["amr"]["npoints_block_z"].as<int64_t>() ;
         grace::amr::detail::_ngz = grace::config_parser::get()["amr"]["n_ghostzones"].as<int>() ;
+        ASSERT(grace::amr::detail::_ngz % 2 == 0,
+            "n_ghostzones must be even (required by div-free prolongation), got " << grace::amr::detail::_ngz) ;
+        ASSERT(grace::amr::detail::_nx == grace::amr::detail::_ny
+            && grace::amr::detail::_ny == grace::amr::detail::_nz,
+            "npoints_block_x/y/z must all be equal, got "
+            << grace::amr::detail::_nx << ", " << grace::amr::detail::_ny << ", " << grace::amr::detail::_nz) ;
         GRACE_INFO("Allocating memory...");
         grace::variable_list::initialize() ;
         grace::runtime::initialize() ; 
@@ -236,10 +244,10 @@ void initialize(int& argc, char* argv[])
         grace::eos::initialize() ;
         // initialize trackers before reading checkpoint
         // since it contains previous locations
+        grace::co_tracker::initialize() ;
         #ifdef GRACE_ENABLE_Z4C_METRIC
-        grace::puncture_tracker::initialize() ; 
-        #endif 
-        grace::ns_tracker::initialize() ; 
+        grace::ah_finder_manager::initialize() ;
+        #endif
     }
     
     GRACE_INFO("Filling coordinate arrays...") ;
@@ -260,7 +268,21 @@ void initialize(int& argc, char* argv[])
     /**********************************************************************************/
     if ( ! started_from_checkpoint ) {
         GRACE_INFO("Setting initial data.") ; 
+
+        bool regrid_at_pre_initial = grace::get_param<bool>("amr","regrid_at_preinitial") ; 
+        int pre_initial_regrid_depth = 
+            grace::get_param<int>("amr","preinitial_regrid_depth") ;
+        if (regrid_at_pre_initial) {
+            for( int ilev=0; ilev<pre_initial_regrid_depth; ++ilev){
+                auto grid_has_changed = grace::amr::regrid() ;  
+                if (grid_has_changed) {
+                    ghost.update() ;
+                }
+            }
+        }
+        // now set id 
         grace::set_initial_data() ; 
+        
         bool regrid_at_postinitial = grace::get_param<bool>("amr","regrid_at_postinitial") ; 
         int postinitial_regrid_depth = 
             grace::get_param<int>("amr","postinitial_regrid_depth") ;
@@ -289,8 +311,8 @@ void initialize(int& argc, char* argv[])
     grace::spherical_surface_manager::initialize() ;
     //--
     #ifdef GRACE_ENABLE_Z4C_METRIC
-    grace::compute_constraint_violations() ; 
-    #endif 
+    grace::compute_constraint_violations() ;
+    #endif
     
     Kokkos::fence() ; 
     parallel::mpi_barrier() ; 

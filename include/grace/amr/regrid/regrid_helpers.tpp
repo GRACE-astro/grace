@@ -40,10 +40,8 @@
 #include <grace/utils/reductions.hh>
 
 #include <grace/coordinates/coordinate_systems.hh>
-#include <grace/IO/diagnostics/ns_tracker.hh>
-#ifdef GRACE_ENABLE_Z4C_METRIC
-#include <grace/IO/diagnostics/puncture_tracker.hh>
-#endif 
+#include <grace/IO/diagnostics/co_tracker.hh>
+
 
 #include <Kokkos_Core.hpp>
 
@@ -174,72 +172,47 @@ void evaluate_regrid_criterion( ViewT flag_view
     
 }
 
-#ifdef GRACE_ENABLE_Z4C_METRIC
-enum co_t {
-    NS, BH
-} ; 
 
-template< co_t co1, co_t co2, typename view_t >
+template< typename view_t >
 void evaluate_binary_tracker_criterion(view_t & flag_view )
 {
     DECLARE_GRID_EXTENTS; 
 
     using namespace Kokkos ; 
     using namespace grace  ; 
-    auto& ns_tracker = grace::ns_tracker::get() ; 
-    auto& bh_tracker = grace::puncture_tracker::get() ; 
+    auto& co_tracker = grace::co_tracker::get() ; 
 
-    if ( co1 == co_t::NS or co2 == co_t::NS ) {
-        ASSERT(ns_tracker.is_active(), "NS tracker specified as AMR criterion is inactive.") ; 
-    }
 
-    if ( co1 == co_t::BH or co2 == co_t::BH ) {
-        ASSERT(bh_tracker.is_active(), "BH tracker specified as AMR criterion is inactive.") ; 
-    }
+    ASSERT(co_tracker.is_active(), "CO tracker specified as AMR criterion is inactive.") ; 
+    ASSERT(co_tracker.get_n_cos()==2, "CO tracker only tracking one object" ) ; 
 
-    double co1_re_radius = get_param<double>("amr","binary_tracker_amr_criterion","compact_object_1_refine_radius") ; 
-    double co1_de_radius = get_param<double>("amr","binary_tracker_amr_criterion","compact_object_1_coarsen_radius") ; 
+    double co1_re_radius = get_param<double>("amr","binary_tracker_amr_criterion","compact_object_1_refine_radius_factor") ; 
+    double co1_de_radius = get_param<double>("amr","binary_tracker_amr_criterion","compact_object_1_coarsen_radius_factor") ; 
 
-    double co2_re_radius = get_param<double>("amr","binary_tracker_amr_criterion","compact_object_2_refine_radius") ; 
-    double co2_de_radius = get_param<double>("amr","binary_tracker_amr_criterion","compact_object_2_coarsen_radius") ; 
+    double co2_re_radius = get_param<double>("amr","binary_tracker_amr_criterion","compact_object_2_refine_radius_factor") ; 
+    double co2_de_radius = get_param<double>("amr","binary_tracker_amr_criterion","compact_object_2_coarsen_radius_factor") ; 
 
-    double min_separation = get_param<double>("amr", "binary_tracker_amr_criterion", "minimum_coordinate_separation") ; 
     double post_merger_re_radius = get_param<double>("amr", "binary_tracker_amr_criterion", "post_merger_refine_radius") ; 
     double post_merger_de_radius = get_param<double>("amr", "binary_tracker_amr_criterion", "post_merger_coarsen_radius") ; 
 
-    Kokkos::View<double[6], grace::default_space> co_locations ; 
-    auto co_locations_h = create_mirror_view(co_locations) ; 
+    Kokkos::View<double[3], grace::default_space> co1_loc("co1_location"), co2_loc("co2_location") ; 
+    auto co1_h = create_mirror_view(co1_loc) ; 
+    auto co2_h = create_mirror_view(co2_loc) ; 
 
+    auto l1 = co_tracker.get(0)->get_loc() ; 
+    auto l2 = co_tracker.get(1)->get_loc() ; 
+    for(int ii=0; ii<3; ++ii) {
+        co1_h(ii) = l1[ii] ; 
+        co2_h(ii) = l2[ii] ; 
+    } 
 
-    auto ns_locations = ns_tracker.get_ns_locations() ; 
-    auto ns_locations_h = create_mirror_view_and_copy(Kokkos::HostSpace{}, ns_locations) ; 
+    Kokkos::deep_copy(co1_loc,co1_h) ; 
+    Kokkos::deep_copy(co2_loc,co2_h) ; 
 
-    auto bh_locations = bh_tracker.get_puncture_locations() ; 
+    double const r1 = co_tracker.get(0)->get_radius() ; 
+    double const r2 = co_tracker.get(1)->get_radius() ; 
 
-
-    if ( co1 == co_t::NS ) {
-        co_locations_h(0) = ns_locations_h(0,0); co_locations_h(1) = ns_locations_h(0,1); co_locations_h(2) = ns_locations_h(0,2);
-        if ( co2 == co_t::NS ) {
-            ASSERT(ns_tracker.get_n_ns() > 1, "BNS tracker amr requested but only one NS is tracked.") ;  
-            co_locations_h(3) = ns_locations_h(1,0); co_locations_h(4) = ns_locations_h(1,1); co_locations_h(5) = ns_locations_h(1,2);
-        } else {
-            co_locations_h(3) = bh_locations[0][0]; co_locations_h(4) = bh_locations[0][1]; co_locations_h(5) = bh_locations[0][2];
-        }
-    } else {
-        co_locations_h(0) = bh_locations[0][0]; co_locations_h(1) = bh_locations[0][1]; co_locations_h(2) = bh_locations[0][2];
-        if ( co2 == co_t::NS ) {
-            co_locations_h(3) = ns_locations_h(0,0); co_locations_h(4) = ns_locations_h(0,1); co_locations_h(5) = ns_locations_h(0,2);
-        } else {
-            ASSERT(bh_tracker.get_n_punctures() > 1, "BBH tracker amr requested but only one BH is tracked.") ; 
-            co_locations_h(3) = bh_locations[1][0]; co_locations_h(4) = bh_locations[1][1]; co_locations_h(5) = bh_locations[1][2];
-        }
-    }   
-
-    double distance = 0.0 ; 
-    for( int ii=0; ii<3; ++ii) distance+=SQR(co_locations_h(ii)-co_locations_h(3+ii));
-    distance = Kokkos::sqrt(distance) ; 
-
-    Kokkos::deep_copy(co_locations,co_locations_h) ; 
+    bool has_merged = co_tracker.get_merged() ; 
 
     // Policy 
     Kokkos::TeamPolicy<default_execution_space> policy(nq, Kokkos::AUTO() ) ; 
@@ -252,7 +225,7 @@ void evaluate_binary_tracker_criterion(view_t & flag_view )
     size_t REFINE_FLAG  = amr::quadrant_flags_t::REFINE  ;  
     size_t COARSEN_FLAG = amr::quadrant_flags_t::COARSEN ; 
 
-    if (distance < min_separation) {
+    if (has_merged) {
 
         Kokkos::parallel_for( GRACE_EXECUTION_TAG("AMR","eval_refine_coarsen_criterion")
                             , policy 
@@ -327,10 +300,10 @@ void evaluate_binary_tracker_criterion(view_t & flag_view )
                     double xyz[3];
                     dc.get_physical_coordinates(i+ngz,j+ngz,k+ngz,q,xyz) ; 
                     double d1 = Kokkos::sqrt(
-                        SQR(xyz[0]-co_locations[0]) + SQR(xyz[1]-co_locations[1]) + SQR(xyz[2]-co_locations[2])
+                        SQR(xyz[0]-co1_loc(0)) + SQR(xyz[1]-co1_loc(1)) + SQR(xyz[2]-co1_loc(2))
                     ) ;
                     double d2 = Kokkos::sqrt(
-                        SQR(xyz[0]-co_locations[3]) + SQR(xyz[1]-co_locations[4]) + SQR(xyz[2]-co_locations[5])
+                        SQR(xyz[0]-co2_loc(0)) + SQR(xyz[1]-co2_loc(1)) + SQR(xyz[2]-co2_loc(2))
                     ) ; 
                     
                     if ( d1 < ldist.min_d0 ) {
@@ -347,15 +320,15 @@ void evaluate_binary_tracker_criterion(view_t & flag_view )
             Kokkos::single( 
                 Kokkos::PerTeam(team_member),
                 [&] () {
-                    bool refine   = (dist.min_d0 < co1_re_radius) || (dist.min_d1 < co2_re_radius) ;
-                    bool derefine = (dist.min_d0 > co1_de_radius) && (dist.min_d1 > co2_de_radius) ;
+                    bool refine   = (dist.min_d0 < co1_re_radius * r1) || (dist.min_d1 < co2_re_radius * r2) ;
+                    bool derefine = (dist.min_d0 > co1_de_radius * r1) && (dist.min_d1 > co2_de_radius * r2) ;
                     flag_view(q) = refine ? REFINE_FLAG : (derefine ? COARSEN_FLAG : 0) ;
                 }
             ) ; 
         }) ;
     }
 }
-#endif 
+
 }} /* namespace grace::amr */ 
 
 #endif 

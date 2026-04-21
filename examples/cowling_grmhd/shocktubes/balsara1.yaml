@@ -1,0 +1,84 @@
+# Shocktube test 1 from Balsara 2001 (https://ui.adsabs.harvard.edu/abs/2001ApJS..132...83B)
+# Npoints along x is 32 x 2 (ref level) x 5 (stacked trees)
+name: "balsara1"
+amr: {
+  # Points per quadrant
+  npoints_block_x: 32,
+  npoints_block_y: 32,
+  npoints_block_z: 32,
+  # Grid extents 
+  xmin: -0.5,
+  xmax: 0.5,
+  ymin: -0.1,
+  ymax: 0.1,
+  zmin: -0.1,
+  zmax: 0.1,
+  # Uniform grid level
+  initial_refinement_level: 1,
+  # Don't touch this 
+  n_ghostzones: 4
+}
+
+IO: {
+  # 2D out 
+  plane_surface_output_cell_variables: ["hydro"],
+  plane_surface_output_every: 100,
+  do_initial_output: true,
+
+  # console out 
+  info_output_every: 2,
+  info_output_max_reductions: ["rho", "press", "Bvec[1]", "Bdiv"],
+  info_output_min_reductions: ["rho", "press", "Bvec[1]"],
+
+  # scalar out 
+  scalar_output_every: 50,
+  scalar_output_minmax: ["rho","press","eps", "Bdiv"],
+
+  # hdf5 settings 
+  output_use_hdf5: true, 
+  hdf5_compression_level: 0, # needed on viper, does not support compression
+  hdf5_chunk_size: 128
+}
+
+system: {
+  # minimal output 
+  console_log_level: "info",
+  file_log_level: "info",
+  # no need to change this
+  n_device_streams: 4
+}
+
+evolution: {
+  time_stepper: "rk3",
+  cfl_factor: 0.25,
+  final_time: 0.45
+}
+
+grmhd: {
+  id_type: "shocktube",
+  
+  shocktube: {
+    rho_L: 1.,
+    rho_R: 0.125,
+    press_L: 1.,
+    press_R: 0.1,
+    Bx_L: 0.5,
+    Bx_R: 0.5,
+    By_L: 1.,
+    By_R: -1.,
+    Bz_L: 0.,
+    Bz_R: 0.
+  },
+
+  # This means B is set directly 
+  # by the initial data kernel 
+  B_field_initialization: "direct"
+}
+
+eos: {
+  eos_type: "ideal_gas",
+
+  ideal_gas_eos: {
+    gamma: 2.0
+  }
+}

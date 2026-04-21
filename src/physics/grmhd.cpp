@@ -74,10 +74,12 @@
 #endif
 #include <grace/coordinates/coordinates.hh>
 #include <grace/evolution/hrsc_evolution_system.hh>
+#include <grace/evolution/refluxing.hh>
 #include <grace/amr/amr_functions.hh>
 #include <grace/evolution/evolution_kernel_tags.hh>
 #include <grace/coordinates/coordinate_systems.hh>
 #include <grace/physics/eos/eos_storage.hh>
+#include <grace/physics/grmhd_B_from_A.hh>
 #include <grace/physics/grmhd.hh>
 
 #include <grace/config/config_parser.hh>
@@ -354,110 +356,16 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                         stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) = id.bz * metric.sqrtg() ; 
                     });
     } else if ( B_init_type == "from_Avec" ) {
-
         auto kind = get_param<std::string>("grmhd", "Avec_ID","Avec_kind") ;
-        ASSERT(kind == "current_loop", "Only current_loop Avec initialization supported.") ; 
-        auto cutoff_var = get_param<std::string>("grmhd", "Avec_ID","cutoff_var") ;
-        bool use_rho = cutoff_var == "rho" ; 
-        ASSERT(cutoff_var=="press" or cutoff_var=="rho", "Only pressure and density-based cutoff supported.") ; 
-        auto A_pcut = get_param<double>("grmhd", "Avec_ID","cutoff_fact") ;
-        auto A_phi = get_param<double>("grmhd", "Avec_ID","A_phi") ;
-        auto A_n = get_param<double>("grmhd", "Avec_ID","A_n") ;
-
-        auto is_binary = get_param<bool>("grmhd", "Avec_ID", "is_binary") ; 
-        
-        std::array<double,3> center_1, center_2 ; 
-        center_1[0] = get_param<double>("grmhd", "Avec_ID","x_c_1") ;
-        center_1[1] = get_param<double>("grmhd", "Avec_ID","y_c_1") ;
-        center_1[2] = get_param<double>("grmhd", "Avec_ID","z_c_1") ;
-
-        center_2[0] = get_param<double>("grmhd", "Avec_ID","x_c_2") ;
-        center_2[1] = get_param<double>("grmhd", "Avec_ID","y_c_2") ;
-        center_2[2] = get_param<double>("grmhd", "Avec_ID","z_c_2") ;
-
-        double vmax ; 
-        if ( use_rho  ) {
-            vmax = get_max_rho() ; 
+        ASSERT(kind == "poloidal_confined", "Only current_loop Avec initialization supported.") ; 
+        if ( kind == "poloidal_confined" ) {
+            setup_confined_poloidal_B_field() ; 
         } else {
-            vmax = get_max_press() ; 
+            // to extend this, see the B_from_A file. 
+            // the function that sets A is quite general,
+            // and the curl is just the curl
+            ERROR("Unsupported Avec initialization") ; 
         }
-        auto A_id = Avec_poloidal_id_t(
-            vmax * A_pcut, A_phi, A_n, is_binary, center_1, center_2
-        ) ; 
-        // Initialize Avec 
-        grace::var_array_t Ax("Ax", VEC(nx+2*ngz,ny+2*ngz+1,nz+2*ngz+1),1,nq) 
-                         , Ay("Ay", VEC(nx+2*ngz+1,ny+2*ngz,nz+2*ngz+1),1,nq) 
-                         , Az("Az", VEC(nx+2*ngz+1,ny+2*ngz+1,nz+2*ngz),1,nq) ; 
-        // Ax 
-        fill_physical_coordinates(pcoords,STAG_EDGEYZ) ;
-        id_kernel = id_t(_eos, pcoords, kernel_args... ) ; 
-        parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_AX")
-                    , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz+1,nz+2*ngz+1),nq})
-                    , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-                    {
-                        auto const id = id_kernel(VEC(i,j,k), q) ;
-                        auto var = use_rho ? id.rho : id.press ; 
-                        Ax(VEC(i,j,k),0,q) = A_id.template get<0>({pcoords(VEC(i,j,k),0,q), pcoords(VEC(i,j,k),1,q), pcoords(VEC(i,j,k),2,q)}, var); 
-                    });
-        // Ay
-        fill_physical_coordinates(pcoords,STAG_EDGEXZ) ;
-        id_kernel = id_t(_eos, pcoords, kernel_args... ) ; 
-        parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_AY")
-                    , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz+1,ny+2*ngz,nz+2*ngz+1),nq})
-                    , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-                    {
-                        auto const id = id_kernel(VEC(i,j,k), q) ; 
-                        auto var = use_rho ? id.rho : id.press ;  
-                        Ay(VEC(i,j,k),0,q) = A_id.template get<1>({pcoords(VEC(i,j,k),0,q), pcoords(VEC(i,j,k),1,q), pcoords(VEC(i,j,k),2,q)}, var); 
-                    });
-        // Az
-        fill_physical_coordinates(pcoords,STAG_EDGEXY) ;
-        id_kernel = id_t(_eos, pcoords, kernel_args... ) ; 
-        parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_AZ")
-                    , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz+1,ny+2*ngz+1,nz+2*ngz),nq})
-                    , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-                    {
-                        auto const id = id_kernel(VEC(i,j,k), q) ;  
-                        auto var = use_rho ? id.rho : id.press ; 
-                        Az(VEC(i,j,k),0,q) = A_id.template get<2>({pcoords(VEC(i,j,k),0,q), pcoords(VEC(i,j,k),1,q), pcoords(VEC(i,j,k),2,q)}, var); 
-                    });
-        // Now set B from A:
-        // B^k = \epsilon^{ijk} d/dx^j A_k = gamma^{-1/2} [ijk] d/dx^j A_k
-        // we want sqrt(gamma) B^k so the metric factors cancel out 
-        auto& idx = variable_list::get().getinvspacings() ; 
-        // Bx 
-        parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_BX")
-                    , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz+1,ny+2*ngz,nz+2*ngz),nq})
-                    , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-                    {
-                        // B^x = d/dy A^z - d/dz A^y
-                        stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) = (
-                            (Az(VEC(i  ,j+1,k  ),0,q) - Az(VEC(i  ,j  ,k  ),0,q)) * idx(1,q)
-                          + (Ay(VEC(i  ,j  ,k  ),0,q) - Ay(VEC(i  ,j  ,k+1),0,q)) * idx(2,q)
-                        ) ; 
-                    });
-        // By
-        parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_BY")
-                    , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz+1,nz+2*ngz),nq})
-                    , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-                    {  
-                        // B^y = d/dz A^x - d/dx A^z
-                        stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) = (
-                            (Ax(VEC(i  ,j  ,k+1),0,q) - Ax(VEC(i  ,j  ,k  ),0,q)) * idx(2,q)
-                          + (Az(VEC(i  ,j  ,k  ),0,q) - Az(VEC(i+1,j  ,k  ),0,q)) * idx(0,q)
-                        ) ; 
-                    });
-        // Bz 
-        parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_BZ")
-                    , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz+1),nq})
-                    , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-                    {
-                        // B^z = d/dx A^y - d/dy A^x
-                        stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) = (
-                            (Ay(VEC(i+1,j  ,k  ),0,q) - Ay(VEC(i  ,j  ,k  ),0,q)) * idx(0,q)
-                          + (Ax(VEC(i  ,j  ,k  ),0,q) - Ax(VEC(i  ,j+1,k  ),0,q)) * idx(1,q)
-                        ) ; 
-                    });
     } else if (B_init_type == "none") {
         // Strictly speaking views are zero-initialized so we don't need this,
         // but let's be pedantic
@@ -699,11 +607,7 @@ void set_conservs_from_prims() {
         double W ; 
         grmhd_get_W(gdd,z,&W) ; 
 
-        double smallbu[4]; 
-        grmhd_get_smallbu_smallb2(
-            betau, gdd, B, z, W, alp,
-            &smallbu, &(aux(VEC(i,j,k),SMALLB2_,q))
-        ) ; 
+
         /*************************************************/
         /*               Set conserved                   */
         /*************************************************/
@@ -733,5 +637,6 @@ void set_grmhd_initial_data<EOS>( )
 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
 INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;
+INSTANTIATE_TEMPLATE(grace::ideal_gas_eos_t) ;
 #undef INSTANTIATE_TEMPLATE
 }

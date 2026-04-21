@@ -375,60 +375,49 @@ struct grmhd_equations_system_t
         aux(BX_) = cons[BSXL] / metric.sqrtg() ;
         aux(BY_) = cons[BSYL] / metric.sqrtg() ;
         aux(BZ_) = cons[BSZL] / metric.sqrtg() ;
-        c2p_err_t c2p_errors ; 
-        grmhd_prims_array_t prims ;     
-        // this used to return vtilde (TODO: changeme!)   
-        conservs_to_prims<eos_t>( 
-            cons, prims, metric, this->_eos, 
+        c2p_err_t c2p_errors ;
+        grmhd_prims_array_t prims ;
+        double D_old = vars(DENS_) ;
+        conservs_to_prims<eos_t>(
+            cons, prims, metric, this->_eos,
             this->atmo_params, this->excision_params, this->c2p_params, rtp,
             c2p_errors ) ;
-        
-        
-        /* Write new prims */
-        aux(RHO_)     = prims[RHOL]    ; 
-        aux(EPS_)     = prims[EPSL]    ; 
-        aux(PRESS_)   = prims[PRESSL]  ; 
-        aux(TEMP_)    = prims[TEMPL]   ; 
-        aux(ENTROPY_) = prims[ENTL]    ; 
-        aux(YE_)      = prims[YEL]     ;
-        aux(ZVECX_)   = prims[ZXL]     ; 
-        aux(ZVECY_)   = prims[ZYL]     ; 
-        aux(ZVECZ_)   = prims[ZZL]     ; 
 
-        aux(C2P_ERR_) = 0;
-        
+
+        /* Write new prims */
+        aux(RHO_)     = prims[RHOL]    ;
+        aux(EPS_)     = prims[EPSL]    ;
+        aux(PRESS_)   = prims[PRESSL]  ;
+        aux(TEMP_)    = prims[TEMPL]   ;
+        aux(ENTROPY_) = prims[ENTL]    ;
+        aux(YE_)      = prims[YEL]     ;
+        aux(ZVECX_)   = prims[ZXL]     ;
+        aux(ZVECY_)   = prims[ZYL]     ;
+        aux(ZVECZ_)   = prims[ZZL]     ;
+
+        aux(C2P_ERR_)=0;
         if ( c2p_errors.test(c2p_err_enum_t::C2P_RESET_DENS) ) {
-            aux(C2P_ERR_) += Kokkos::fabs(cons[DENSL]-vars(DENS_));
-            vars(DENS_) = cons[DENSL] ; 
+            aux(C2P_DENS_ERR_) += vars(DENS_) - cons[DENSL] ;
+            aux(C2P_ERR_) += Kokkos::fabs(vars(DENS_) - cons[DENSL])/(1e-50+Kokkos::fabs(cons[DENSL])) ; ;
+            vars(DENS_) = cons[DENSL] ;   
         }
         if ( c2p_errors.test(c2p_err_enum_t::C2P_RESET_STILDE) ) {
             for( int ii=0; ii<3; ++ii) {
-                aux(C2P_ERR_) += Kokkos::fabs(cons[STXL+ii]-vars(SX_+ii));
-                vars(SX_+ii)=cons[STXL+ii] ; 
+                aux(C2P_ERR_) += Kokkos::fabs(vars(SX_+ii) - cons[STXL+ii])/(1e-50+Kokkos::fabs(cons[STXL+ii])) ;
+                vars(SX_+ii)=cons[STXL+ii] ;
             }
         }
         if ( c2p_errors.test(c2p_err_enum_t::C2P_RESET_TAU) ) {
-            aux(C2P_ERR_) += Kokkos::fabs(cons[TAUL]-vars(TAU_));
+            aux(C2P_ERR_) += Kokkos::fabs(vars(TAU_) - cons[TAUL])/(1e-50+Kokkos::fabs(cons[TAUL])) ;
             vars(TAU_)=cons[TAUL];
         }
         if ( c2p_errors.test(c2p_err_enum_t::C2P_RESET_ENTROPY) ) {
-            vars(ENTROPYSTAR_) = cons[ENTSL] ; 
+            vars(ENTROPYSTAR_) = cons[ENTSL] ;
         }
         if ( c2p_errors.test(c2p_err_enum_t::C2P_RESET_YE) ) {
-            aux(C2P_ERR_) += Kokkos::fabs(cons[YESL]-vars(YESTAR_));
-            vars(YESTAR_) = cons[YESL] ; 
+            aux(C2P_ERR_) += Kokkos::fabs(vars(YESTAR_) - cons[YESL])/(1e-50+Kokkos::fabs(cons[YESL])) ;
+            vars(YESTAR_) = cons[YESL] ;
         }
-        /* Compute W */
-        double const W = Kokkos::sqrt(1.+metric.square_vec({prims[ZXL],prims[ZYL],prims[ZZL]})) ;
-        /* Compute smallb2 */
-        double smallbu[4] ; 
-        double b2 ;
-        grmhd_get_smallbu_smallb2(
-            metric._beta.data(), metric._g.data(),
-            &(prims[BXL]), &(prims[ZXL]), W, metric.alp(),
-            &smallbu, &b2 
-        ) ; 
-        aux(SMALLB2_) = b2 ; 
     };
     /**
      * @brief Compute maximum absolute value eigenspeed.
@@ -1183,6 +1172,7 @@ void set_grmhd_initial_data<EOS>( )
 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
 INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;
+INSTANTIATE_TEMPLATE(grace::ideal_gas_eos_t) ;
 #undef INSTANTIATE_TEMPLATE
 /***********************************************************************/
 }

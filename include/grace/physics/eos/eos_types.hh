@@ -30,6 +30,7 @@
 
 #include <grace/physics/eos/hybrid_eos.hh>
 #include <grace/physics/eos/piecewise_polytropic_eos.hh>
+#include <grace/physics/eos/ideal_gas_eos.hh>
 #include <grace/physics/eos/tabulated_eos.hh>
 
 #endif 

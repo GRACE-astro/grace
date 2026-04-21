@@ -48,6 +48,9 @@
 #include <grace/physics/z4c.hh>
 #endif
 #include <grace/IO/diagnostics/outflow_diagnostics.hh>
+#include <grace/IO/diagnostics/mag_energy.hh>
+#include <grace/IO/diagnostics/grmhd_diagnostics.hh>
+
 #include <Kokkos_Core.hpp>
 
 #include <array>
@@ -84,6 +87,12 @@ void output_diagnostics() {
     #endif
     outflows outfl{} ; 
     outfl.compute_and_write() ; 
+
+    em_energy_diagnostic em_energy{} ; 
+    em_energy.compute_and_write() ; 
+
+    grmhd_diagnostics grmhd_diag{} ;
+    grmhd_diag.compute_and_write() ;
 }
 
 void initialize_diagnostic_files() {
@@ -95,6 +104,13 @@ void initialize_diagnostic_files() {
     #endif
     outflows outfl{} ; 
     outfl.initialize_files() ; 
+
+    em_energy_diagnostic em_energy{} ; 
+    em_energy.initialize_files() ;
+
+    grmhd_diagnostics grmhd_diag{} ;
+    grmhd_diag.initialize_files() ;
+
     parallel::mpi_barrier() ;
 }
 

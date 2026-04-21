@@ -126,19 +126,7 @@ void regrid_transaction_t::evaluate_criterion() {
         evaluate_regrid_criterion( d_regrid_flags
                                 , kernel) ;
     } else if ( ref_criterion == "binary_tracker") {
-        #ifdef GRACE_ENABLE_Z4C_METRIC
-        auto co1_kind = get_param<std::string>("amr", "binary_tracker_amr_criterion", "compact_object_1_kind") ; 
-        auto co2_kind = get_param<std::string>("amr", "binary_tracker_amr_criterion", "compact_object_2_kind") ; 
-        if ( co1_kind == "NS" and co2_kind == "NS") {
-            evaluate_binary_tracker_criterion<co_t::NS,co_t::NS>(d_regrid_flags) ; 
-        } else if (co1_kind == "BH" and co2_kind == "BH") {
-            evaluate_binary_tracker_criterion<co_t::BH,co_t::BH>(d_regrid_flags) ;
-        } else {
-             evaluate_binary_tracker_criterion<co_t::NS,co_t::BH>(d_regrid_flags) ; 
-        }
-        #else 
-        ERROR("binary_tracker amr criterion requires dynamical metric.") ;
-        #endif 
+        evaluate_binary_tracker_criterion(d_regrid_flags) ; 
     } else {
         ERROR("Unsupported refinement criterion.") ; 
     }
@@ -368,8 +356,8 @@ void regrid_transaction_t::partition_grid() {
     /*                                    Partition forest                                    */
     /******************************************************************************************/
     size_t transfer_count = p4est_partition_ext( forest::get().get()
-                                            , 0
-                                            , nullptr  ) ; 
+                                            , 1
+                                            , nullptr  ) ;
     new_glob_qoffsets = amr::get_global_quadrant_offsets() ; 
     /******************************************************************************************/
     /* Now we know the quad count                                                             */
@@ -516,18 +504,19 @@ void regrid_transaction_t::build_task_list() {
         )\
     )
     #define INSERT_FUPACK_TASKS(axis,idx)\
-    if( remote_fine_face_recv_##axis[r].size() > 0)\
-    task_list.push_back(\
-        std::make_unique<gpu_task_t>(\
-            make_unpack_face<decltype(sstate_dst.face_staggered_fields_##axis)>(\
-                sstate_dst.face_staggered_fields_##axis,\
-                _recv_fbuf_##axis,\
-                remote_fine_face_recv_##axis[r],\
-                copy_stream,nvars_fs,r,mpi_recv_tid[r][idx],task_counter,task_list\
+    if( remote_fine_face_recv_##axis[r].size() > 0){\
+        task_list.push_back(\
+            std::make_unique<gpu_task_t>(\
+                make_unpack_face<decltype(sstate_dst.face_staggered_fields_##axis)>(\
+                    sstate_dst.face_staggered_fields_##axis,\
+                    _recv_fbuf_##axis,\
+                    remote_fine_face_recv_##axis[r],\
+                    copy_stream,nvars_fs,r,mpi_recv_tid[r][idx],task_counter,task_list\
+                )\
             )\
-        )\
-    );\
-    prolong_fs_dependencies.insert(task_list.back()->task_id)
+        );\
+        prolong_fs_dependencies.insert(task_list.back()->task_id);\
+    }
 
     for( int r=0; r<nprocs; ++r) {
         INSERT_FPACK_TASKS(x,0);

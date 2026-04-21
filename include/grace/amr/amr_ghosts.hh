@@ -317,12 +317,12 @@ struct hanging_edge_reflux_device_desc_t {
 } ; 
 /**************************************************************************************************/
 struct p4est_iter_data_t {
-    std::vector<quad_neighbors_descriptor_t>* ghost_layer ; 
-    std::vector<hanging_face_reflux_desc_t>* reflux_faces ; 
+    std::vector<quad_neighbors_descriptor_t>* ghost_layer ;
+    std::vector<hanging_face_reflux_desc_t>* reflux_faces ;
     std::vector<full_face_reflux_desc_t>* reflux_coarse_faces ;
-    std::vector<hanging_edge_reflux_desc_t>* reflux_edges ; 
-    std::vector<hanging_edge_reflux_desc_t>* reflux_coarse_edges ; 
-} ; 
+    std::vector<hanging_edge_reflux_desc_t>* reflux_edges ;
+    std::vector<hanging_edge_reflux_desc_t>* reflux_coarse_edges ;
+} ;
 /**************************************************************************************************/
 template < amr::element_kind_t elem_kind > 
 inline uint8_t 

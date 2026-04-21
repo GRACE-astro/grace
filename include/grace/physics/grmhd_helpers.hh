@@ -165,6 +165,11 @@ atmo_params_t get_atmo_params()
         grace::eos::get().get_eos<grace::tabulated_eos_t>().ye_atmosphere() ;
     atmo_params.temp_fl =   
         grace::eos::get().get_eos<grace::tabulated_eos_t>().temp_atmosphere() ;
+  } else if ( eos_type == "ideal_gas" ) {
+    atmo_params.ye_fl =   
+        grace::eos::get().get_eos<grace::ideal_gas_eos_t>().ye_atmosphere() ;
+    atmo_params.temp_fl =   
+        grace::eos::get().get_eos<grace::ideal_gas_eos_t>().temp_atmosphere() ;
   }
   
   atmo_params.atmo_tol = grace::get_param<double>("grmhd","atmosphere","atmo_tol") ; 

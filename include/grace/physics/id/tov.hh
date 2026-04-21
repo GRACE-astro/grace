@@ -73,7 +73,6 @@
     double riso  = state[3] ; 
 
     eos_err_t err ;
-    double ye = 0 ;
     auto const e = _eos.energy_cold__press_cold(press, err) ; 
     double const A = 1.0/(1.0-2.0*m/r) ; 
     double const B = (m + 4*M_PI*SQR(r)*r * press) / (SQR(r)) ; 

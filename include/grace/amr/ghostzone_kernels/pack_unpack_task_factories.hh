@@ -98,7 +98,7 @@ gpu_task_t make_pack_task(
 {
     GRACE_TRACE("Recording pack task (tid {}), # of elements {}, send_task_id {}", task_counter, sb.size(), send_task_id[rank]) ; 
     // construct pack task
-    Kokkos::DefaultExecutionSpace exec_space{pup_stream} ; 
+    auto exec_space = grace::make_exec_space(pup_stream) ;
     Kokkos::View<size_t*> pack_src_qid{"pack_src_qid", sb.size()}
                         , pack_dest_qid{"pack_dst_qid", sb.size()} 
                         , pack_src_cbuf_qid{"pack_src_cbuf_qid", cbuf_sb.size()}
@@ -228,7 +228,7 @@ gpu_task_t make_pack_fine_task(
 {
     GRACE_TRACE("Recording pack-fine task (tid {}), # of elements {}, send_task_id {}", task_counter, sb.size(), send_task_id[rank]) ; 
     // construct pack task
-    Kokkos::DefaultExecutionSpace exec_space{pup_stream} ; 
+    auto exec_space = grace::make_exec_space(pup_stream) ;
     Kokkos::View<size_t*> pack_src_qid{"pack_src_qid", sb.size()}
                         , pack_dest_qid{"pack_dst_qid", sb.size()} ; 
     Kokkos::View<uint8_t*> pack_src_elem{"unpack_dst_eid", sb.size()}  ;
@@ -328,7 +328,7 @@ gpu_task_t make_pack_to_cbuf_task(
 {
     GRACE_TRACE("Recording pack-to-cbuf task (tid {}), # of elements {}", task_counter, sb.size()) ; 
     // construct pack task
-    Kokkos::DefaultExecutionSpace exec_space{pup_stream} ; 
+    auto exec_space = grace::make_exec_space(pup_stream) ;
     Kokkos::View<size_t*> pack_src_qid{"pack_src_qid", sb.size()}
                         , pack_dest_qid{"pack_dst_qid", sb.size()} ; 
     Kokkos::View<uint8_t*> pack_src_elem{"unpack_dst_eid", sb.size()}  ;
@@ -432,7 +432,7 @@ gpu_task_t make_unpack_task(
 {
     GRACE_TRACE("Recording unpack task (tid {}), # of elements {}", task_counter, rb.size()) ; 
     // construct unpack task 
-    Kokkos::DefaultExecutionSpace exec_space{pup_stream} ; 
+    auto exec_space = grace::make_exec_space(pup_stream) ;
     Kokkos::View<size_t*> unpack_src_qid{"unpack_src_qid", rb.size()}
                         , unpack_dest_qid{"unpack_dst_qid", rb.size()} 
                         , unpack_src_cbuf_qid{"unpack_src_cbuf_qid", cbuf_rb.size()}
@@ -572,7 +572,7 @@ gpu_task_t make_unpack_to_cbuf_task(
 {
     GRACE_TRACE("Recording unpack-to-cbuf task (tid {}), # of elements {}", task_counter, rb.size()) ; 
     // construct unpack task 
-    Kokkos::DefaultExecutionSpace exec_space{pup_stream} ; 
+    auto exec_space = grace::make_exec_space(pup_stream) ;
     Kokkos::View<size_t*> cbuf_qid_d{"unpack_to_cbuf_cbuf_qid", rb.size()}
                         , ghost_qid_d{"unpack_to_cbuf_ghost_qid", rb.size()} ; 
     Kokkos::View<uint8_t*> cbuf_elem_d{"unpack_to_cbuf_cbuf_eid", rb.size()}
@@ -673,7 +673,7 @@ gpu_task_t make_unpack_from_cbuf_task(
 {
     GRACE_TRACE("Recording unpack-from-cbuf task (tid {}), # of elements {}", task_counter, rb.size()) ; 
     // construct unpack task 
-    Kokkos::DefaultExecutionSpace exec_space{pup_stream} ; 
+    auto exec_space = grace::make_exec_space(pup_stream) ;
     Kokkos::View<size_t*> view_qid_d{"unpack_from_cbuf_view_qid", rb.size()}
                         , ghost_qid_d{"unpack_from_cbuf_ghost_qid", rb.size()} ; 
     Kokkos::View<uint8_t*> view_elem_d{"unpack_from_cbuf_view_eid", rb.size()}

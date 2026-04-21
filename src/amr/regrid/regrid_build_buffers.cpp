@@ -110,18 +110,24 @@ void regrid_transaction_t::build_buffers() {
                                 desc.qid_local = quad_id_local ; 
                                 
                                 recv_x[owner_rank].push_back(desc) ; 
+
+                                have_fine_data_x[P4EST_CHILDREN*iquad + ic_vol][side] = 1 ; 
                             } else if ( axis == 1 ) { 
                                 // y face, cross directions are x and z
                                 int ic_vol = (icx<<0) + (side<<1) + (icy<<2) ;
                                 auto quad_id_local = refine_incoming[P4EST_CHILDREN*iquad + ic_vol];
                                 desc.qid_local = quad_id_local ; 
                                 recv_y[owner_rank].push_back(desc) ; 
+
+                                have_fine_data_y[P4EST_CHILDREN*iquad + ic_vol][side] = 1 ; 
                             } else { 
                                 // z face, cross directions are x and y
                                 int ic_vol = (icx<<0) + (icy<<1) + (side<<2);
                                 auto quad_id_local = refine_incoming[P4EST_CHILDREN*iquad + ic_vol];
                                 desc.qid_local = quad_id_local ; 
                                 recv_z[owner_rank].push_back(desc) ; 
+
+                                have_fine_data_z[P4EST_CHILDREN*iquad + ic_vol][side] = 1 ; 
                             }
                         } else {
                             fine_interface_desc_t desc ; 
@@ -157,11 +163,11 @@ void regrid_transaction_t::build_buffers() {
         } // loop faces
     } // loop quadrants 
 
-    // we are now done with local data. 
-    // For remote buffers: 
-    // now we make a call to alltoallv 
+    // we are now done with local data.
+    // For remote buffers:
+    // now we make a call to alltoallv
     // to figure out what we need to send.
-    // we will receive the data from the 
+    // we will receive the data from the
     // descriptors above.
     
     
@@ -302,7 +308,8 @@ void regrid_transaction_t::build_buffers() {
     // Note on send: The local source of data was recorder by
     // remote partner under qid_remote and which_tree. 
     // NOTE: docs of p4est_ghosts say that the piggy3 local number
-    // is CUMULATIVE over trees! 
+    // is CUMULATIVE over trees! AND that it contains data 
+    // when the quadrant is in the ghost array.
     #define FILL_BUF_DESC(axis)\
     remote_fine_face_recv_##axis.resize(nprocs);\
     remote_fine_face_send_##axis.resize(nprocs);\
@@ -310,9 +317,9 @@ void regrid_transaction_t::build_buffers() {
         for( int ircv=0; ircv<recvcounts_##axis[r]; ++ircv) {\
             fine_interface_desc_t desc; \
             desc.qid_src = ircv ; \
-            desc.qid_dst = recvbuf_##axis[ircv+rdispls_##axis[r]].qid_local ;\
+            desc.qid_dst = recvbuf_##axis[ircv+rdispls_##axis[r]].qid_local  ;\
             desc.fid_src = recvbuf_##axis[ircv+rdispls_##axis[r]].fid_remote ;\
-            desc.fid_dst = recvbuf_##axis[ircv+rdispls_##axis[r]].fid_local ;\
+            desc.fid_dst = recvbuf_##axis[ircv+rdispls_##axis[r]].fid_local  ;\
             remote_fine_face_recv_##axis[r].push_back(desc);\
             GRACE_TRACE("[REGRID] Remote face recv rank r {} qsrc {} qdst {} fsrc {} fdst {}", r, desc.qid_src, desc.qid_dst, desc.fid_src, desc.fid_dst  );\
         }\
@@ -320,7 +327,7 @@ void regrid_transaction_t::build_buffers() {
             auto const& info = sendbuf_##axis[isnd+sdispls_##axis[r]];\
             fine_interface_desc_t desc; \
             desc.qid_dst = isnd ; \
-            desc.qid_src = info.qid_remote ;/*+ grace::amr::get_local_quadrants_offset(info.which_tree);*/\
+            desc.qid_src = info.qid_remote ;\
             desc.fid_src = info.fid_remote ;\
             desc.fid_dst = info.fid_local  ;\
             remote_fine_face_send_##axis[r].push_back(desc);\
