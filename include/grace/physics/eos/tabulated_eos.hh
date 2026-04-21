@@ -853,6 +853,7 @@ class tabulated_eos_t
         }
     } 
     /**************************************************************************************/
+    #if 0 
     // no checks, takes and returns log! 
     double KOKKOS_INLINE_FUNCTION
     ltemp__eps_lrho_ye(double& eps, double& lrho, double& ye, err_t& err) const
@@ -877,18 +878,89 @@ class tabulated_eos_t
         /************************************************/
         return utils::brent(rootfun,ltempmin,ltempmax, 1e-14/*FIXME tolerance?*/) ; 
     } 
+    #else
+    // AthenaK-style (following suggestion by Peter Hammond): bisect for the logT-grid interval
+    // [il, ih=il+1] that brackets leps at fixed (lrho, ye), then recover
+    // logT from the linear relation implied by the trilinear interpolator.
+    // Fixing the logT axis to an exact grid value collapses its weights to
+    // (1,0), so within the bracketing slab the interpolated leps is exactly
+    // linear in logT and no further rootfinding is needed.
+    double KOKKOS_INLINE_FUNCTION
+    ltemp__eps_lrho_ye(double& eps, double& lrho, double& ye, err_t& err) const
+    {
+        auto leps = Kokkos::log(eps + energy_shift) ;
+        auto lepsmin = tables.interp(lrho,ltempmin,ye,TABEPS) ;
+        auto lepsmax = tables.interp(lrho,ltempmax,ye,TABEPS) ;
+        if ( leps <= lepsmin ) {
+            eps = Kokkos::exp(lepsmin) - energy_shift ;
+            err.set(EOS_EPS_TOO_LOW) ;
+            return ltempmin ;
+        }
+        if ( leps >= lepsmax ) {
+            eps = Kokkos::exp(lepsmax) - energy_shift ;
+            err.set(EOS_EPS_TOO_HIGH) ;
+            return ltempmax ;
+        }
+        /************************************************/
+        // Bisect. Invariant: el <= leps <= eh, with
+        //   el = bilin(lrho, logT(il), ye),
+        //   eh = bilin(lrho, logT(ih), ye).
+        int il = 0, ih = nT - 1 ;
+        double el = lepsmin, eh = lepsmax ;
+        while ( (ih - il) > 1 ) {
+            int im = (il + ih) / 2 ;
+            double em = tables.interp(lrho, tables.ltemp(im), ye, TABEPS) ;
+            if ( em > leps ) {
+                ih = im ;
+                eh = em ;
+            } else {
+                il = im ;
+                el = em ;
+            }
+        }
+        /************************************************/
+        // Linear interpolation in logT across the bracketing slab.
+        double ltl = tables.ltemp(il) ;
+        double lth = tables.ltemp(ih) ;
+        return ltl + (leps - el) * (lth - ltl) / (eh - el) ;
+    }
+    #endif
     /**************************************************************************************/
-    // no checks, takes and returns log! 
+    // Same bisect-then-linear strategy as ltemp__eps_lrho_ye. Entropy is
+    // stored unlogged in the table but the interpolant is still linear in
+    // logT, so the slab inversion is exact. Callers are expected to clamp
+    // entropy to [smin,smax] at this (rho,ye) beforehand; the boundary
+    // checks below are defensive.
     double KOKKOS_INLINE_FUNCTION
     ltemp__entropy_lrho_ye(double& entropy, double& lrho, double& ye) const
-    {   
+    {
+        auto smin = tables.interp(lrho,ltempmin,ye,TABENTROPY) ;
+        auto smax = tables.interp(lrho,ltempmax,ye,TABENTROPY) ;
+        if ( entropy <= smin ) return ltempmin ;
+        if ( entropy >= smax ) return ltempmax ;
         /************************************************/
-        auto rootfun = [this,lrho,ye,entropy] (double lt) {
-            return tables.interp(lrho,lt,ye,TABENTROPY) - entropy ;  
-        } ; 
+        // Bisect. Invariant: sl <= entropy <= sh, with
+        //   sl = bilin(lrho, logT(il), ye),
+        //   sh = bilin(lrho, logT(ih), ye).
+        int il = 0, ih = nT - 1 ;
+        double sl = smin, sh = smax ;
+        while ( (ih - il) > 1 ) {
+            int im = (il + ih) / 2 ;
+            double sm = tables.interp(lrho, tables.ltemp(im), ye, TABENTROPY) ;
+            if ( sm > entropy ) {
+                ih = im ;
+                sh = sm ;
+            } else {
+                il = im ;
+                sl = sm ;
+            }
+        }
         /************************************************/
-        return utils::brent(rootfun,ltempmin,ltempmax, 1e-14/*FIXME tolerance?*/) ; 
-    } 
+        // Linear interpolation in logT across the bracketing slab.
+        double ltl = tables.ltemp(il) ;
+        double lth = tables.ltemp(ih) ;
+        return ltl + (entropy - sl) * (lth - ltl) / (sh - sl) ;
+    }
     /**************************************************************************************/
     /**************************************************************************************/
     double KOKKOS_INLINE_FUNCTION
