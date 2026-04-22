@@ -945,8 +945,9 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
                 loc,radius,name 
             )) ; 
         } else {
-            ERROR("Unknown co kind in checkpoint " << kind ) ; 
+            ERROR("Unknown co kind in checkpoint " << kind ) ;
         }
+        HDF5_CALL(err, H5Gclose(co_grp));
     };
     auto& co_tracker = grace::co_tracker::get() ;
     if (co_tracker.is_active()) {
@@ -980,6 +981,7 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
         std::vector<std::unique_ptr<co_tracker_t>> co_list ; 
         for( int ico=0; ico<ncos; ++ico ) read_co_dataset(tracker_grp,ico,co_list) ;
         co_tracker.set_co_list(std::move(co_list)) ;
+        HDF5_CALL(err, H5Gclose(tracker_grp));
     }
 
     // if present, load mid-run B-field injection state
@@ -1083,6 +1085,7 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
     /* Cleanup                                                            */
     /**********************************************************************/
     HDF5_CALL(err,H5Pclose(dxpl)) ;
+    HDF5_CALL(err,H5Pclose(plist_id)) ;
     /**********************************************************************/
     /* Compute auxiliary quantities                                       */
     /**********************************************************************/
