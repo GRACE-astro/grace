@@ -249,14 +249,19 @@ grace::tabulated_eos_t read_scollapse_table(std::string const& fname, std::strin
     hid_t mb_data;
     auto status = H5Lexists(file, "/mass_factor", H5P_DEFAULT);
 
-    double baryon_mass ; 
-    if (status) {
+    bool const force_mu = grace::get_param<bool>("eos","tabulated_eos","force_mu") ;
+    double const mb_MeV = force_mu ? mu_MeV : mn_MeV ;
+    double baryon_mass ;
+    if (force_mu) {
+        baryon_mass = mb_MeV * MeV_to_g * uconv.mass ;
+        GRACE_INFO("force_mu set: using atomic mass unit baryon mass {} g (overriding any table value)", baryon_mass) ;
+    } else if (status) {
         HDF5_CALL(mb_data, H5Dopen(file, "mass_factor", H5P_DEFAULT));
         H5Dread(mb_data, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT,
                 &baryon_mass);
-        GRACE_INFO("Read baryon mass from file {} g", baryon_mass) ; 
+        GRACE_INFO("Read baryon mass from file {} g", baryon_mass) ;
     } else {
-        baryon_mass = mn_MeV * MeV_to_g * uconv.mass ;
+        baryon_mass = mb_MeV * MeV_to_g * uconv.mass ;
         GRACE_INFO("Using default baryon mass {} g", baryon_mass);
     }
 
@@ -411,16 +416,25 @@ grace::tabulated_eos_t read_scollapse_table(std::string const& fname, std::strin
 
 }
 
-grace::tabulated_eos_t read_compose_table(std::string const& fname, std::string const& cold_tab_fname) 
+grace::tabulated_eos_t read_compose_table(std::string const& fname, std::string const& cold_tab_fname)
 {
-    using namespace grace ; 
-    using namespace grace::physical_constants ; 
+    using namespace grace ;
+    using namespace grace::physical_constants ;
 
-    auto const uconv = COMPOSE_units / GEOM_units; 
+    auto const uconv = COMPOSE_units / GEOM_units;
 
-    GRACE_INFO("Reading compose table {}", fname) ; 
+    // Baryon-mass convention. force_mu=true matches FUKA / LORENE / Margherita;
+    // force_mu=false is strict CompOSE (m_n). Used both in the eps transform
+    // (below) and in the rho-axis scaling (further down).
+    bool const force_mu = grace::get_param<bool>("eos","tabulated_eos","force_mu") ;
+    double const mb_MeV = force_mu ? mu_MeV : mn_MeV ;
+    if (force_mu) {
+        GRACE_INFO("force_mu set: using atomic mass unit (m_u = {} MeV) for nb -> rho conversion", mb_MeV) ;
+    }
 
-    herr_t h5err ; 
+    GRACE_INFO("Reading compose table {}", fname) ;
+
+    herr_t h5err ;
 
     hid_t file ; 
     HDF5_CALL(file,H5Fopen(fname.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT) ) ; 
@@ -548,8 +562,22 @@ grace::tabulated_eos_t read_compose_table(std::string const& fname, std::string 
         alltables(i,j,k,iv) = thermo_table[indold];
     }
 
-    // find minimum un-shifted epsilon 
-    double epsmin=std::numeric_limits<double>::max() ; 
+    // CompOSE stores eps as e_phys/(nb*m_n*c^2) - 1. If force_mu was set above,
+    // the rho axis is now nb*m_u, so eps must be redefined consistently as
+    // e_phys/(nb*m_u*c^2) - 1 = (m_n/m_u)(1+eps_n) - 1, otherwise rho*(1+eps)
+    // no longer equals the physical energy density and C2P breaks.
+    if (force_mu) {
+        double const r = mn_MeV / mu_MeV ;
+        for (int k = 0; k < nye; k++)
+        for (int j = 0; j < ntemp; j++)
+        for (int i = 0; i < nrho; i++) {
+            double const eps_n = alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABEPS) ;
+            alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABEPS) = r * (1.0 + eps_n) - 1.0 ;
+        }
+    }
+
+    // find minimum un-shifted epsilon
+    double epsmin=std::numeric_limits<double>::max() ;
     for (int k = 0; k < nye; k++)
     for (int j = 0; j < ntemp; j++)
     for (int i = 0; i < nrho; i++) {
@@ -602,10 +630,10 @@ grace::tabulated_eos_t read_compose_table(std::string const& fname, std::string 
     if(yav_table != nullptr) delete[] yav_table;
     if(aav_table != nullptr) delete[] aav_table;
 
-    double baryon_mass = mn_MeV * uconv.mass ;
+    double baryon_mass = mb_MeV * uconv.mass ;
 
 
-    for (int i = 0; i < nrho; i++) logrho[i] = log(logrho[i] * mn_MeV * uconv.mass_density );
+    for (int i = 0; i < nrho; i++) logrho[i] = log(logrho[i] * mb_MeV * uconv.mass_density );
     
     for (int i = 0; i < ntemp; i++) logtemp[i] = log(logtemp[i]);
 

@@ -204,9 +204,11 @@ struct em_energy_diagnostic {
             MPI_SUM,                    // op
             MPI_COMM_WORLD              // comm
         );
-        E     = em_integrals_glob[0] ; 
-        Epol  = em_integrals_glob[1] ; 
-        Etor  = em_integrals_glob[2] ; 
+        // Scalar volume integrals; report full-domain physical values.
+        int const sym_mult = scalar_symmetry_multiplier();
+        E     = em_integrals_glob[0] * sym_mult ;
+        Epol  = em_integrals_glob[1] * sym_mult ;
+        Etor  = em_integrals_glob[2] * sym_mult ;
     }
     //**************************************************************************************************
     private: 

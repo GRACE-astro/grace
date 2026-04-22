@@ -66,9 +66,33 @@ struct fuka_id_t {
         using namespace Kokkos ; 
         
         atmo_params = get_atmo_params() ;
-        zero_shift = get_param<bool>("grmhd","fuka","set_shift_to_zero") ; 
+        zero_shift = get_param<bool>("grmhd","fuka","set_shift_to_zero") ;
 
-        GRACE_VERBOSE("Setting FUKA initial data.") ; 
+        // FUKA exports rho using the atomic mass unit (m_u) convention.
+        // If a tabulated EOS is in use it MUST be in the same convention,
+        // otherwise the cold-table inversion silently biases the recovered
+        // rest-mass density by ~m_n/m_u ≈ 0.87%, which translates to ~1 rad
+        // of GW phase drift over a BNS inspiral.
+        {
+            auto const eos_type = get_param<std::string>("eos","eos_type") ;
+            bool tabulated_in_use = (eos_type == "tabulated") ;
+            if (eos_type == "hybrid") {
+                tabulated_in_use = (get_param<std::string>("eos","hybrid_eos","cold_eos_type") == "tabulated") ;
+            }
+            if (tabulated_in_use) {
+                bool const force_mu = get_param<bool>("eos","tabulated_eos","force_mu") ;
+                if (!force_mu) {
+                    ERROR("FUKA initial data with a tabulated EOS requires "
+                          "eos.tabulated_eos.force_mu = true so that the "
+                          "table's nb <-> rho convention matches FUKA's "
+                          "(m_u = 931.494 MeV/c^2). Running with force_mu=false "
+                          "introduces a ~0.87% bias in M_baryon and ~1 rad "
+                          "of GW phase drift. See userguide.") ;
+                }
+            }
+        }
+
+        GRACE_VERBOSE("Setting FUKA initial data.") ;
 
         GRACE_VERBOSE("Initial data type is: {}.", id_type ) ;
         GRACE_VERBOSE("Directory: {}.",id_dir) ;
@@ -121,14 +145,16 @@ struct fuka_id_t {
     }
 
     grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE GRACE_DEVICE_EXTERNAL_LINKAGE
-    operator() (VEC(int const i, int const j, int const k), int const q) const 
+    operator() (VEC(int const i, int const j, int const k), int const q) const
     {
-        grmhd_id_t id ;     
+        grmhd_id_t id ;
         eos_err_t eos_err ;
-        bool reset_eps{false} ; // fixme 
+        bool reset_eps{false} ; // fixme
+        // FUKA's rho and eps are imported directly (slots 16 and 20 in _data);
+        // see import_kadath.cpp for the layout.
         double e = _data(16,i,j,k,q) ; 
         id.rho = _eos.rho__energy_cold_impl(e, eos_err) ; 
-        id.eps = e/id.rho - 1. ; 
+        id.eps = e/id.rho - 1. ;
 
         auto rho_atm = atmo_params.rho_fl ; 
         auto ye_atm = atmo_params.ye_fl ; 
