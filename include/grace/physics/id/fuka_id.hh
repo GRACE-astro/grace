@@ -69,10 +69,10 @@ struct fuka_id_t {
         zero_shift = get_param<bool>("grmhd","fuka","set_shift_to_zero") ;
 
         // FUKA exports rho using the atomic mass unit (m_u) convention.
-        // If a tabulated EOS is in use it MUST be in the same convention,
-        // otherwise the cold-table inversion silently biases the recovered
-        // rest-mass density by ~m_n/m_u ≈ 0.87%, which translates to ~1 rad
-        // of GW phase drift over a BNS inspiral.
+        // If a tabulated EOS is in use the user should be aware that if 
+        // they stick to the compose convention of defining the baryon
+        // mass as the neutron mass the system's baryon mass will disagree
+        // with what FUKA reports..
         {
             auto const eos_type = get_param<std::string>("eos","eos_type") ;
             bool tabulated_in_use = (eos_type == "tabulated") ;
@@ -82,12 +82,14 @@ struct fuka_id_t {
             if (tabulated_in_use) {
                 bool const force_mu = get_param<bool>("eos","tabulated_eos","force_mu") ;
                 if (!force_mu) {
-                    ERROR("FUKA initial data with a tabulated EOS requires "
-                          "eos.tabulated_eos.force_mu = true so that the "
-                          "table's nb <-> rho convention matches FUKA's "
-                          "(m_u = 931.494 MeV/c^2). Running with force_mu=false "
-                          "introduces a ~0.87% bias in M_baryon and ~1 rad "
-                          "of GW phase drift. See userguide.") ;
+                    GRACE_WARN("FUKA initial data with a tabulated EOS is "
+                          "constructed assuming that the baryon mass is m_u = 931.494 MeV/c^2. "
+                          "The eos module in GRACE uses the CompOSE convention by default "
+                          "where the baryon mass is the neutron mass, which is what you are "
+                          "doing now. You should be aware that the baryon mass of the stars "
+                         "in this simulation will not match what fuka reports. And you should make "
+                         "sure that the cold tables used in GRACE and FUKA use the same convention, "
+                         "otherwise the ID will be **inconsistent!**. See the Python docs.") ;
                 }
             }
         }
