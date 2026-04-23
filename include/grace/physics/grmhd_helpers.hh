@@ -206,8 +206,12 @@ excision_params_t get_excision_params()
     } else {
         ERROR("Unrecognized excision criterion") ; 
     }
-    excision_params.r_ex = grace::get_param<double>("grmhd","excision","excision_radius"); 
-    excision_params.alp_ex = grace::get_param<double>("grmhd","excision","excision_lapse"); 
+    excision_params.r_ex = grace::get_param<double>("grmhd","excision","excision_radius");
+    excision_params.alp_ex = grace::get_param<double>("grmhd","excision","excision_lapse");
+    {
+        double const flux_limit_tol = grace::get_param<double>("grmhd","excision","flux_limit_tol") ;
+        excision_params.alp_f = excision_params.alp_ex * (1. + flux_limit_tol) ;
+    }
     
     excision_params.rho_ex  =  grace::get_param<double>("grmhd","atmosphere","rho_fl"); 
 

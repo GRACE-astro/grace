@@ -80,13 +80,25 @@ grmhd:
       description: >
         If excision criterion is lapse, where to excise 
     excision_radius:
-      type: double 
+      type: double
       range: "(0,*)"
       default: 1.0
       description: >
-        If excision criterion is radius, where to excise 
-  
-  c2p: 
+        If excision criterion is radius, where to excise
+    flux_limit_tol:
+      type: double
+      range: "[0,*)"
+      default: 0.05
+      description: >
+        Width of the LLF donor-cell band outside the excision, expressed
+        as a fractional tolerance on the lapse. Faces where
+        min(alpha_L, alpha_R) < excision_lapse * (1 + flux_limit_tol) are
+        forced to pure LLF donor-cell flux, preventing reconstruction
+        stencils from ingesting atmosphere values from excised cells.
+        Keep small so limiting stays inside the apparent horizon; user is
+        responsible for sufficient resolution at the BH.
+
+  c2p:
     type: schema
     description: >
       Parameters that control the behaviour of the c2p 
