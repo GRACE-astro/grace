@@ -70,8 +70,7 @@
     HDF5_CALL(h5err,H5Dclose(dataset));                                      \
   } while (0)
 
-// Use these two defines to easily read in a lot of variables in the same way
-// The first reads in one variable of a given type completely
+
 #define READ_SCOLLAPSE_EOS_HDF5(NAME, VAR, TYPE, MEM)                             \
   do {                                                                  \
     hid_t dataset;                                                      \
@@ -79,8 +78,7 @@
     HDF5_CALL(h5err,H5Dread(dataset, TYPE, MEM, H5S_ALL, H5P_DEFAULT, VAR)); \
     HDF5_CALL(h5err,H5Dclose(dataset));                                      \
   } while (0)
-// The second reads a given variable into a hyperslab of the alltables_temp
-// array
+
 #define READ_SCOLLAPSE_EOSTABLE_HDF5(NAME, OFF)                                    \
   do {                                                                   \
     hsize_t offset[2] = {OFF, 0};                                        \
@@ -91,7 +89,59 @@
 namespace grace{
 
 
-static void 
+/*
+ * Regenerate the interior of a tabulated-EOS axis uniformly between its
+ * stored endpoints.  The interpolator in tabulated_eos.hh computes the
+ * index of a query point as (x - axis[0]) * (1 / (axis[1] - axis[0])),
+ * so it implicitly assumes uniform spacing in whatever transform space
+ * the axis lives in (log for nb/T, linear for Y_e).  When a CompOSE
+ * table has been written with single-precision axes, the FP32->FP64
+ * ingest leaves the interior entries jittering around the true uniform
+ * grid; that jitter is small per-step but biases the step-size cached
+ * from the first pair, which then propagates into every index lookup.
+ *
+ * This pass fixes the endpoints (which were already read at full
+ * precision on either side of the FP32 store) and rewrites the interior
+ * as axis[0] + i * (axis[N-1] - axis[0]) / (N-1).  A warning is emitted
+ * if the original spacing deviated from uniform by more than the given
+ * tolerance, because that would indicate either unusually heavy jitter
+ * or a genuinely non-uniform axis -- the latter cannot be safely
+ * flattened this way and the interpolator's uniform-spacing assumption
+ * would silently misuse it.
+ */
+static void
+sanitize_uniform_axis_inplace(std::vector<double>& axis,
+                              std::string const& name,
+                              double warn_tol = 1e-6)
+{
+    size_t const N = axis.size() ;
+    if (N < 3) return ;
+
+    double const x0   = axis.front() ;
+    double const xN   = axis.back()  ;
+    double const step = (xN - x0) / static_cast<double>(N - 1) ;
+
+    double max_rel_dev = 0. ;
+    for (size_t i = 1; i + 1 < N; ++i) {
+        double const expected = x0 + static_cast<double>(i) * step ;
+        double const rel_dev  = std::fabs(axis[i] - expected) / std::fabs(step) ;
+        if (rel_dev > max_rel_dev) max_rel_dev = rel_dev ;
+        axis[i] = expected ;
+    }
+
+    if (max_rel_dev > warn_tol) {
+        GRACE_WARN("EOS axis '{}' deviated from uniform spacing by up to "
+                   "{:.3e} step-widths before sanitizing. Small values (<~1e-3) "
+                   "are expected for tables written with FP32 axes. Larger "
+                   "values likely indicate a genuinely non-uniform axis, which "
+                   "the tabulated-EOS interpolator cannot handle; in that case "
+                   "set eos.tabulated_eos.sanitize_axes=false and re-tabulate "
+                   "the EOS on a uniform grid.",
+                   name, max_rel_dev) ;
+    }
+}
+
+static void
 read_cold_table(
     const std::string& filename, 
     Kokkos::View<double**, grace::default_execution_space>& d_data,
@@ -285,15 +335,21 @@ grace::tabulated_eos_t read_scollapse_table(std::string const& fname, std::strin
 
     free(alltables_temp);
 
-    // convert units and log10 to loge 
+    // convert units and log10 to loge
     for( int i=0; i<nrho; ++i) {
-        logrho[i] = logrho[i] * log(10.) + log(uconv.mass_density) ; 
+        logrho[i] = logrho[i] * log(10.) + log(uconv.mass_density) ;
     }
     for( int i=0; i<ntemp; ++i) {
-        logtemp[i] = logtemp[i] * log(10.)  ; 
+        logtemp[i] = logtemp[i] * log(10.)  ;
     }
 
-    double const rhomin{exp(logrho[0])}, rhomax{exp(logrho[nrho-1])} ; 
+    if (grace::get_param<bool>("eos","tabulated_eos","sanitize_axes")) {
+        sanitize_uniform_axis_inplace(logrho,  "log(rho)") ;
+        sanitize_uniform_axis_inplace(logtemp, "log(T)")   ;
+        sanitize_uniform_axis_inplace(ye,      "Y_e")      ;
+    }
+
+    double const rhomin{exp(logrho[0])}, rhomax{exp(logrho[nrho-1])} ;
     double const tempmin{exp(logtemp[0])}, tempmax{exp(logtemp[ntemp-1])} ;  
     double const yemax{ye[nye-1]}, yemin{ye[0]}     ;
 
@@ -634,11 +690,16 @@ grace::tabulated_eos_t read_compose_table(std::string const& fname, std::string 
 
 
     for (int i = 0; i < nrho; i++) logrho[i] = log(logrho[i] * mb_MeV * uconv.mass_density );
-    
+
     for (int i = 0; i < ntemp; i++) logtemp[i] = log(logtemp[i]);
 
+    if (grace::get_param<bool>("eos","tabulated_eos","sanitize_axes")) {
+        sanitize_uniform_axis_inplace(logrho,  "log(rho)") ;
+        sanitize_uniform_axis_inplace(logtemp, "log(T)")   ;
+        sanitize_uniform_axis_inplace(yes,     "Y_e")      ;
+    }
 
-    double rhomax{exp(logrho[nrho-1])}, rhomin{exp(logrho[0])}   ; 
+    double rhomax{exp(logrho[nrho-1])}, rhomin{exp(logrho[0])}   ;
     double tempmax{exp(logtemp[ntemp-1])}, tempmin{exp(logtemp[0])} ; 
     double yemax{yes[nye-1]}, yemin{yes[0]}     ;
     double epsmax{std::numeric_limits<double>::min()}  ;

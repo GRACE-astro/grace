@@ -39,7 +39,7 @@
 #include <grace/physics/grmhd_helpers.hh>
 #include <grace/amr/amr_functions.hh>
 
-#include "FMTorus/KerrSchild.hh"
+#include "kerr_schild_subexpressions.hh"
 
 namespace grace {
 
@@ -80,16 +80,19 @@ struct vacuum_id_t {
             id.kxx = 0; id.kyy = 0; id.kzz = 0 ;
             id.kxy = 0; id.kxz =0 ; id.kyz = 0 ; 
         } else {
-            double const x = this->_pcoords(i,j,k,0,q) ; 
-            double const y = this->_pcoords(i,j,k,1,q) ; 
-            double const z = this->_pcoords(i,j,k,2,q) ; 
-            double psi4; 
-            ComputeADMDecomposition(
-                x,y,z, false, 0,
+            double const xyz[3] = {
+                this->_pcoords(i,j,k,0,q),
+                this->_pcoords(i,j,k,1,q),
+                this->_pcoords(i,j,k,2,q)
+            } ;
+            double guu[6] ;  // inverse 3-metric; unused here
+            kerr_schild_adm_metric(
+                xyz, 0.0, 0.0,
+                &id.gxx, &id.gxy, &id.gxz, &id.gyy, &id.gyz, &id.gzz,
+                &guu[0], &guu[1], &guu[2], &guu[3], &guu[4], &guu[5],
                 &id.alp, &id.betax, &id.betay, &id.betaz,
-                &psi4, &id.gxx, &id.gxy, &id.gxz, &id.gyy, &id.gyz, &id.gzz,
                 &id.kxx, &id.kxy, &id.kxz, &id.kyy, &id.kyz, &id.kzz
-            ) ; 
+            ) ;
         }
         
         eos_err_t err ; 

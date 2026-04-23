@@ -288,8 +288,7 @@ class tabulated_eos_t
         _c2p_hmin, _c2p_hmax,
         _c2p_temp_atm,
         _c2p_ye_atm,
-        _atmo_is_beta_eq,
-        false )
+        _atmo_is_beta_eq)
     { 
         lrhomin = _logrho[0] ; lrhomax = _logrho[_logrho.size()-1] ; 
         ltempmin = _logT[0] ; ltempmax = _logT[_logT.size()-1] ; 
