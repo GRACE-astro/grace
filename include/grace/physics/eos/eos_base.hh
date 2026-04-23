@@ -101,14 +101,13 @@ class eos_base_t {
               , double _eos_yemax, double _eos_yemin
               , double _baryon_mass, double _c2p_eps_min
               , double _c2p_eps_max, double _c2p_h_min
-              , double _c2p_h_max, double _c2p_temp_atm, double _c2p_ye_atm, bool _atm_is_beta_eq
-              , bool _extend_table_high )
+              , double _c2p_h_max, double _c2p_temp_atm, double _c2p_ye_atm, bool _atm_is_beta_eq)
      : eos_rhomax(_eos_rhomax), eos_rhomin(_eos_rhomin)
      , eos_tempmax(_eos_tempmax), eos_tempmin(_eos_tempmin)
      , eos_yemax(_eos_yemax), eos_yemin(_eos_yemin)
      , baryon_mass(_baryon_mass), c2p_eps_min(_c2p_eps_min), c2p_eps_max(_c2p_eps_max)
      , c2p_h_min(_c2p_h_min), c2p_h_max(_c2p_h_max), c2p_temp_atm(_c2p_temp_atm), c2p_ye_atm(_c2p_ye_atm)
-     , atm_is_beta_eq(_atm_is_beta_eq), extend_table_high(_extend_table_high)
+     , atm_is_beta_eq(_atm_is_beta_eq)
     {}
     /**
      * @brief Get pressure given eps rho and ye.
@@ -551,8 +550,6 @@ class eos_base_t {
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     density_maximum() const { return eos_rhomax ; }
  protected:
-    //! Does this EOS depend on ye?
-    static constexpr bool has_ye = eos_impl_t::has_ye ; 
     //! Maximum and minimum rest-mass densities.
     double eos_rhomax, eos_rhomin ;
     //! Maximum and minimum temperatures.
@@ -575,8 +572,6 @@ class eos_base_t {
     double c2p_ye_atm    ;
     //! Is the atmosphere beta-equilibrated?
     bool atm_is_beta_eq    ; 
-    //! Is the table extended at high rho? 
-    bool extend_table_high ; 
 } ;
 
 }
