@@ -70,15 +70,26 @@ using default_execution_space = default_space::execution_space ;
 /**
  * @brief Create a Kokkos execution space instance, optionally tied to a device stream.
  *
- * On GPU backends (CUDA/HIP/SYCL) the returned execution space is bound to the
- * underlying device stream so that kernel launches are enqueued on that stream.
- * On CPU backends (OpenMP/Serial) streams have no meaning, so the execution
- * space is simply default-constructed.
+ * On CUDA/HIP the returned execution space is bound to the underlying device
+ * stream so that kernel launches are enqueued on that stream; the global
+ * Kokkos::fence() in gpu_task_t::run() is a device-wide fence on those
+ * backends and so still drains user streams.
+ *
+ * SYCL is treated like a CPU backend: Kokkos::fence() only drains Kokkos's
+ * own default queue, so dispatching kernels on a user-provided sycl::queue
+ * (the one inside our dummy_stream) and then relying on the global fence is
+ * unsafe — the kernel may not have completed by the time the executor moves
+ * on, leading to e.g. unfilled ghost zones being read by the next stage.
+ * SYCL's DAG-based scheduling makes the multi-queue model unhelpful here
+ * anyway, so we fall through to the default-constructed exec space.
+ *
+ * On CPU backends streams have no meaning either, so the execution space is
+ * simply default-constructed.
  */
 inline default_execution_space
 make_exec_space([[maybe_unused]] device_stream_t const& stream)
 {
-#if defined(GRACE_ENABLE_CUDA) || defined(GRACE_ENABLE_HIP) || defined(GRACE_ENABLE_SYCL)
+#if defined(GRACE_ENABLE_CUDA) || defined(GRACE_ENABLE_HIP)
     return default_execution_space{stream};
 #else
     return default_execution_space{};
