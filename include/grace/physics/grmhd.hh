@@ -658,10 +658,11 @@ struct grmhd_equations_system_t
         /* mask-adjacent faces by ingesting atmosphere values from         */
         /* excised cells.  Only active for lapse-based excision; the       */
         /* radius-based criterion has its own (currently unused) knob.     */
-        bool const near_excision =
+        bool const near_excision = false ; 
+        /*
             ( !excision_params.excise_by_radius )
          && ( math::min(metric_l.alp(), metric_r.alp()) < excision_params.alp_f ) ;
-
+        */ 
         double theta = 1. ;
         if ( near_excision || dens_m < dens_min_r || dens_p < dens_min_l ) {
             /* Slow path: HLL would drive density below floor.  Compute LLF   */
@@ -699,7 +700,7 @@ struct grmhd_equations_system_t
             }
             theta = math::min(theta_m, theta_p) ;
             if ( std::isnan(theta) ) theta = 1. ;
-            if ( near_excision ) theta = 0. ;
+            /*if ( near_excision ) theta = 0. ;*/
 
             fluxes(VEC(i,j,k),DENS_,idir,q)        = theta * f_HLL[DENSL] + (1.-theta) * f_LLF[DENSL] ;
             fluxes(VEC(i,j,k),YESTAR_,idir,q)      = theta * f_HLL[YESL]  + (1.-theta) * f_LLF[YESL]  ;
