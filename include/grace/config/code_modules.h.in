@@ -39,7 +39,8 @@ const std::vector< std::string > code_modules {
     "amr",
     "system",
     "IO",
-    "evolution"
+    "evolution",
+    "nan_check"
     #ifdef GRACE_ENABLE_GRMHD
     , "grmhd"
     , "b_field_injection"
@@ -70,7 +71,8 @@ const std::vector< std::string > code_modules_default_configs {
      "${CMAKE_SOURCE_DIR}/parameters/amr.yaml",
      "${CMAKE_SOURCE_DIR}/parameters/system.yaml",
      "${CMAKE_SOURCE_DIR}/parameters/IO.yaml",
-     "${CMAKE_SOURCE_DIR}/parameters/evolution.yaml"
+     "${CMAKE_SOURCE_DIR}/parameters/evolution.yaml",
+     "${CMAKE_SOURCE_DIR}/parameters/nan_check.yaml"
      #ifdef GRACE_ENABLE_GRMHD
      , "${CMAKE_SOURCE_DIR}/parameters/grmhd.yaml"
      , "${CMAKE_SOURCE_DIR}/parameters/b_field_injection.yaml"
