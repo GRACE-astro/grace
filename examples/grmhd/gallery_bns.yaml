@@ -1,0 +1,228 @@
+# ADM mass: 3.251
+# resolution: 0.125 
+name: "etk_gallery_bns"
+amr: {
+  npoints_block_x: 32,
+  npoints_block_y: 32,
+  npoints_block_z: 32,
+  xmin: -1024.0,
+  xmax: 1024.0,
+  ymin: -1024.0,
+  ymax: 1024.0,
+  zmin: 0.0,
+  zmax: 1024.0,
+
+
+  reflection_symmetries: {
+    z: true
+  }, 
+
+  n_ghostzones: 4,
+  initial_refinement_level: 2,
+  max_refinement_level: 8,
+
+  n_fmr_boxes: 4,
+
+  fmr_boxes: [
+    {
+      target_level_delta: 1,
+      x_min: -512,
+      x_max: 512,
+      y_min: -512,
+      y_max: 512,
+      z_min: 0,
+      z_max: 512
+    },
+
+    {
+      target_level_delta: 2,
+      x_min: -256,
+      x_max: 256,
+      y_min: -256,
+      y_max: 256,
+      z_min: 0,
+      z_max: 256
+    },
+
+    {
+      target_level_delta: 3,
+      x_min: -128,
+      x_max: 128,
+      y_min: -128,
+      y_max: 128,
+      z_min: 0,
+      z_max: 128
+    },
+
+    {
+      target_level_delta: 4,
+      x_min: -96,
+      x_max: 96,
+      y_min: -96,
+      y_max: 96,
+      z_min: 0,
+      z_max: 96
+    }
+
+  ],
+
+  regrid_every: 50,
+  regrid_at_preinitial: true,
+  preinitial_regrid_depth: 2,
+
+  refinement_criterion: "binary_tracker",
+
+  binary_tracker_amr_criterion: {
+    compact_object_1_refine_radius_factor: 1.5,
+    compact_object_2_refine_radius_factor: 1.5,
+    compact_object_1_coarsen_radius_factor: 3.,
+    compact_object_2_coarsen_radius_factor: 3.,
+    post_merger_refine_radius: 32,
+    post_merger_coarsen_radius: 48
+  }
+
+
+}
+
+IO: {
+  volume_output_cell_variables: ["rho","press","eps","vel[0]", "alp", "beta[0]"],
+  volume_output_base_directory: "output_volume",
+  volume_output_every: -1,
+
+  plane_surface_output_cell_variables: ["metric", "hydro", "c2p_err"],
+  plane_surface_output_every: 100,
+
+  sphere_surface_output_every: -1,
+
+  info_output_every: 2,
+  info_output_max_reductions: ["rho"],
+  info_output_min_reductions: ["alp"],
+  info_output_norm2_reductions: ["z4c_H"],
+
+  scalar_output_every: 1,
+  scalar_output_minmax: ["rho","press","eps","alp"],
+  scalar_output_norm2: ["z4c_H"],
+  scalar_output_integral: ["dens"],
+
+  output_use_hdf5: true,
+  hdf5_compression_level: 0,
+  hdf5_chunk_size: 8192,
+  output_extra_quantities: true,
+
+  # GW 
+  diagnostic_output_every: 1
+
+}
+
+system: {
+  console_log_level: "info",
+  file_log_level: "trace",
+  n_device_streams: 4
+}
+
+evolution: {
+  time_stepper: "rk4",
+  cfl_factor: 0.5,
+  termination_condition: "walltime",
+  final_walltime: 23.5
+}
+
+grmhd: {
+  id_type: "lorene_bns",
+  
+  lorene_bns: {
+  	filename: "/u/cmusolino/bns_id/lorene/",
+    set_shift_to_zero: true
+  },
+	
+  atmosphere: {
+    rho_fl: 1e-14,
+    temp_fl: 1.23613314525753e-12
+  },
+  
+  excision: {
+    excision_criterion: "lapse",
+    excision_lapse: 0.15
+  },
+
+  c2p: {
+    use_c2p_entropy_backup: true
+  },
+
+  B_field_initialization: "none",
+}
+
+eos: {
+  eos_type: "ideal_gas",
+  
+  ideal_gas_eos: {
+    gamma: 2,
+    kappa_id: 123.613314525753
+  }
+}
+
+z4c: {
+  eps_diss: 0.1,
+  eta: 0.3,
+  eta_damp_radius: 50
+}
+
+spherical_surfaces: {
+  n_surfaces: 3,
+
+  spherical_detectors: [
+    {
+      name: "GW_1",
+      radius: 300,
+      resolution: 91
+    },
+
+    {
+      name: "GW_2",
+      radius: 500,
+      resolution: 91
+    },
+
+    {
+      name: "mass_outflows",
+      radius: 750,
+      resolution: 91
+    }
+  ]
+}
+
+gw_integrals: {
+  detector_names: ["GW_1", "GW_2"]
+}
+
+outflows: {
+  detector_names: ["GW_1", "GW_2","mass_outflows"]
+}
+
+co_tracker: {
+  n_cos: 2,
+  update_every: 1,
+
+  merge_distance: 20, # this is at the plunge
+
+  cos: [
+    {
+      kind: "ns",
+      name: "ns_1",
+      x_i: -15.1875,
+      radius: 8
+    },
+
+    {
+      kind: "ns",
+      name: "ns_2",
+      x_i: 15.1875,
+      radius: 8
+    }
+  ]
+}
+
+mhd_diagnostics: {
+  compute_energy_every: 2,
+  compute_other_diagnostics_every: 2
+}
