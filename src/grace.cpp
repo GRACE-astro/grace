@@ -47,6 +47,10 @@
 #include <grace/IO/scalar_output.hh>
 #include <grace/IO/output_diagnostics.hh>
 #include <grace/IO/diagnostics/co_tracker.hh>
+#include <grace/system/nan_check.hh>
+#ifdef GRACE_ENABLE_GRMHD
+#include <grace/physics/b_field_injection.hh>
+#endif
 #ifdef GRACE_ENABLE_Z4C_METRIC
 #include <grace/IO/diagnostics/apparent_horizon.hh>
 #endif
@@ -85,12 +89,17 @@ int main(int argc, char* argv[])
         grace::IO::write_cell_output(volume_output_every>0,plane_surface_output_every>0,sphere_surface_output_every>0) ;
     }
         
-    grace::IO::compute_reductions() ; 
-    grace::IO::initialize_output_files() ; 
-    grace::IO::initialize_diagnostic_files() ; 
+    grace::IO::compute_reductions() ;
+    grace::IO::initialize_output_files() ;
+    grace::IO::initialize_diagnostic_files() ;
     grace::IO::write_scalar_output() ;
-    grace::IO::output_diagnostics() ; 
-    GRACE_INFO("Starting evolution.") ; 
+    grace::IO::output_diagnostics() ;
+    /**********************************************************************************/
+    /* Optional NaN scan over evolved variables before the first step                 */
+    /**********************************************************************************/
+    grace::check_nans_and_act_if_due(/*is_initial=*/true) ;
+    /**********************************************************************************/
+    GRACE_INFO("Starting evolution.") ;
     grace::IO::info_output() ;
     /**********************************************************************************/
     /**********************************************************************************/
@@ -183,6 +192,12 @@ int main(int argc, char* argv[])
         /**********************************************************************************/
         grace::co_tracker::get().update_and_write() ;
         /**********************************************************************************/
+        /* Inject B field mid-run if requested                                            */
+        /**********************************************************************************/
+        #ifdef GRACE_ENABLE_GRMHD
+        grace::maybe_inject_b_field() ;
+        #endif
+        /**********************************************************************************/
         /* Find apparent horizons if needed                                               */
         /**********************************************************************************/
         #ifdef GRACE_ENABLE_Z4C_METRIC
@@ -196,8 +211,12 @@ int main(int argc, char* argv[])
         /* Save checkpoint if needed                                                      */
         /**********************************************************************************/
         if ( checkpoint_handler::get().need_checkpoint() ) {
-            checkpoint_handler::get().save_checkpoint() ; 
+            checkpoint_handler::get().save_checkpoint() ;
         }
+        /**********************************************************************************/
+        /* Periodic NaN scan, gated by nan_check.check_every                              */
+        /**********************************************************************************/
+        grace::check_nans_and_act_if_due(/*is_initial=*/false) ;
     }
     
     grace::grace_finalize() ; 

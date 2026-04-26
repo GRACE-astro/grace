@@ -215,9 +215,12 @@ void advance_substep( double const t, double const dt, double const dtfact
                     , grace::staggered_variable_arrays_t & sstate 
                     , grace::staggered_variable_arrays_t & sstate_p) ; 
 #ifdef GRACE_ENABLE_Z4C_METRIC
-void compute_constraint_violations() ; 
-void enforce_algebraic_constraints(grace::var_array_t& state) ; 
-#endif 
+void compute_constraint_violations() ;
+// Fast variant — see compute_constraints_fast() in z4c.hh.  Only valid when
+// _z4c_curv_scratch is consistent with the current state.
+void compute_constraint_violations_fast() ;
+void enforce_algebraic_constraints(grace::var_array_t& state) ;
+#endif
 //*****************************************************************************************************
 //*****************************************************************************************************
 // Explicit template instantiation

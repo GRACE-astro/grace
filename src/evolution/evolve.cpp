@@ -127,7 +127,6 @@ void evolve_impl() {
     auto& dx     = grace::variable_list::get().getspacings() ;  
     auto& fluxes  = grace::variable_list::get().getfluxesarray() ; 
     auto& emf  = grace::variable_list::get().getemfarray() ; 
-    auto& vbar  = grace::variable_list::get().getvbararray() ;
 
     auto nvars_face  = sstate.face_staggered_fields_x.extent(GRACE_NSPACEDIM) ;
     auto nvars_cc  = state.extent(GRACE_NSPACEDIM) ;
@@ -388,12 +387,18 @@ void evolve_impl() {
     } else {
         ERROR("Unrecognised time-stepper.") ; 
     }
-    Kokkos::deep_copy(state_p,state) ; 
-    grace::deep_copy(sstate_p,sstate) ; 
+    Kokkos::deep_copy(state_p,state) ;
+    grace::deep_copy(sstate_p,sstate) ;
 
     #ifdef GRACE_ENABLE_Z4C_METRIC
-    compute_constraint_violations() ; 
-    #endif 
+    // Fill Hamiltonian and momentum constraints once per full RK step.
+    // Reuses Ricci/Γ̃/matter cached in _z4c_curv_scratch by the last set
+    // of pre-kernels (matter/wave/conn) of this RK step — much cheaper
+    // than rebuilding the whole geometry
+    // pass.  Post-regrid / post-initial-data paths call the full
+    // compute_constraint_violations() in their own files.
+    compute_constraint_violations_fast() ;
+    #endif
 }
 
 template< typename eos_t >
@@ -414,7 +419,11 @@ void compute_fluxes(
     auto& dx     = grace::variable_list::get().getspacings() ;  
     auto& fluxes  = grace::variable_list::get().getfluxesarray() ; 
     auto& aux     = grace::variable_list::get().getaux()     ; 
+    #ifdef GRACE_GRMHD_USE_GS
+    auto& vbar  = grace::variable_list::get().getefarray() ;
+    #else 
     auto& vbar  = grace::variable_list::get().getvbararray() ;
+    #endif 
     //**************************************************************************************************/
     // construct grmhd object 
     using recon_t = GRACE_RECONSTRUCTION_T ; 
@@ -459,21 +468,35 @@ void compute_fluxes(
     #endif 
     //**************************************************************************************************/
     // loop ranges: extended for mhd (need vbar at faces for emf)
-    auto flux_x_policy_mhd = 
-        MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+    //
+    // Launch-bounds note: the WENO5 reconstruction + HLL/LLF flux mix pushes
+    // these kernels past 128 VGPR under the default heuristic, so the compiler
+    // spills ~1.5-2 KB/thread to scratch.  LaunchBounds<256, 2> lifts the cap
+    // to ~256 VGPR (2 waves/EU instead of 4) in exchange for half the latency
+    // hiding; worthwhile because the kernels are compute-heavy (WENO smoothness
+    // indicators, Riemann branches) rather than bandwidth-bound.  Tile product
+    // must match MaxThreadsPerBlock or HIP silently rejects the launch — see
+    // z4c_update notes below.
+    #ifndef GRACE_FLUX_LB
+      #define GRACE_FLUX_LB Kokkos::LaunchBounds<256, 2>
+    #endif
+    using flux_policy_t =
+        MDRangePolicy< Rank<GRACE_NSPACEDIM+1>, GRACE_FLUX_LB > ;
+    flux_policy_t flux_x_policy_mhd (
               {VEC(ngz,0,0),0}
             , {VEC(nx+ngz+1,ny+2*ngz,nz+2*ngz),nq}
+            , {VEC(16,4,4),1}
         ) ;
-    auto flux_y_policy_mhd = 
-        MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+    flux_policy_t flux_y_policy_mhd (
               {VEC(0,ngz,0),0}
             , {VEC(nx+2*ngz,ny+ngz+1,nz+2*ngz),nq}
+            , {VEC(16,4,4),1}
         ) ;
-    auto flux_z_policy_mhd = 
-        MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+    flux_policy_t flux_z_policy_mhd (
               {VEC(0,0,ngz),0}
             , {VEC(nx+2*ngz,ny+2*ngz,nz+ngz+1),nq}
-        ) ; 
+            , {VEC(16,4,4),1}
+        ) ;
     // non-mhd 
     auto flux_x_policy = 
         MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
@@ -566,9 +589,29 @@ void compute_fluxes(
         );
         #endif
     }) ; 
-    #endif 
+    #endif
     //**************************************************************************************************/
-    Kokkos::fence() ; 
+    // Surface silent launch failures (mismatched LaunchBounds/tile or exceeded
+    // occupancy constraints).  Kokkos does not abort on these by default.
+    #if defined(KOKKOS_ENABLE_HIP)
+    Kokkos::fence("compute_fluxes post-launch error check") ;
+    {
+        auto _err = hipGetLastError() ;
+        if (_err != hipSuccess) {
+            ERROR("compute_fluxes kernel launch failed: " << hipGetErrorString(_err)) ;
+        }
+    }
+    #elif defined(KOKKOS_ENABLE_CUDA)
+    Kokkos::fence("compute_fluxes post-launch error check") ;
+    {
+        auto _err = cudaGetLastError() ;
+        if (_err != cudaSuccess) {
+            ERROR("compute_fluxes kernel launch failed: " << cudaGetErrorString(_err)) ;
+        }
+    }
+    #else
+    Kokkos::fence() ;
+    #endif
     #ifdef GRACE_ENABLE_M1
     // un-normalize
     parallel_for(
@@ -600,7 +643,202 @@ void compute_fluxes(
     ) ; 
     #endif 
 }
+#ifdef GRACE_GRMHD_USE_GS
+void compute_emfs(
+    double const t, double const dt, double const dtfact 
+    , var_array_t& new_state 
+    , var_array_t& old_state 
+    , staggered_variable_arrays_t & new_stag_state 
+    , staggered_variable_arrays_t & old_stag_state 
+) 
+{
+    using namespace grace ; 
+    using namespace Kokkos ; 
+    DECLARE_GRID_EXTENTS ; 
+    //**************************************************************************************************/
+    // fetch some stuff 
+    using recon_t = GRACE_RECONSTRUCTION_T ; 
+    auto& idx     = grace::variable_list::get().getinvspacings() ;
+    auto& fluxes = grace::variable_list::get().getfluxesarray() ;
+    auto& Eface  = grace::variable_list::get().getefarray() ;
+    auto& Ecenter  = grace::variable_list::get().getecarray() ;
+    auto& emf  = grace::variable_list::get().getemfarray() ;
+    //**************************************************************************************************/
+    // loop ranges 
+    auto emf_policy_x = 
+    MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+            {VEC(ngz,ngz,ngz),0}
+        , {VEC(nx+ngz,ny+ngz+1,nz+ngz+1),nq}
+    ) ;
+    auto emf_policy_y = 
+        MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+              {VEC(ngz,ngz,ngz),0}
+            , {VEC(nx+ngz+1,ny+ngz,nz+ngz+1),nq}
+    ) ;
+    auto emf_policy_z = 
+        MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+              {VEC(ngz,ngz,ngz),0}
+            , {VEC(nx+ngz+1,ny+ngz+1,nz+ngz),nq}
+    ) ;
+    //**************************************************************************************************/
+    //**************************************************************************************************/
+    // compute EMF -- x (stag yz)
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "EMF_X")
+                , emf_policy_x 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+    {
+        // Here direction 0 is y and direction 1 is z 
+        // meaning that South-North is -+ z and West-East is -+ y
+        double Exzf  = Eface(i,j,k,0,2,q)    ;
+        double Exzfm = Eface(i,j-1,k,0,2,q)  ;
+        double Exyf  = Eface(i,j,k,0,1,q)    ;
+        double Exyfm = Eface(i,j,k-1,0,1,q)  ;
+        // and centered 
+        double ExNE = Ecenter(i,j,k,0,q)     ; 
+        double ExNW = Ecenter(i,j-1,k,0,q)   ; 
+        double ExSE = Ecenter(i,j,k-1,0,q)   ; 
+        double ExSW = Ecenter(i,j-1,k-1,0,q) ;
+        // first compute arithmetic average 
+        double Eavg = 0.25 * ( 
+            Exzf + Exzfm
+          + Exyf + Exyfm    
+        ) ;
+        // first derivative piece:
+        // dE/dz (north south)
+        // get signs 
+        double Sy  = Kokkos::copysign(1.,fluxes(i,j,k,DENS_,1,q))   ; 
+        double Sym = Kokkos::copysign(1.,fluxes(i,j,k-1,DENS_,1,q)) ; 
+        // Get "North"
+        double dEdzN = (1-Sy) * (ExNE-Exzf)
+                     + (1+Sy) * (ExNW-Exzfm) ; 
+        // "South"
+        double dEdzS = (1-Sym) * (Exzf-ExSE) 
+                     + (1+Sym) * (Exzfm-ExSW) ; 
+        // Assemble 
+        double dEdz = 1./8. * (dEdzS - dEdzN) ; 
+        // second derivative piece 
+        // Other signs 
+        double Sz  = Kokkos::copysign(1.,fluxes(i,j,k,DENS_,2,q)) ; 
+        double Szm = Kokkos::copysign(1.,fluxes(i,j-1,k,DENS_,2,q)) ; 
+        // Get "East"
+        double dEdyE = (1-Sz) * (ExNE - Exyf)
+                     + (1+Sz) * (ExSE - Exyfm) ; 
+        // "West"
+        double dEdyW = (1-Szm) * (Exyf  - ExNW) 
+                     + (1+Szm) * (Exyfm - ExSW) ; 
+        // Assemble 
+        double dEdy = 1./8. * (dEdyW - dEdyE) ; 
+        // finally 
+        emf(i,j,k,0,q) = Eavg + dEdz + dEdy ; 
+    } );
+    //**************************************************************************************************/
+    // compute EMF -- y (stag xz)
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "EMF_Y")
+                , emf_policy_y 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+    {
+        // Here direction 0 is x and direction 1 is z 
+        // meaning that South-North is -+ z and West-East is -+ x 
+        // copy locally 
+        double Eyzf  = Eface(i,j,k,1,2,q)    ;
+        double Eyzfm = Eface(i-1,j,k,1,2,q)  ;
+        double Eyxf  = Eface(i,j,k,0,0,q)    ;
+        double Eyxfm = Eface(i,j,k-1,0,0,q)  ;
+        // and centered 
+        double EyNE = Ecenter(i,j,k,1,q)     ; 
+        double EyNW = Ecenter(i-1,j,k,1,q)   ; 
+        double EySE = Ecenter(i,j,k-1,1,q)   ; 
+        double EySW = Ecenter(i-1,j,k-1,1,q) ; 
+        // first compute arithmetic average 
+        double Eavg = 0.25 * ( 
+            Eyzf + Eyzfm
+          + Eyxf + Eyxfm    
+        ) ;
+        // first derivative piece:
+        // dE/dz (north south)
+        // get signs 
+        double Sx  = Kokkos::copysign(1.,fluxes(i,j,k,DENS_,0,q)) ; 
+        double Sxm = Kokkos::copysign(1.,fluxes(i,j,k-1,DENS_,0,q)) ; 
+        // Get "North"
+        double dEdzN = (1-Sx) * (EyNE-Eyzf)
+                     + (1+Sx) * (EyNW-Eyzfm) ; 
+        // "South"
+        double dEdzS = (1-Sxm) * (Eyzf-EySE) 
+                     + (1+Sxm) * (Eyzfm-EySW) ; 
+        // Assemble (Avengers!)
+        double dEdz = 1./8. * (dEdzS - dEdzN) ; 
+        // Other signs 
+        double Sz  = Kokkos::copysign(1.,fluxes(i,j,k,DENS_,2,q)) ; 
+        double Szm = Kokkos::copysign(1.,fluxes(i-1,j,k,DENS_,2,q)) ; 
+        // "East"
+        double dEdxE = (1-Sz) * (EyNE - Eyxf)
+                     + (1+Sz) * (EySE - Eyxfm) ; 
+        // "West"
+        double dEdxW = (1-Szm) * (Eyxf  - EyNW) 
+                     + (1+Szm) * (Eyxfm - EySW) ; 
+        // Assemble 
+        double dEdx = 1./8. * (dEdxW - dEdxE) ; 
+        // finally 
+        emf(i,j,k,1,q) = Eavg + dEdz + dEdx ; 
 
+    } ) ; 
+    //**************************************************************************************************/
+    // compute EMF -- z (stag xy)
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "EMF_Z")
+                , emf_policy_z 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+    {
+        // E^z_{i-1/2, j-1/2, k} = 1/4 ( avg E from faces )
+        //                       + (1+Sxf)/2 (Fx_{yf} - F_x)
+        // copy locally 
+        double Ezyf  = Eface(i,j,k,1,1,q)    ;
+        double Ezyfm = Eface(i-1,j,k,1,1,q)  ;
+        double Ezxf  = Eface(i,j,k,1,0,q)    ;
+        double Ezxfm = Eface(i,j-1,k,1,0,q)  ;
+        // and centered 
+        double EzNE = Ecenter(i,j,k,2,q)     ; 
+        double EzNW = Ecenter(i-1,j,k,2,q)   ; 
+        double EzSE = Ecenter(i,j-1,k,2,q)   ; 
+        double EzSW = Ecenter(i-1,j-1,k,2,q) ; 
+        // first compute arithmetic average 
+        double Eavg = 0.25 * ( 
+            Ezyf + Ezyfm   // E_z(i,j-1/2,k) + E_z(i-1,j-1/2,k)
+          + Ezxf + Ezxfm   // E_z(i-1/2,j,k) + E_z(i-1/2,j-1,k) 
+        ) ; 
+
+        // then we need the derivatives 
+        // get the sign of vbar at x face 
+        auto Sx  = Kokkos::copysign(1.0, fluxes(i,j,k,DENS_,0,q))   ; 
+        auto Sxm = Kokkos::copysign(1.0, fluxes(i,j-1,k,DENS_,0,q)) ;
+        // first derivative term  
+        // "north"
+        double dEdyN =  (1.-Sx) * ( EzNE - Ezyf  )    // select if v < 0
+                     +  (1.+Sx) * ( EzNW - Ezyfm ) ;  // select if v > 0 
+        // "south"
+        double dEdyS =  (1.-Sxm) * ( Ezyf  - EzSE )
+                     +  (1.+Sxm) * ( Ezyfm - EzSW ) ; 
+        double dEdy  = 1./ 8. * ( dEdyS - dEdyN ) ; 
+        // Get the sign of vbar at y face 
+        auto Sy  = Kokkos::copysign(1.0, fluxes(i,j,k,DENS_,1,q))   ; 
+        auto Sym = Kokkos::copysign(1.0, fluxes(i-1,j,k,DENS_,1,q))   ; 
+        // second derivative term 
+        // "east"
+        double dEdxE = (1-Sy) * ( EzNE - Ezxf  ) 
+                     + (1+Sy) * ( EzSE - Ezxfm ) ;
+        // "west" 
+        double dEdxW = (1-Sym) * ( Ezxf  - EzNW  ) 
+                     + (1+Sym) * ( Ezxfm - EzSW ) ;
+        // combine 
+        double dEdx = 1./8. * ( dEdxW - dEdxE ) ; 
+        
+        // finally 
+        emf(i,j,k,2,q) = Eavg + dEdy + dEdx ; 
+
+    } ) ;
+    //**************************************************************************************************/
+    // all done! 
+}
+#else 
 void compute_emfs(
     double const t, double const dt, double const dtfact 
     , var_array_t& new_state 
@@ -811,6 +1049,7 @@ void compute_emfs(
     Kokkos::fence() ; 
     //**************************************************************************************************/
 }
+#endif 
 template< typename eos_t >
 void add_fluxes_and_source_terms(
     double const t, double const dt, double const dtfact 
@@ -966,25 +1205,127 @@ void update_fd(
     //**************************************************************************************************/
     #ifdef GRACE_ENABLE_Z4C_METRIC
     //**************************************************************************************************/
-    // fetch some stuff 
-    auto& idx     = grace::variable_list::get().getinvspacings() ;  
-    auto& aux     = grace::variable_list::get().getaux()     ; 
-    auto dev_coords = grace::coordinate_system::get().get_device_coord_system() ; 
+    // fetch some stuff
+    auto& idx     = grace::variable_list::get().getinvspacings() ;
+    auto& aux     = grace::variable_list::get().getaux()     ;
+    auto& curv_scratch = grace::variable_list::get().getz4ccurvscratch() ;
+    auto dev_coords = grace::coordinate_system::get().get_device_coord_system() ;
     //**************************************************************************************************/
-    z4c_system_t z4c_eq_system(old_state,aux,old_stag_state) ; 
+    z4c_system_t z4c_eq_system(old_state,aux,old_stag_state,curv_scratch) ;
     //**************************************************************************************************/
-    auto advance_policy = 
-    MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+    // Launch-bounds note: a too-tight LaunchBounds (in particular a
+    // MaxThreadsPerBlock smaller than the policy's tile-product) lets hipcc
+    // emit a kernel the runtime silently rejects, leaving the kernel a no-op
+    // while reporting a tiny runtime in the trace.  Always pair LaunchBounds
+    // with an explicit tile whose product equals MaxThreadsPerBlock, and rely
+    // on the post-launch hipGetLastError below to surface any mismatch.
+    //
+    // Defaults below: 256-thread blocks (4 wave64s on MI300A) for all three kernels.
+    //   adv:      LaunchBounds<256, 4> — bandwidth-bound, ask for high occupancy
+    //             (4 waves/EU min ≈ 128 VGPR/lane cap, fine for the small footprint).
+    //   curv_pre: LaunchBounds<256, 1> — second-derivative heavy (ddgtdd_dx2[36],
+    //             ddchi_dx2[6], dGammat_dx[9]); needs the full register file.
+    //   curv:     LaunchBounds<256, 1> — still register-pressured even after
+    //             scratch read, give it the full register file.
+    //
+    // Override per-architecture via -DGRACE_Z4C_*_LB / -DGRACE_Z4C_*_TILE.
+    #ifndef GRACE_Z4C_ADV_LB
+      #define GRACE_Z4C_ADV_LB  Kokkos::LaunchBounds<256, 4>
+    #endif
+    #ifndef GRACE_Z4C_CURV_PRE_LB
+      #define GRACE_Z4C_CURV_PRE_LB Kokkos::LaunchBounds<256, 1>
+    #endif
+    #ifndef GRACE_Z4C_CURV_LB
+      #define GRACE_Z4C_CURV_LB Kokkos::LaunchBounds<256, 1>
+    #endif
+    using adv_policy_t =
+        MDRangePolicy< Rank<GRACE_NSPACEDIM+1>, GRACE_Z4C_ADV_LB > ;
+    using curv_pre_policy_t =
+        MDRangePolicy< Rank<GRACE_NSPACEDIM+1>, GRACE_Z4C_CURV_PRE_LB > ;
+    using curv_policy_t =
+        MDRangePolicy< Rank<GRACE_NSPACEDIM+1>, GRACE_Z4C_CURV_LB > ;
+    // Tile chosen so the product = 256 = MaxThreadsPerBlock above.
+    // Shape (16,4,4,1) on LayoutLeft data: one wavefront of 64 lanes covers
+    // 16 contiguous i × 4 j × 1 k = four full 128B cache lines.  q=1 so a
+    // single block never straddles two patches (patches are tens of MB apart
+    // along the last view dim).
+    adv_policy_t advective_policy (
               {VEC(ngz,ngz,ngz),0}
             , {VEC(nx+ngz,ny+ngz,nz+ngz),nq}
+            , {VEC(16,4,4),1}
+        ) ;
+    curv_pre_policy_t curvature_pre_policy (
+              {VEC(ngz,ngz,ngz),0}
+            , {VEC(nx+ngz,ny+ngz,nz+ngz),nq}
+            , {VEC(16,4,4),1}
+        ) ;
+    curv_policy_t curvature_policy (
+              {VEC(ngz,ngz,ngz),0}
+            , {VEC(nx+ngz,ny+ngz,nz+ngz),nq}
+            , {VEC(16,4,4),1}
         ) ;
     //**************************************************************************************************/
-    parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_update")
-                , advance_policy
-                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) 
+    parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_advective_update")
+                , advective_policy
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                 {
-                    z4c_eq_system.compute_update(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact,dev_coords);
-                }) ; 
+                    z4c_eq_system.compute_advective_update(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact,dev_coords);
+                }) ;
+    //**************************************************************************************************/
+    // Matter sources — cheap, mostly GRMHD/aux reads; dispatched first so it
+    // can overlap with wave on hardware that exposes concurrent kernel
+    // execution.  Body is a near-no-op in vacuum runs (branched on is_vacuum
+    // inside the functor).
+    parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_matter_sources")
+                , curvature_pre_policy
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                {
+                    z4c_eq_system.compute_matter_sources(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact,dev_coords);
+                }) ;
+    //**************************************************************************************************/
+    // Ricci wave — writes W2R_ij (wave) into _curv_scratch[RICCI_*].
+    parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_ricci_wave")
+                , curvature_pre_policy
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                {
+                    z4c_eq_system.compute_curvature_wave(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact,dev_coords);
+                }) ;
+    //**************************************************************************************************/
+    // Ricci connection + conformal — reads wave piece back, accumulates,
+    // stores final Ricci + Rtrace + Gammatudd.  Must follow z4c_ricci_wave.
+    parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_ricci_conn")
+                , curvature_pre_policy
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                {
+                    z4c_eq_system.compute_curvature_conn(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact,dev_coords);
+                }) ;
+    //**************************************************************************************************/
+    parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_curvature_update")
+                , curvature_policy
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                {
+                    z4c_eq_system.compute_curvature_update(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact,dev_coords);
+                }) ;
+    // Surface silent launch failures.  HIP can return e.g. hipErrorInvalidConfiguration
+    // for a kernel whose register/scratch footprint is incompatible with the chosen
+    // launch geometry, and Kokkos does not abort on it by default.
+    #if defined(KOKKOS_ENABLE_HIP)
+    Kokkos::fence("z4c_update post-launch error check") ;
+    {
+        auto _err = hipGetLastError() ;
+        if (_err != hipSuccess) {
+            ERROR("z4c update kernel launch failed: " << hipGetErrorString(_err)) ;
+        }
+    }
+    #elif defined(KOKKOS_ENABLE_CUDA)
+    Kokkos::fence("z4c_update post-launch error check") ;
+    {
+        auto _err = cudaGetLastError() ;
+        if (_err != cudaSuccess) {
+            ERROR("z4c update kernel launch failed: " << cudaGetErrorString(_err)) ;
+        }
+    }
+    #endif
     //**************************************************************************************************/
     #elif defined(GRACE_ENABLE_BSSN_METRIC)
     //**************************************************************************************************/
@@ -1096,31 +1437,62 @@ void advance_substep( double const t, double const dt, double const dtfact
 
 #ifdef GRACE_ENABLE_Z4C_METRIC
 void compute_constraint_violations() {
-    using namespace grace ; 
-    using namespace Kokkos  ; 
+    using namespace grace ;
+    using namespace Kokkos  ;
     DECLARE_GRID_EXTENTS ;
     //**************************************************************************************************/
-    // fetch some stuff 
-    auto& idx     = grace::variable_list::get().getinvspacings() ;  
-    auto& aux     = grace::variable_list::get().getaux()     ; 
-    auto& state   = grace::variable_list::get().getstate()   ; 
-    auto dev_coords = grace::coordinate_system::get().get_device_coord_system() ; 
-    auto dummy = grace::variable_list::get().getstaggeredstate() ; 
+    // fetch some stuff
+    auto& idx     = grace::variable_list::get().getinvspacings() ;
+    auto& aux     = grace::variable_list::get().getaux()     ;
+    auto& state   = grace::variable_list::get().getstate()   ;
+    auto& curv_scratch = grace::variable_list::get().getz4ccurvscratch() ;
+    auto dev_coords = grace::coordinate_system::get().get_device_coord_system() ;
+    auto dummy = grace::variable_list::get().getstaggeredstate() ;
     //**************************************************************************************************/
-    z4c_system_t z4c_eq_system(state,aux,dummy) ; 
+    z4c_system_t z4c_eq_system(state,aux,dummy,curv_scratch) ;
     //**************************************************************************************************/
-    auto policy = 
+    auto policy =
     MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
               {VEC(ngz,ngz,ngz),0}
             , {VEC(nx+ngz,ny+ngz,nz+ngz),nq}
         ) ;
     parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_compute_constraint_violations")
                 , policy
-                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                 {
                     z4c_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, idx, dev_coords);
-                }) ; 
+                }) ;
     //**************************************************************************************************/
+}
+
+// Fast variant: requires _z4c_curv_scratch to hold Ricci + Gammatudd + matter
+// sources consistent with the current state (true immediately after the last
+// matter/wave/conn dispatch of an RK step, invalid after regrid or fresh
+// initial data).
+// Avoids rebuilding Christoffel / Ricci / matter from scratch; only recomputes
+// gtuu/Atuu/AA, GammatDu and 5 centered first-deriv stencils before calling
+// z4c_get_constraints.
+void compute_constraint_violations_fast() {
+    using namespace grace ;
+    using namespace Kokkos ;
+    DECLARE_GRID_EXTENTS ;
+    auto& idx          = grace::variable_list::get().getinvspacings() ;
+    auto& aux          = grace::variable_list::get().getaux() ;
+    auto& state        = grace::variable_list::get().getstate() ;
+    auto& curv_scratch = grace::variable_list::get().getz4ccurvscratch() ;
+    auto dummy         = grace::variable_list::get().getstaggeredstate() ;
+    z4c_system_t z4c_eq_system(state,aux,dummy,curv_scratch) ;
+    auto policy =
+    MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+              {VEC(ngz,ngz,ngz),0}
+            , {VEC(nx+ngz,ny+ngz,nz+ngz),nq}
+        ) ;
+    parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_compute_constraint_violations_fast")
+                , policy
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                {
+                    z4c_eq_system.compute_constraints_fast(VEC(i,j,k), q, idx) ;
+                }) ;
 }
 
 void enforce_algebraic_constraints(grace::var_array_t& state) {
@@ -1128,13 +1500,14 @@ void enforce_algebraic_constraints(grace::var_array_t& state) {
     using namespace Kokkos ; 
     DECLARE_GRID_EXTENTS ;
     //**************************************************************************************************/
-    // fetch some stuff 
-    auto& idx     = grace::variable_list::get().getinvspacings() ;  
-    auto& aux     = grace::variable_list::get().getaux()     ; 
-    auto dev_coords = grace::coordinate_system::get().get_device_coord_system() ; 
-    auto dummy = grace::variable_list::get().getstaggeredstate() ; 
+    // fetch some stuff
+    auto& idx     = grace::variable_list::get().getinvspacings() ;
+    auto& aux     = grace::variable_list::get().getaux()     ;
+    auto& curv_scratch = grace::variable_list::get().getz4ccurvscratch() ;
+    auto dev_coords = grace::coordinate_system::get().get_device_coord_system() ;
+    auto dummy = grace::variable_list::get().getstaggeredstate() ;
     //**************************************************************************************************/
-    z4c_system_t z4c_eq_system(state,aux,dummy) ; 
+    z4c_system_t z4c_eq_system(state,aux,dummy,curv_scratch) ;
     //**************************************************************************************************/
     auto policy = 
     MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (

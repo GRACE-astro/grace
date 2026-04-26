@@ -36,6 +36,8 @@
 
 #include <grace/IO/diagnostics/outflow_diagnostics.hh>
 
+#include <grace/utils/reductions.hh>
+
 
 #include <array>
 #include <vector>
@@ -163,11 +165,16 @@ outflows::compute_local_fluxes(
             flux_loc[diag_var_idx_t::BERN_UNBOUND] += r * r * domega * mass_flux ; 
         }
 
-        flux_loc[diag_var_idx_t::TOT] += r * r * domega * mass_flux ; 
+        flux_loc[diag_var_idx_t::TOT] += r * r * domega * mass_flux ;
 
     }
 
-    return flux_loc; 
+    // Scalar surface flux; sphere quadrature only spans the active subdomain
+    // when reflection symmetries are on, so scale up to the full sphere.
+    int const sym_mult = scalar_symmetry_multiplier();
+    for (auto& f : flux_loc) f *= sym_mult;
+
+    return flux_loc;
 }
 
 

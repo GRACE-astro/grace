@@ -71,7 +71,6 @@ class hybrid_eos_t
                                            , 1.e99
                                            , c2p_temp_atm
                                            , 0.0
-                                           , false 
                                            , false }
      , gamma_th_m1(_gamma_th_m1)
      , entropy_min(_entropy_min)

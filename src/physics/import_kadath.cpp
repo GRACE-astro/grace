@@ -122,9 +122,13 @@ void KadathImporter(const std::string kadath_id, const std::string  filename,
         data(K_KYZ,i,j,k,q) = all_data_pt[K_KYZ] ;
         data(K_KZZ,i,j,k,q) = all_data_pt[K_KZZ] ;
         if (has_matter) {
-          data(K_RHO,i,j,k,q) =  all_data_pt[K_RHO] * ( 1 + all_data_pt[K_EPS] ) ; 
+          // Store FUKA's rho and eps directly so the full matter state is
+          // preserved bit-for-bit; previously we packed e = rho*(1+eps) and
+          // re-inverted via GRACE's cold table, which biased rho whenever the
+          // two cold EOSs disagreed.
+          data(K_RHO,i,j,k,q) =  all_data_pt[K_RHO] * ( 1. + all_data_pt[K_EPS] ) ;
 
-          data(K_RHO+1,i,j,k,q) =  all_data_pt[K_VELX] ; 
+          data(K_RHO+1,i,j,k,q) =  all_data_pt[K_VELX] ;
           data(K_RHO+2,i,j,k,q) =  all_data_pt[K_VELY] ;
           data(K_RHO+3,i,j,k,q) =  all_data_pt[K_VELZ] ;
         }

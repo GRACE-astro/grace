@@ -46,10 +46,8 @@ void check_type_and_range_impl_bool(
               << " is not scalar.");
     }
 
-    bool val;
-
     try {
-        val = param.as<bool>();
+        (void)param.as<bool>();
     }
     catch (const YAML::BadConversion&) {
         GRACE_PRINT_ERROR_AND_EXIT("Parameter " << path.to_string()

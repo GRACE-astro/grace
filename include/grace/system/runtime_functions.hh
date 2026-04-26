@@ -105,7 +105,15 @@ void set_timestep(double const& _new_dt ) ;
  */
 double get_timestep() ;
 
-bool check_termination_condition() ; 
+bool check_termination_condition() ;
+/**
+ * @brief Request a clean termination of the evolution loop.
+ *
+ * The next call to <code>check_termination_condition()</code> will return
+ * <code>true</code>, allowing the current iteration to finish with normal
+ * output and checkpointing before the loop exits. Idempotent.
+ */
+void request_termination() ;
 }
 
 #endif 

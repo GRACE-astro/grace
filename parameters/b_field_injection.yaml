@@ -1,0 +1,24 @@
+b_field_injection:
+  type: schema
+  description: >
+    Parameters controlling mid-run injection of a confined poloidal
+    magnetic field at the current locations of the tracked compact
+    objects. Uses the Avec_ID prescription under the grmhd module
+    for cutoff_var, cutoff_fact, A_n, radius_1, radius_2, Bmax_target
+    and is_binary; this module only adds the trigger.
+
+  enable:
+    type: bool
+    default: false
+    description: >
+      Enable mid-run B-field injection. When false, no injection is
+      performed regardless of the trigger time.
+
+  trigger_time:
+    type: double
+    default: 0.0
+    range: "[0,*)"
+    description: >
+      Simulation time (code units) at which the injection fires.
+      The injection happens once, on the first iteration whose
+      current time is >= trigger_time.

@@ -12,6 +12,8 @@
 #include <grace/physics/grmhd_helpers.hh>
 #include <grace/amr/amr_functions.hh>
 
+#include <Kokkos_Random.hpp>
+
 namespace grace {
 
 

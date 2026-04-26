@@ -62,7 +62,6 @@
 #include <grace/physics/id/tov.hh>
 #include <grace/physics/id/magnetic_rotor.hh>
 #include <grace/physics/id/orszag_tang_vortex.hh>
-#include <grace/physics/id/fmtorus.hh>
 #include <grace/physics/id/bondi_accretion.hh>
 #include <grace/physics/id/puncture.hh>
 #include <grace/physics/id/Avec_id.hh>
@@ -183,20 +182,20 @@ static double get_max_press()
     return pmax ; 
 }
 
-static double get_max_rho()
+[[maybe_unused]] static double get_max_rho()
 {
-    DECLARE_GRID_EXTENTS ; 
+    DECLARE_GRID_EXTENTS ;
     using namespace grace ;
     using namespace Kokkos ;
 
-    auto& aux   = variable_list::get().getaux() ; 
+    auto& aux   = variable_list::get().getaux() ;
 
     MinMaxScalar<double> rhomax_loc ;
-    double rhomax ; 
+    double rhomax ;
     auto policy =
-            MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
-    parallel_reduce( GRACE_EXECUTION_TAG("IO","find_max_rho_loc") 
-                       , policy 
+            MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ;
+    parallel_reduce( GRACE_EXECUTION_TAG("IO","find_max_rho_loc")
+                       , policy
                        , KOKKOS_LAMBDA(VEC(int i, int j, int k), int q, MinMaxScalar<double>& lres)
         {
             lres.max_val = lres.max_val < aux(VEC(i,j,k),RHO_,q) ? aux(VEC(i,j,k),RHO_,q) : lres.max_val    ; 
@@ -458,47 +457,10 @@ void set_grmhd_initial_data() {
         Kokkos::fence() ; 
         GRACE_TRACE("Done with Orszag-Tang MHD ID.") ;  
     } else if ( id_type == "fmtorus") {
-        auto pars = get_param<YAML::Node>("grmhd","fmtorus") ;
-        auto a_BH = pars["a_BH"].as<double>() ; 
-        auto rho_min = pars["rho_min"].as<double>() ; 
-        auto lapse_min = pars["lapse_min"].as<double>() ; 
-        auto press_min = pars["press_min"].as<double>() ;
-        auto r_in = pars["r_in"].as<double>() ; 
-        auto r_at_max_rho = pars["r_at_max_density"].as<double>() ; 
-        auto gamma = pars["gamma"].as<double>() ; 
-        auto rho_pow = pars["rho_power"].as<double>() ; 
-        auto press_pow = pars["press_power"].as<double>() ; 
-        torus_params_t torus ;
-        torus.spin = a_BH ; 
-        torus.gamma_adi = gamma;
-        torus.prograde = true ;
-        torus.r_edge = r_in ; 
-        torus.r_peak = r_at_max_rho ; 
-        torus.rho_max = grace::get_param<double>("grmhd","fmtorus","rho_max") ; 
-        torus.psi = 0.0 ; 
-        torus.is_vertical_field = false ;
-        torus.fm_torus = true ; 
-        torus.chakrabarti_torus = false ;
-
-        torus.rho_min = rho_min ; 
-        torus.rho_pow = rho_pow ; 
-
-        torus.pgas_min = press_min ; 
-        torus.pgas_pow = press_pow ;
-
-        torus.lapse_excision = lapse_min ; 
-        auto atmo_pars = get_atmo_params() ; 
-        torus.rho_excise = atmo_pars.rho_fl ; 
-        double const temp_excise = atmo_pars.temp_fl ; 
-        torus.pgas_excise  =  temp_excise * torus.rho_excise ; 
-
-        double pert = pars["perturbation_amplitude"].as<double>() ; 
-        set_grmhd_initial_data_impl<eos_t,fmtorus_id_t<eos_t>>(torus,pert) ;
-        double const P_max   = get_max_press() ;
-        GRACE_INFO("Pmax {}", P_max) ; 
-        auto max_betam1 = pars["max_inverse_beta"].as<double>() ; 
-        rescale_B_field(max_betam1, P_max) ; 
-        GRACE_TRACE("Done with magnetized FMTorus ID.") ;
+        ERROR("Fishbone-Moncrief / Chakrabarti torus initial data is not "
+              "currently implemented. The previous implementation was removed "
+              "pending a clean re-implementation; the `fmtorus` configuration "
+              "slot and example YAMLs are preserved for that future work.") ;
     } else if (id_type == "khi") { 
         set_grmhd_initial_data_impl<eos_t,kelvin_helmholtz_id_t<eos_t>>() ;
     } else if ( id_type == "gas_cloud") {
@@ -564,10 +526,11 @@ void set_conservs_from_prims() {
     auto& csys = grace::coordinate_system::get() ;
     auto dev_coords = csys.get_device_coord_system() ;  
     #ifdef GRACE_ENABLE_Z4C_METRIC
-    z4c_system_t metric_evol_eq_system(state,aux,sstate) ; 
+    auto& curv_scratch = grace::variable_list::get().getz4ccurvscratch() ;
+    z4c_system_t metric_evol_eq_system(state,aux,sstate,curv_scratch) ;
     #elif defined(GRACE_ENABLE_BSSN_METRIC)
-    bssn_system_t metric_evol_eq_system(state,aux,sstate) ; 
-    #endif 
+    bssn_system_t metric_evol_eq_system(state,aux,sstate) ;
+    #endif
 
     parallel_for( GRACE_EXECUTION_TAG("ID","set_conservs_from_prims")
                 , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})

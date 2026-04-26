@@ -132,9 +132,8 @@ struct em_energy_diagnostic {
                 std::array<double,3> B{{prims[BXL],prims[BYL],prims[BZL]}} ; 
 
                 double const z2 = metric.contract_vec_vec(z,z);
-                double const W2 = 1 + z2 ; 
-                double const v2 = z2/W2  ;
-                double const W  = Kokkos::sqrt(W2) ;  
+                double const W2 = 1 + z2 ;
+                double const W  = Kokkos::sqrt(W2) ;
 
                 std::array<double,3> v = {
                     z[0]/W, z[1]/W, z[2]/W 
@@ -205,9 +204,11 @@ struct em_energy_diagnostic {
             MPI_SUM,                    // op
             MPI_COMM_WORLD              // comm
         );
-        E     = em_integrals_glob[0] ; 
-        Epol  = em_integrals_glob[1] ; 
-        Etor  = em_integrals_glob[2] ; 
+        // Scalar volume integrals; report full-domain physical values.
+        int const sym_mult = scalar_symmetry_multiplier();
+        E     = em_integrals_glob[0] * sym_mult ;
+        Epol  = em_integrals_glob[1] * sym_mult ;
+        Etor  = em_integrals_glob[2] * sym_mult ;
     }
     //**************************************************************************************************
     private: 

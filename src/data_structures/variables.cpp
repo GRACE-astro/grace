@@ -75,10 +75,13 @@ variable_list_impl_t::variable_list_impl_t()
     , _state("state", VEC(0,0,0),0,0)
     , _state_p("scratch_state", VEC(0,0,0),0,0)
     , _aux("auxiliaries", VEC(0,0,0),0,0)
-    , _staggered_vars() 
-    , _staggered_vars_p() 
+    , _staggered_vars()
+    , _staggered_vars_p()
     , _fluxes()
     , _emf()
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    , _z4c_curv_scratch("z4c_curv_scratch", VEC(0,0,0),0,0)
+    #endif
 {
     using namespace grace; 
     /* Get param parser and forest object */
@@ -125,16 +128,37 @@ variable_list_impl_t::variable_list_impl_t()
                    , GRACE_NSPACEDIM
                    , nq 
                    ) ;
+    #ifdef GRACE_GRMHD_USE_GS
+    Kokkos::realloc( _Ecenter
+                   , VEC( nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
+                   , 3 // E^x E^y E^z
+                   , nq 
+                   ) ; 
+    Kokkos::realloc( _Eface
+                   , VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz)
+                   , 2 // E^i E^j
+                   , GRACE_NSPACEDIM
+                   , nq 
+                   ) ; 
+    #else 
     Kokkos::realloc( _vbar
                    , VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz)
                    , 4 // v^i v^j c_p c_m
                    , GRACE_NSPACEDIM
                    , nq 
                    ) ; 
+    #endif 
     Kokkos::realloc( _emf
                    , VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz)
-                   , GRACE_NSPACEDIM 
-                   , nq ) ; 
+                   , GRACE_NSPACEDIM
+                   , nq ) ;
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    Kokkos::realloc( _z4c_curv_scratch
+                   , VEC(nx + 2*ngz, ny + 2*ngz, nz + 2*ngz)
+                   , N_Z4C_CURV_SCRATCH
+                   , nq
+                   ) ;
+    #endif
     _staggered_vars.realloc( VEC(nx,ny,nz),ngz,nq
                            , N_FC_X
                            , N_EC_YZ
@@ -181,16 +205,38 @@ void variable_list_impl_t::resize_aux_staging_and_flux_buffers(int nq_new)
                    , GRACE_NSPACEDIM
                    , nq_new 
                    ) ;
+    #ifdef GRACE_GRMHD_USE_GS
+    Kokkos::realloc( _Ecenter
+                   , VEC( nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
+                   , 3 // E^x E^y E^z
+                   , nq_new 
+                   ) ; 
+    Kokkos::realloc( _Eface
+                   , VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz)
+                   , 2 // E^i E^j
+                   , GRACE_NSPACEDIM
+                   , nq_new 
+                   ) ; 
+    #else 
     Kokkos::realloc( _vbar
                    , VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz)
                    , 4 // v^i v^j c_p c_m
                    , GRACE_NSPACEDIM
                    , nq_new 
                    ) ; 
+    #endif 
     Kokkos::realloc( _emf
                    , VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz)
-                   , GRACE_NSPACEDIM 
-                   , nq_new ) ; 
+                   , GRACE_NSPACEDIM
+                   , nq_new ) ;
+
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    Kokkos::realloc( _z4c_curv_scratch
+                   , VEC(nx + 2*ngz, ny + 2*ngz, nz + 2*ngz)
+                   , N_Z4C_CURV_SCRATCH
+                   , nq_new
+                   ) ;
+    #endif
 
     for( int ibuf=0; ibuf<_staging_buffer.size(); ++ibuf) {
         Kokkos::realloc(

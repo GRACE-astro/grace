@@ -43,7 +43,8 @@ CONSTDEF(h_si, 6.62607015e-34); // m^2 kg / s
 // particle masses 
 CONSTDEF(me_MeV,0.51099895069); // electron mass 
 CONSTDEF(mp_MeV,938.27208943);  // electron mass 
-CONSTDEF(mn_MeV,939.56542194);  // electron mass 
+CONSTDEF(mn_MeV,939.56542194);  // electron mass
+CONSTDEF(mu_MeV,931.49410242);  // atomic mass unit (CODATA 2018) — used by FUKA/LORENE
 
 // fine structure constant
 CONSTDEF(alpha_fine,1./137.);  // electron mass 

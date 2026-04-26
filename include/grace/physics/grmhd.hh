@@ -541,7 +541,7 @@ struct grmhd_equations_system_t
             ,      const int k)
             , const int64_t q 
             , grace::flux_array_t const fluxes
-            , grace::flux_array_t const vbar
+            , grace::flux_array_t const vbar /* this is actually eface for GS */
             , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
             , double const dt 
             , double const dtfact ) const 
@@ -628,110 +628,109 @@ struct grmhd_equations_system_t
         }
         // Compute HLL fluxes
         grmhd_cons_array_t f_HLL ; 
+        #ifdef GRACE_GRMHD_USE_GS 
+        std::array<double,2> vb_HLL  ;
+        #else 
         std::array<double,4> vb_HLL ; 
-        compute_mhd_fluxes<idir,true>( primL, primR, metric_face, f_HLL, vb_HLL, 1, 1) ; 
+        #endif 
+        compute_mhd_fluxes<idir,true>( primL, primR, metric_face, f_HLL, vb_HLL, 1, 1) ;
         #ifdef GRMHD_USE_PPLIM
         /***********************************************************************/
-        // And LLF fluxes to mix in for positivity preserving limiter 
+        /* Positivity-preserving limiter: gated on HLL alone threatening the   */
+        /* density floor.  In the common smooth-flow case HLL is positivity-   */
+        /* preserving and the LLF mix is skipped entirely, killing the second  */
+        /* Riemann call and the scratch traffic that parks f_LLF / consL,R /   */
+        /* re-filled primL,R across it.                                        */
         /***********************************************************************/
-        FILL_PRIMS_ARRAY_ZVEC( primL, this->_aux, q 
-                        , VEC( i-utils::delta(idir,0)
-                             , j-utils::delta(idir,1)
-                             , k-utils::delta(idir,2) )) ;
-        FILL_PRIMS_ARRAY_ZVEC( primR, this->_aux, q 
-                        , VEC( i
-                             , j
-                             , k )) ; 
-        if constexpr ( idir == 0 ) {
-            primL[BXL] = primR[BXL] = this->_stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) / metric_face.sqrtg() ; 
-        } else if constexpr ( idir == 1 ) {
-            primL[BYL] = primR[BYL] = this->_stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) / metric_face.sqrtg(); 
+        double const a2CFL = 6. * (dt*dtfact/dx(idir,q)) ;
+        double const rho_atm = fmin(atmo_params.rho_fl, excision_params.rho_ex) ;
+        double const dens_min_r = rho_atm * metric_r.sqrtg() ;
+        double const dens_min_l = rho_atm * metric_l.sqrtg() ;
+        double const dens_L = this->_state(VEC(i-utils::delta(idir,0)
+                                              ,j-utils::delta(idir,1)
+                                              ,k-utils::delta(idir,2)),DENS_,q) ;
+        double const dens_R = this->_state(VEC(i,j,k),DENS_,q) ;
+        double const dens_m = dens_R + a2CFL * f_HLL[DENSL] ;
+        double const dens_p = dens_L - a2CFL * f_HLL[DENSL] ;
+
+        double theta = 1. ;
+        if ( dens_m < dens_min_r || dens_p < dens_min_l ) {
+            /* Slow path: HLL would drive density below floor.  Compute LLF   */
+            /* flux with the cell-centered zvec-based primitives and blend.   */
+            FILL_PRIMS_ARRAY_ZVEC( primL, this->_aux, q
+                            , VEC( i-utils::delta(idir,0)
+                                 , j-utils::delta(idir,1)
+                                 , k-utils::delta(idir,2) )) ;
+            FILL_PRIMS_ARRAY_ZVEC( primR, this->_aux, q
+                            , VEC( i , j , k )) ;
+            if constexpr ( idir == 0 ) {
+                primL[BXL] = primR[BXL] = this->_stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) / metric_face.sqrtg() ;
+            } else if constexpr ( idir == 1 ) {
+                primL[BYL] = primR[BYL] = this->_stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) / metric_face.sqrtg() ;
+            } else {
+                primL[BZL] = primR[BZL] = this->_stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) / metric_face.sqrtg() ;
+            }
+            grmhd_cons_array_t f_LLF ;
+            #ifdef GRACE_GRMHD_USE_GS
+            std::array<double,2> dummy ;
+            #else
+            std::array<double,4> dummy ;
+            #endif
+            compute_mhd_fluxes<idir,false>( primL, primR, metric_face, f_LLF, dummy, 1., 1.) ;
+
+            double const dens_LLF_m = dens_R + a2CFL * f_LLF[DENSL] ;
+            double const dens_LLF_p = dens_L - a2CFL * f_LLF[DENSL] ;
+
+            double theta_m = 1., theta_p = 1. ;
+            if (dens_m < dens_min_r) {
+                theta_m = math::min(1., math::max(0., (dens_min_r-dens_LLF_m)/(a2CFL*(f_HLL[DENSL]-f_LLF[DENSL])))) ;
+            }
+            if (dens_p < dens_min_l) {
+                theta_p = math::min(1., math::max(0., -(dens_min_l-dens_LLF_p)/(a2CFL*(f_HLL[DENSL]-f_LLF[DENSL])))) ;
+            }
+            theta = math::min(theta_m, theta_p) ;
+            if ( std::isnan(theta) ) theta = 1. ;
+
+            fluxes(VEC(i,j,k),DENS_,idir,q)        = theta * f_HLL[DENSL] + (1.-theta) * f_LLF[DENSL] ;
+            fluxes(VEC(i,j,k),YESTAR_,idir,q)      = theta * f_HLL[YESL]  + (1.-theta) * f_LLF[YESL]  ;
+            fluxes(VEC(i,j,k),ENTROPYSTAR_,idir,q) = theta * f_HLL[ENTSL] + (1.-theta) * f_LLF[ENTSL] ;
+            fluxes(VEC(i,j,k),TAU_,idir,q)         = theta * f_HLL[TAUL]  + (1.-theta) * f_LLF[TAUL]  ;
+            fluxes(VEC(i,j,k),SX_,idir,q)          = theta * f_HLL[STXL]  + (1.-theta) * f_LLF[STXL]  ;
+            fluxes(VEC(i,j,k),SY_,idir,q)          = theta * f_HLL[STYL]  + (1.-theta) * f_LLF[STYL]  ;
+            fluxes(VEC(i,j,k),SZ_,idir,q)          = theta * f_HLL[STZL]  + (1.-theta) * f_LLF[STZL]  ;
         } else {
-            primL[BZL] = primR[BZL] = this->_stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) / metric_face.sqrtg(); 
+            /* Fast path: HLL is positivity-preserving, write it directly.    */
+            fluxes(VEC(i,j,k),DENS_,idir,q)        = f_HLL[DENSL] ;
+            fluxes(VEC(i,j,k),YESTAR_,idir,q)      = f_HLL[YESL]  ;
+            fluxes(VEC(i,j,k),ENTROPYSTAR_,idir,q) = f_HLL[ENTSL] ;
+            fluxes(VEC(i,j,k),TAU_,idir,q)         = f_HLL[TAUL]  ;
+            fluxes(VEC(i,j,k),SX_,idir,q)          = f_HLL[STXL]  ;
+            fluxes(VEC(i,j,k),SY_,idir,q)          = f_HLL[STYL]  ;
+            fluxes(VEC(i,j,k),SZ_,idir,q)          = f_HLL[STZL]  ;
         }
-        /***********************************************************************/ 
-        /*                      Compute LLF flux                               */
         /***********************************************************************/
-        grmhd_cons_array_t f_LLF ;
-	    std::array<double,4> dummy ; 
-        compute_mhd_fluxes<idir,false>( primL, primR, metric_face, f_LLF, dummy, 1., 1.) ;
+        #else
         /***********************************************************************/
-        // Get conserves 
-        grmhd_cons_array_t consL, consR ;
-        FILL_CONS_ARRAY(consL, this->_state, q 
-                     , VEC(   i-utils::delta(idir,0)
-                            , j-utils::delta(idir,1)
-                            , k-utils::delta(idir,2) ) ) ; 
-        FILL_CONS_ARRAY(consR, this->_state, q
-                       , VEC(i,j,k)) ; 
-        /***********************************************************************/
-        // Mix fluxes 
-        double const a2CFL = 6. * (dt*dtfact/dx(idir,q)) ; 
-        double theta = 1 ; 
-        double rho_atm = fmin(atmo_params.rho_fl, excision_params.rho_ex) ; 
-        
-        double const dens_min_r = rho_atm * metric_r.sqrtg() ; 
-        double const dens_min_l = rho_atm * metric_l.sqrtg() ; 
-
-        double const dens_LLF_m = consR[DENSL] + a2CFL * f_LLF[DENSL] ; 
-        double const dens_LLF_p = consL[DENSL] - a2CFL * f_LLF[DENSL] ;
-
-        double const dens_m = consR[DENSL] + a2CFL * f_HLL[DENSL] ; 
-        double const dens_p = consL[DENSL] - a2CFL * f_HLL[DENSL] ; 
-
-        double theta_p = 1.; 
-        double theta_m = 1.; 
-        /*
-        if(rho_star_m < rho_star_min)
-                theta_m = MIN(theta,MAX(0.0,(rho_star_min - rho_star_LLF_m)/(a2CFL*(rho_star_flux[index] - rho_star_flux_LO[index]))));
-
-        if(rho_star_p < rho_star_minm1)
-                theta_p = MIN(theta,MAX(0.0,-( rho_star_minm1 - rho_star_LLF_p)/(a2CFL*(rho_star_flux[index] - rho_star_flux_LO[index]))));
-        */
-        if (dens_m < dens_min_r) {
-            theta_m = math::min(theta, math::max(0, (dens_min_r-dens_LLF_m)/(a2CFL*(f_HLL[DENSL]-f_LLF[DENSL])))) ; 
-        }
-        if ( dens_p < dens_min_l ) {
-            theta_p = math::min(theta, math::max(0, -(dens_min_l-dens_LLF_p)/(a2CFL*(f_HLL[DENSL]-f_LLF[DENSL])))) ; 
-        }
-
-        theta = math::min(theta_m, theta_p) ;
-        if ( std::isnan(theta) ) theta = 1. ; 
-        
-        //if ( metric_face.alp() < 0.2 ) theta = 0 ; 
-        /***********************************************************************/
-        /***********************************************************************/
-        fluxes(VEC(i,j,k),DENS_,idir,q)        = theta * f_HLL[DENSL]    
-                                               + (1. - theta) * f_LLF[DENSL] ; 
-        fluxes(VEC(i,j,k),YESTAR_,idir,q)      = theta * f_HLL[YESL]    
-                                               + (1. - theta) * f_LLF[YESL] ; 
-        fluxes(VEC(i,j,k),ENTROPYSTAR_,idir,q) = theta * f_HLL[ENTSL]    
-                                               + (1. - theta) * f_LLF[ENTSL] ; 
-        fluxes(VEC(i,j,k),TAU_,idir,q)         = theta * f_HLL[TAUL]    
-                                               + (1. - theta) * f_LLF[TAUL] ; 
-        fluxes(VEC(i,j,k),SX_,idir,q)          = theta * f_HLL[STXL]    
-                                               + (1. - theta) * f_LLF[STXL] ; 
-        fluxes(VEC(i,j,k),SY_,idir,q)          = theta * f_HLL[STYL]    
-                                               + (1. - theta) * f_LLF[STYL] ; 
-        fluxes(VEC(i,j,k),SZ_,idir,q)          = theta * f_HLL[STZL]    
-                                               + (1. - theta) * f_LLF[STZL] ; 
-        /***********************************************************************/
-        #else 
-        /***********************************************************************/
-        fluxes(VEC(i,j,k),DENS_,idir,q)        = f_HLL[DENSL] ; 
-        fluxes(VEC(i,j,k),YESTAR_,idir,q)      = f_HLL[YESL] ; 
-        fluxes(VEC(i,j,k),ENTROPYSTAR_,idir,q) = f_HLL[ENTSL] ; 
-        fluxes(VEC(i,j,k),TAU_,idir,q)         = f_HLL[TAUL] ; 
-        fluxes(VEC(i,j,k),SX_,idir,q)          = f_HLL[STXL] ; 
-        fluxes(VEC(i,j,k),SY_,idir,q)          = f_HLL[STYL] ; 
+        fluxes(VEC(i,j,k),DENS_,idir,q)        = f_HLL[DENSL] ;
+        fluxes(VEC(i,j,k),YESTAR_,idir,q)      = f_HLL[YESL] ;
+        fluxes(VEC(i,j,k),ENTROPYSTAR_,idir,q) = f_HLL[ENTSL] ;
+        fluxes(VEC(i,j,k),TAU_,idir,q)         = f_HLL[TAUL] ;
+        fluxes(VEC(i,j,k),SX_,idir,q)          = f_HLL[STXL] ;
+        fluxes(VEC(i,j,k),SY_,idir,q)          = f_HLL[STYL] ;
         fluxes(VEC(i,j,k),SZ_,idir,q)          = f_HLL[STZL] ;
         /***********************************************************************/
         #endif
+        #ifdef GRACE_GRMHD_USE_GS 
+        // fill emf array 
+        vbar(VEC(i,j,k),0,idir,q) = vb_HLL[0] ; 
+        vbar(VEC(i,j,k),1,idir,q) = vb_HLL[1] ; 
+        #else 
 	    // fill vbar and cmin/max for later
         vbar(VEC(i,j,k),0,idir,q) = vb_HLL[0] ; 
         vbar(VEC(i,j,k),1,idir,q) = vb_HLL[1] ; 
         vbar(VEC(i,j,k),2,idir,q) = vb_HLL[2] ; 
         vbar(VEC(i,j,k),3,idir,q) = vb_HLL[3] ; 
+        #endif 
     }
     template< size_t idir
             , bool recompute_cp_cm >
@@ -740,7 +739,11 @@ struct grmhd_equations_system_t
                            , grmhd_prims_array_t& primR 
                            , metric_array_t const& metric_face 
                            , grmhd_cons_array_t& f
+                           #ifdef GRACE_GRMHD_USE_GS
+                           , std::array<double,2>& emf
+                           #else 
                            , std::array<double,4>& vbar
+                           #endif 
                            , double const cmin_loc = 1
                            , double const cmax_loc = 1 ) const 
     {
@@ -826,10 +829,12 @@ struct grmhd_equations_system_t
             cmax =  Kokkos::max(0., Kokkos::max(cpl,cpr)) ; 
             /* Add some diffusion in weakly hyperbolic limit */
             if( cmin < 1e-12 and cmax < 1e-12 ) { cmin=1; cmax=1; }
+            #ifndef GRACE_GRMHD_USE_GS
             /* Store cmin/cmax and vtilde for EMF            */
             vbar[0] = solver(vtildel[jk[idir][0]],vtilder[jk[idir][0]],0,0,cmin,cmax) ;
             vbar[1] = solver(vtildel[jk[idir][1]],vtilder[jk[idir][1]],0,0,cmin,cmax) ; 
             vbar[2] = cmin; vbar[3] = cmax ; 
+            #endif
         } else {
             cmin = cmin_loc ; 
             cmax = cmax_loc ; 
@@ -870,6 +875,39 @@ struct grmhd_equations_system_t
         /***********************************************************************/
         f[YESL] = sqrtg * solver(yel*fdl,yer*fdr,yel*densl,yer*densr,cmin,cmax) ;
         /***********************************************************************/
+        #ifdef GRACE_GRMHD_USE_GS 
+        if constexpr ( idir == 0 ) {
+            // cross directions are y, z
+            // Ey = Fx(Bz)
+            // Ez = - Fx(By)
+            double Fbzl = - Bl[0] * vtildel[2] + Bl[2] * vtildel[0] ; 
+            double Fbzr = - Br[0] * vtilder[2] + Br[2] * vtilder[0] ; 
+            emf[0] = sqrtg * solver(Fbzl, Fbzr, Bl[2], Br[2], cmin,cmax) ; 
+            double Fbyl = - Bl[0] * vtildel[1] + Bl[1] * vtildel[0] ;
+            double Fbyr = - Br[0] * vtilder[1] + Br[1] * vtilder[0] ;
+            emf[1] = - sqrtg * solver(Fbyl, Fbyr, Bl[1], Br[1], cmin,cmax) ; 
+        } else if constexpr (idir == 1) {
+            // cross directions are x, z
+            // Ex = - Fy(Bz)
+            // Ez = Fy(Bx)
+            double Fbzl = - Bl[1] * vtildel[2] + Bl[2] * vtildel[1] ;
+            double Fbzr = - Br[1] * vtilder[2] + Br[2] * vtilder[1] ; 
+            emf[0] = - sqrtg * solver(Fbzl,Fbzr,Bl[2],Br[2],cmin,cmax) ; 
+            double Fbxl = Bl[0] * vtildel[1] - Bl[1] * vtildel[0] ;
+            double Fbxr = Br[0] * vtilder[1] - Br[1] * vtilder[0] ;
+            emf[1] = sqrtg * solver(Fbxl,Fbxr,Bl[0],Br[0],cmin,cmax) ; 
+        } else {
+            // cross directions are x, y
+            // Ex = Fz(By)
+            // Ey = - Fz(Bx)
+            double Fbyl = Bl[1] * vtildel[2] - Bl[2] * vtildel[1] ; 
+            double Fbyr = Br[1] * vtilder[2] - Br[2] * vtilder[1] ; 
+            emf[0] = sqrtg * solver(Fbyl,Fbyr,Bl[1],Br[1],cmin,cmax) ; 
+            double Fbxl = Bl[0] * vtildel[2] - Bl[2] * vtildel[0] ;
+            double Fbxr = Br[0] * vtilder[2] - Br[2] * vtilder[0] ; 
+            emf[1] = - sqrtg * solver(Fbxl,Fbxr,Bl[0],Br[0],cmin,cmax) ; 
+        }
+        #endif 
     }
     /***********************************************************************/
     /***********************************************************************/

@@ -1,0 +1,3 @@
+This directory contains some performance heuristics that I found on various systems I have access to. Please read the specific instructions for each architecture, and note that these considerations are always highly dependent on the software stack used to run the code. General guidelines should apply: 
+ - Inspect generated assembly for block sizes of hot kernels, try to infer if some of them have critically low occupancy 
+ - Also from the assembly it's usually possible to infer the extent of register spilling in each kernel. Note that spilling is not always bad and sometimes trading a few loads for more occupancy can be beneficial. The curvature kernel from z4c is usually the worst offender by far. 

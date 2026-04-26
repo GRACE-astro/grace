@@ -3,6 +3,7 @@ register_grace_object_conditional(grace_scalar_adv GRACE_ENABLE_SCALAR_ADV scala
 register_grace_object_conditional(grace_burgers_eq GRACE_ENABLE_BURGERS burgers_equation.cpp ) 
 register_grace_object_conditional(grace_grmhd GRACE_ENABLE_GRMHD grmhd.cpp )
 register_grace_object_conditional(grace_grmhd_B_from_A GRACE_ENABLE_GRMHD grmhd_B_from_A.cpp )
+register_grace_object_conditional(grace_b_field_injection GRACE_ENABLE_GRMHD b_field_injection.cpp )
 register_grace_object_conditional(grace_bssn GRACE_ENABLE_BSSN_METRIC bssn.cpp)
 register_grace_object_conditional(grace_m1 GRACE_ENABLE_M1 m1.cpp ) 
 register_grace_object_conditional(grace_kadath_importer GRACE_ENABLE_FUKA import_kadath.cpp )

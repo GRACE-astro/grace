@@ -145,6 +145,39 @@ void compute_auxiliary_quantities(
                                   + (By(VEC(i,j+1,k)) - By(VEC(i,j,k))) * idx(1,q)
                                   + (Bz(VEC(i,j,k+1)) - Bz(VEC(i,j,k))) * idx(2,q))/metric.sqrtg() ;         
     } ) ;
+    #ifdef GRACE_GRMHD_USE_GS 
+    auto& Ec = grace::variable_list::get().getecarray() ; 
+    parallel_for(GRACE_EXECUTION_TAG("EVOL","compute_E_center"), policy 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+    {
+        metric_array_t metric ; 
+        FILL_METRIC_ARRAY(metric, state, q, VEC(i,j,k)) ;
+
+        auto Bxv = Kokkos::subview(sstate.face_staggered_fields_x,
+                                 VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()), static_cast<size_t>(BSX_), q) ; 
+        auto Byv = Kokkos::subview(sstate.face_staggered_fields_y,
+                                 VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()), static_cast<size_t>(BSY_), q) ; 
+        auto Bzv = Kokkos::subview(sstate.face_staggered_fields_z,
+                                 VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()), static_cast<size_t>(BSZ_), q) ;   
+        auto Bx = 0.5 * ( Bxv(i,j,k) + Bxv(i+1,j,k) ) ;
+        auto By = 0.5 * ( Byv(i,j,k) + Byv(i,j+1,k) ) ;
+        auto Bz = 0.5 * ( Bzv(i,j,k) + Bzv(i,j,k+1) ) ;
+        // compute vtilde 
+        std::array<double,3> zvec = {
+            aux(i,j,k,ZVECX_,q), aux(i,j,k,ZVECY_,q), aux(i,j,k,ZVECZ_,q)
+        }; 
+        auto const W = Kokkos::sqrt(1. + metric.square_vec(zvec)) ; 
+        std::array<double,3> vtilde = {
+            metric.alp() * zvec[0]/W - metric.beta(0),
+            metric.alp() * zvec[1]/W - metric.beta(1),
+            metric.alp() * zvec[2]/W - metric.beta(2)
+        } ; 
+        // NB sqrtg is contained in B 
+        Ec(i,j,k,0,q) = By * vtilde[2] - Bz * vtilde[1] ; 
+        Ec(i,j,k,1,q) = - Bx * vtilde[2] + Bz * vtilde[0] ; 
+        Ec(i,j,k,2,q) = Bx * vtilde[1] - By * vtilde[0] ; 
+    } ) ; 
+    #endif 
     #endif 
     #endif 
     #ifdef GRACE_ENABLE_M1 

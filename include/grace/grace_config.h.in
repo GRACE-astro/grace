@@ -137,6 +137,8 @@ namespace grace {
 
 #cmakedefine GRACE_ENABLE_CABANA 
 
+#cmakedefine GRACE_GRMHD_USE_GS
+
 #define Z4C_DER_ORDER 4
 
 // for spheres
@@ -153,4 +155,12 @@ namespace grace {
 #define GRACE_RECONSTRUCTION_T weno_reconstructor_t<5>
 
 }
+
+// Per-architecture performance-tuning macros.  Selected by CMake via
+// `Kokkos_ARCH_*` detection; see top-level CMakeLists.txt.  Header may be
+// empty (generic / CPU) — in that case the source-level `#ifndef` defaults
+// apply.  Must appear after the closing `}` of `namespace grace` so macro
+// definitions are in the global scope.
+#include "@GRACE_PERF_TUNING_HEADER@"
+
 #endif /* FB650CE9_1908_47F9_98EB_3C4E4087C9CC */

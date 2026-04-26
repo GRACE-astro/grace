@@ -220,9 +220,7 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
 
     double*  points = (double*)  malloc(sizeof(double)  * npoints * 3 ) ; 
     uint64_t* cells  = (uint64_t*) malloc(sizeof(uint64_t) * ncells * nvertex ) ; 
-    const size_t global_point_offset = local_quad_offset * npoints_quad ;  
-    uint64_t icell  = 0L ; 
-    uint64_t ipoint = 0U ; 
+    const size_t global_point_offset = local_quad_offset * npoints_quad ;
 
     ASSERT(cells!=nullptr,"Failed to allocate cells buffer") ;
     ASSERT(points!=nullptr, "Failed to allocate points buffer") ;

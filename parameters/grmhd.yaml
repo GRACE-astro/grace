@@ -80,13 +80,13 @@ grmhd:
       description: >
         If excision criterion is lapse, where to excise 
     excision_radius:
-      type: double 
+      type: double
       range: "(0,*)"
       default: 1.0
       description: >
-        If excision criterion is radius, where to excise 
-  
-  c2p: 
+        If excision criterion is radius, where to excise
+
+  c2p:
     type: schema
     description: >
       Parameters that control the behaviour of the c2p 

@@ -68,8 +68,7 @@ class ideal_gas_eos_t
         /*s_max*/   1e100,
         /*t_atm*/   temp_atm,
         /*ye_atm*/  0,
-        /*atm_is_beta*/ true,
-        /*nonsense*/ false
+        /*atm_is_beta*/ true
      )
     {
         gamma_m1 = grace::get_param<double>("eos","ideal_gas_eos","gamma") - 1. ; 
