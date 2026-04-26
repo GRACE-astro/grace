@@ -39,6 +39,7 @@
 #include <grace/evolution/hrsc_evolution_system.hh>
 #include <grace/evolution/refluxing.hh>
 #include <grace/amr/amr_functions.hh>
+#include <grace/amr/boundary_conditions.hh>
 #include <grace/evolution/evolution_kernel_tags.hh>
 #include <grace/coordinates/coordinate_systems.hh>
 #include <grace/physics/eos/eos_storage.hh>
@@ -382,8 +383,12 @@ void setup_confined_poloidal_B_field() {
         c2[1] = get_param<double>("grmhd", "Avec_ID", "y_c_2") ; 
         c2[2] = get_param<double>("grmhd", "Avec_ID", "z_c_2") ; 
         double r2 = get_param<double>("grmhd", "Avec_ID", "radius_2") ;
-        setup_confined_poloidal_B_field_single(c1,r1,B_target) ;  
-        setup_confined_poloidal_B_field_single(c2,r2,B_target) ; 
+        setup_confined_poloidal_B_field_single(c1,r1,B_target) ;
+        setup_confined_poloidal_B_field_single(c2,r2,B_target) ;
     }
+    // Workaround for missing ghost-zone exchange of A: after B has been
+    // computed from A in the interior, run a full ghost-zone fill so that
+    // B in the halo is consistent with the neighbour's owned interior B.
+    grace::amr::apply_boundary_conditions() ;
 }
 }

@@ -653,18 +653,8 @@ struct grmhd_equations_system_t
         double const dens_m = dens_R + a2CFL * f_HLL[DENSL] ;
         double const dens_p = dens_L - a2CFL * f_HLL[DENSL] ;
 
-        /* Drop to pure LLF (donor-cell) in a narrow band outside the      */
-        /* excision, so the reconstruction stencil cannot poison           */
-        /* mask-adjacent faces by ingesting atmosphere values from         */
-        /* excised cells.  Only active for lapse-based excision; the       */
-        /* radius-based criterion has its own (currently unused) knob.     */
-        bool const near_excision = false ; 
-        /*
-            ( !excision_params.excise_by_radius )
-         && ( math::min(metric_l.alp(), metric_r.alp()) < excision_params.alp_f ) ;
-        */ 
         double theta = 1. ;
-        if ( near_excision || dens_m < dens_min_r || dens_p < dens_min_l ) {
+        if ( dens_m < dens_min_r || dens_p < dens_min_l ) {
             /* Slow path: HLL would drive density below floor.  Compute LLF   */
             /* flux with the cell-centered zvec-based primitives and blend.   */
             FILL_PRIMS_ARRAY_ZVEC( primL, this->_aux, q
@@ -700,7 +690,6 @@ struct grmhd_equations_system_t
             }
             theta = math::min(theta_m, theta_p) ;
             if ( std::isnan(theta) ) theta = 1. ;
-            /*if ( near_excision ) theta = 0. ;*/
 
             fluxes(VEC(i,j,k),DENS_,idir,q)        = theta * f_HLL[DENSL] + (1.-theta) * f_LLF[DENSL] ;
             fluxes(VEC(i,j,k),YESTAR_,idir,q)      = theta * f_HLL[YESL]  + (1.-theta) * f_LLF[YESL]  ;
