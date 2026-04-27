@@ -113,11 +113,6 @@ class distribution_plan_t {
         Kokkos::View<T*, grace::default_space>,
         Kokkos::View<T*, grace::default_space>);
 
-    template <typename T, std::size_t N> friend migrate_handle_t migrate_async(
-        const distribution_plan_t&,
-        Kokkos::View<T*[N], grace::default_space>,
-        Kokkos::View<T*[N], grace::default_space>);
-
     template <typename T, std::size_t N> friend void migrate(
         const distribution_plan_t&,
         Kokkos::View<T*[N], grace::default_space>,
@@ -163,33 +158,44 @@ void migrate(const distribution_plan_t& plan,
     handle.wait();
 }
 
-/// Asynchronous migrate for multi-component views (Kokkos::View<T*[N]>).
+/// Synchronous migrate for multi-component views (Kokkos::View<T*[N]>).
 /// Treats each row of N components as one packed element of size N*sizeof(T).
-/// Same contract as the rank-1 overload.
-template <typename T, std::size_t N>
-[[nodiscard]] migrate_handle_t migrate_async(
-    const distribution_plan_t& plan,
-    Kokkos::View<T*[N], grace::default_space> src,
-    Kokkos::View<T*[N], grace::default_space> dst)
-{
-    static_assert(std::is_trivially_copyable_v<T>,
-                  "particles::migrate_async<T,N>: T must be trivially copyable.");
-    ASSERT(src.span_is_contiguous(),
-           "particles::migrate_async: src view is not contiguous.");
-    ASSERT(dst.span_is_contiguous(),
-           "particles::migrate_async: dst view is not contiguous.");
-    return plan.migrate_async_raw(static_cast<const void*>(src.data()),
-                                  N * sizeof(T),
-                                  static_cast<void*>(dst.data()));
-}
-
+///
+/// CRITICAL: the byte-pack inside migrate_async_raw assumes element i's N
+/// components live contiguously at offset [i*N, i*N+N). That is only true
+/// for LayoutRight. The Kokkos default device layout is LayoutLeft on
+/// CUDA/HIP, where the storage is per-component-major (x[0..N-1],
+/// y[0..N-1], z[0..N-1]) — so a naive byte-pack would scramble component
+/// indices into element indices and silently corrupt every migrated row.
+///
+/// We therefore stage src/dst through explicit LayoutRight buffers and let
+/// Kokkos::deep_copy do the layout transpose. The rank-2 migrate is only
+/// used on small-element trajectory data (e.g. tr.pos), so the extra two
+/// deep_copies are not on a hot path.
+///
+/// No async overload: the staging buffers would have to outlive the MPI
+/// request and the post-wait copy-out, complicating the handle without
+/// meaningfully improving overlap for the tracer use case.
 template <typename T, std::size_t N>
 void migrate(const distribution_plan_t& plan,
              Kokkos::View<T*[N], grace::default_space> src,
              Kokkos::View<T*[N], grace::default_space> dst)
 {
-    auto handle = migrate_async(plan, src, dst);
+    static_assert(std::is_trivially_copyable_v<T>,
+                  "particles::migrate<T,N>: T must be trivially copyable.");
+    using lr_view_t = Kokkos::View<T*[N], Kokkos::LayoutRight,
+                                   grace::default_space>;
+    lr_view_t src_lr(Kokkos::ViewAllocateWithoutInitializing("migrate_src_lr"),
+                     src.extent(0));
+    lr_view_t dst_lr(Kokkos::ViewAllocateWithoutInitializing("migrate_dst_lr"),
+                     dst.extent(0));
+    Kokkos::deep_copy(src_lr, src);
+    auto handle = plan.migrate_async_raw(
+        static_cast<const void*>(src_lr.data()),
+        N * sizeof(T),
+        static_cast<void*>(dst_lr.data()));
     handle.wait();
+    Kokkos::deep_copy(dst, dst_lr);
 }
 
 } // namespace particles

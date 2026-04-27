@@ -266,19 +266,40 @@ void apply_position_bcs(tracer_container_t<>& tr, const position_bcs_t& b) {
         });
 }
 
+/// Per-rank summary of one cull pass. Lets rebalance() Allreduce a single
+/// fixed-size payload to print one line of diagnostic. Bounding box of
+/// flagged positions distinguishes "drifted off the high face" (genuine
+/// outflow) from "scattered through the interior" (find_owner bug).
+struct cull_summary_t {
+    long long n_flagged    = 0;
+    double    bbox_lo[3]   = { std::numeric_limits<double>::infinity(),
+                               std::numeric_limits<double>::infinity(),
+                               std::numeric_limits<double>::infinity() };
+    double    bbox_hi[3]   = { -std::numeric_limits<double>::infinity(),
+                               -std::numeric_limits<double>::infinity(),
+                               -std::numeric_limits<double>::infinity() };
+};
+
 /// Mark tracers whose position no longer maps to any rank as
 /// PARTICLE_OUTSIDE_DOMAIN before rebalancing. They get dropped by the
-/// distributor (export rank -1) and surface as removable on the next
-/// compact() pass. Returns the local count of tracers flagged on this call,
-/// for diagnostic logging.
-std::size_t flag_outside_domain(tracer_container_t<>& tr,
-                                Kokkos::View<int*, grace::default_space> export_ranks)
+/// distributor (export rank -1). Returns a per-rank summary including the
+/// bbox of flagged positions, for diagnostic logging in the caller.
+cull_summary_t flag_outside_domain(tracer_container_t<>& tr,
+                                   Kokkos::View<int*, grace::default_space> export_ranks)
 {
+    cull_summary_t s;
     const std::size_t n = tr.size();
-    if (n == 0) return 0;
+    if (n == 0) return s;
     auto status = tr.status;
+    auto pos    = tr.pos;
+
+    // Single fused reduce: count + bbox of flagged positions in one pass.
+    // Kokkos doesn't have a built-in tuple reducer for our payload, so we
+    // mirror the relevant slices to the host and do the bookkeeping there.
+    // Tracer counts are small (O(N/rank) ~ thousands) so the host pass is
+    // cheap; if this ever becomes hot we can rewrite with a custom reducer.
     int n_flagged = 0;
-    Kokkos::parallel_reduce("flag_outside_domain",
+    Kokkos::parallel_reduce("flag_outside_domain_count",
         Kokkos::RangePolicy<grace::default_execution_space>(0, n),
         KOKKOS_LAMBDA(const int i, int& acc) {
             if (export_ranks(i) < 0) {
@@ -286,7 +307,21 @@ std::size_t flag_outside_domain(tracer_container_t<>& tr,
                 ++acc;
             }
         }, n_flagged);
-    return static_cast<std::size_t>(n_flagged);
+    s.n_flagged = static_cast<long long>(n_flagged);
+
+    if (n_flagged > 0) {
+        auto h_pos = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, pos);
+        auto h_xr  = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, export_ranks);
+        for (std::size_t i = 0; i < n; ++i) {
+            if (h_xr(i) < 0) {
+                for (int d = 0; d < 3; ++d) {
+                    s.bbox_lo[d] = std::min(s.bbox_lo[d], h_pos(i, d));
+                    s.bbox_hi[d] = std::max(s.bbox_hi[d], h_pos(i, d));
+                }
+            }
+        }
+    }
+    return s;
 }
 
 void rebalance(tracer_container_t<>& tr, const std::string& strategy) {
@@ -299,20 +334,31 @@ void rebalance(tracer_container_t<>& tr, const std::string& strategy) {
     } else {
         ERROR("Unknown particle rebalance strategy: " << strategy);
     }
-    const std::size_t local_culled = flag_outside_domain(tr, export_ranks);
+    const cull_summary_t local = flag_outside_domain(tr, export_ranks);
 
-    // Diagnostic: aggregate cull rate across ranks. Useful for catching
-    // pathological tracer loss (e.g. find_owner_partition rejecting
-    // legitimate interior positions) without spamming per-step output.
-    // Logged only when something was actually culled. Allreduce is
-    // collective-safe — every rank enters with its local_culled (0 if none).
-    long long local_ll = static_cast<long long>(local_culled);
+    // Diagnostic: aggregate cull count + global bbox of culled positions.
+    // The bbox lets us see WHERE in the domain culls occur — concentrated
+    // on a face means genuine outflow; scattered through the interior
+    // means find_owner is rejecting valid positions.
     long long global_culled = 0;
-    MPI_Allreduce(&local_ll, &global_culled, 1, MPI_LONG_LONG, MPI_SUM,
-                  MPI_COMM_WORLD);
+    double    global_lo[3], global_hi[3];
+    double    neg_local_lo[3] = { -local.bbox_lo[0], -local.bbox_lo[1], -local.bbox_lo[2] };
+    double    neg_global_lo[3];
+    MPI_Allreduce(&local.n_flagged, &global_culled, 1, MPI_LONG_LONG,
+                  MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(neg_local_lo,    neg_global_lo, 3, MPI_DOUBLE,
+                  MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(local.bbox_hi,   global_hi,     3, MPI_DOUBLE,
+                  MPI_MAX, MPI_COMM_WORLD);
+    for (int d = 0; d < 3; ++d) global_lo[d] = -neg_global_lo[d];
+
     if (global_culled > 0) {
         GRACE_INFO("Particles: rebalance culled {} tracer(s) globally "
-                   "(out-of-domain).", global_culled);
+                   "(out-of-domain). Culled bbox: x=[{:g},{:g}] y=[{:g},{:g}] z=[{:g},{:g}].",
+                   global_culled,
+                   global_lo[0], global_hi[0],
+                   global_lo[1], global_hi[1],
+                   global_lo[2], global_hi[2]);
     }
 
     migrate_topology(MPI_COMM_WORLD, tr, export_ranks);

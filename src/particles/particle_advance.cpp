@@ -97,7 +97,11 @@ void advance_substep(
 {
     using exec_space = typename grace::default_space::execution_space;
     const std::size_t n = tr.size();
-    if (n == 0) return;
+    // No early return on n == 0: fetch_at_positions builds two
+    // distribution_plan_t (each posts MPI_Alltoall + Ialltoallv) and is
+    // collective. A sibling rank with non-empty tr would deadlock if we
+    // skipped it here. The kernels below all loop over [0, n) and are
+    // empty-safe; the fetched view of size (0, 17) is a valid Kokkos View.
 
     // -----------------------------------------------------------------
     // 1. Fetch v1 field set at src_pos.
