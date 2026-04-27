@@ -1,17 +1,23 @@
 /**
  * @file particle_distributor.cpp
- * @brief Implementation of distribution_plan_t.
+ * @brief Implementation of distribution_plan_t and migrate_handle_t.
  *
- * Three steps:
- *   1. Tally per-destination-rank counts on this rank.
+ * Plan construction (constructor):
+ *   1. Per-destination-rank counts on this rank.
  *   2. MPI_Alltoall to learn how many elements each rank will send to us.
  *   3. Build a per-input permutation that places each element into the
  *      correct slot of the (eventually packed) send buffer in destination-
  *      rank order, so that MPI_Alltoallv can ship contiguous slabs per peer.
  *
- * The permutation lives on device. The actual pack kernel runs in
- * migrate_raw() per migrate call (one byte-memcpy parallel_for, then one
- * MPI_Alltoallv).
+ * Migrate (per call):
+ *   1. Allocate a device-resident send buffer.
+ *   2. Pack kernel: byte-memcpy each input element into its destination slot.
+ *   3. Kokkos::fence to flush the pack before MPI reads from send_buf.
+ *   4. Post MPI_Ialltoallv. The send buffer lives inside the migrate_handle_t
+ *      so it stays alive until wait().
+ *   5. Synchronous migrate() = migrate_async() + handle.wait().
+ *
+ * GPU-aware MPI assumed (same path as fluid halos).
  */
 #include <grace_config.h>
 
@@ -23,11 +29,67 @@
 #include <Kokkos_Core.hpp>
 
 #include <algorithm>
-#include <cstring>
+#include <utility>
 #include <vector>
 
 namespace grace {
 namespace particles {
+
+//*****************************************************************************
+// migrate_handle_t lifecycle.
+//*****************************************************************************
+
+migrate_handle_t::migrate_handle_t(migrate_handle_t&& other) noexcept
+  : _req(other._req)
+  , _send_buf(std::move(other._send_buf))
+  , _completed(other._completed)
+{
+    other._req       = MPI_REQUEST_NULL;
+    other._completed = true;
+}
+
+migrate_handle_t& migrate_handle_t::operator=(migrate_handle_t&& other) noexcept
+{
+    if (this == &other) return *this;
+    wait(); // ensure any prior in-flight transfer is flushed before overwrite
+    _req       = other._req;
+    _send_buf  = std::move(other._send_buf);
+    _completed = other._completed;
+    other._req       = MPI_REQUEST_NULL;
+    other._completed = true;
+    return *this;
+}
+
+migrate_handle_t::~migrate_handle_t()
+{
+    wait();
+}
+
+void migrate_handle_t::wait()
+{
+    if (_completed) return;
+    MPI_Wait(&_req, MPI_STATUS_IGNORE);
+    _req       = MPI_REQUEST_NULL;
+    _completed = true;
+    // _send_buf can now be released; happens automatically when handle dies
+    // or is reassigned.
+}
+
+bool migrate_handle_t::test()
+{
+    if (_completed) return true;
+    int flag = 0;
+    MPI_Test(&_req, &flag, MPI_STATUS_IGNORE);
+    if (flag) {
+        _req       = MPI_REQUEST_NULL;
+        _completed = true;
+    }
+    return _completed;
+}
+
+//*****************************************************************************
+// distribution_plan_t constructor.
+//*****************************************************************************
 
 distribution_plan_t::distribution_plan_t(
     MPI_Comm comm,
@@ -38,10 +100,6 @@ distribution_plan_t::distribution_plan_t(
     MPI_Comm_size(comm, &_nproc);
     MPI_Comm_rank(comm, &_rank);
 
-    // ---------------------------------------------------------
-    // 1. Per-destination counts. Done host-side: ranks vector is short
-    //    (size = _n_input), and we need to host-reduce to _nproc bins.
-    // ---------------------------------------------------------
     auto h_ranks = Kokkos::create_mirror_view(export_ranks);
     Kokkos::deep_copy(h_ranks, export_ranks);
 
@@ -57,9 +115,6 @@ distribution_plan_t::distribution_plan_t(
     _total_send = static_cast<std::size_t>(_send_offsets[_nproc - 1]
                                           + _send_counts[_nproc - 1]);
 
-    // ---------------------------------------------------------
-    // 2. Per-source counts via MPI_Alltoall.
-    // ---------------------------------------------------------
     _recv_counts.assign(_nproc, 0);
     MPI_Alltoall(_send_counts.data(), 1, MPI_INT,
                  _recv_counts.data(), 1, MPI_INT, comm);
@@ -70,11 +125,6 @@ distribution_plan_t::distribution_plan_t(
     _total_recv = static_cast<std::size_t>(_recv_offsets[_nproc - 1]
                                           + _recv_counts[_nproc - 1]);
 
-    // ---------------------------------------------------------
-    // 3. Build per-input-element send-buffer slot permutation. We track a
-    //    running cursor per-destination on host (small, _nproc ints) and
-    //    write the per-input slot index into _send_perm.
-    // ---------------------------------------------------------
     _send_perm = Kokkos::View<int*, grace::default_space>(
         Kokkos::ViewAllocateWithoutInitializing("particle_distrib_send_perm"),
         _n_input);
@@ -93,26 +143,26 @@ distribution_plan_t::distribution_plan_t(
     Kokkos::deep_copy(_send_perm, h_perm);
 }
 
-void distribution_plan_t::migrate_raw(const void* src_data,
-                                      std::size_t bytes_per_elem,
-                                      void* dst_data) const
+//*****************************************************************************
+// migrate_async_raw: pack + post MPI_Ialltoallv, return handle.
+//*****************************************************************************
+
+migrate_handle_t distribution_plan_t::migrate_async_raw(
+    const void* src_data,
+    std::size_t bytes_per_elem,
+    void* dst_data) const
 {
     using exec_space = typename grace::default_space::execution_space;
 
-    // Allocate the send buffer (device-resident).
-    Kokkos::View<char*, grace::default_space> send_buf(
+    migrate_handle_t handle;
+    handle._send_buf = Kokkos::View<char*, grace::default_space>(
         Kokkos::ViewAllocateWithoutInitializing("particle_distrib_send_buf"),
         _total_send * bytes_per_elem);
 
-    // Pack: for each input element with valid destination, copy bytes into the
-    // destination slot of the send buffer. byte-memcpy is fine on device for
-    // small element sizes (~tens of bytes).
-    auto perm = _send_perm;
+    auto perm_v = _send_perm;
+    auto sbuf_v = handle._send_buf;
     const std::size_t n_in = _n_input;
-    const char* src_bytes = static_cast<const char*>(src_data);
-
-    Kokkos::View<int*, grace::default_space> perm_v = perm;
-    Kokkos::View<char*, grace::default_space> sbuf_v = send_buf;
+    const char* src_bytes  = static_cast<const char*>(src_data);
 
     Kokkos::parallel_for("particle_distrib_pack",
         Kokkos::RangePolicy<exec_space>(0, n_in),
@@ -125,9 +175,9 @@ void distribution_plan_t::migrate_raw(const void* src_data,
                 dst_elem[b] = src_elem[b];
             }
         });
+    // Required: pack must be visible to MPI before posting Ialltoallv.
     Kokkos::fence();
 
-    // Per-rank byte-counts/offsets for MPI_Alltoallv.
     std::vector<int> sbcnt(_nproc), sboff(_nproc);
     std::vector<int> rbcnt(_nproc), rboff(_nproc);
     for (int r = 0; r < _nproc; ++r) {
@@ -137,10 +187,11 @@ void distribution_plan_t::migrate_raw(const void* src_data,
         rboff[r] = static_cast<int>(_recv_offsets[r] * bytes_per_elem);
     }
 
-    // GPU-aware MPI: pass device pointers directly. Same path as fluid halos.
-    MPI_Alltoallv(send_buf.data(), sbcnt.data(), sboff.data(), MPI_BYTE,
-                  dst_data,        rbcnt.data(), rboff.data(), MPI_BYTE,
-                  _comm);
+    MPI_Ialltoallv(handle._send_buf.data(), sbcnt.data(), sboff.data(), MPI_BYTE,
+                   dst_data,                rbcnt.data(), rboff.data(), MPI_BYTE,
+                   _comm, &handle._req);
+    handle._completed = false;
+    return handle;
 }
 
 } // namespace particles

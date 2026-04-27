@@ -34,6 +34,39 @@
 namespace grace {
 namespace particles {
 
+class distribution_plan_t;
+
+/// RAII handle around an in-flight non-blocking MPI_Ialltoallv. Owns the
+/// device-resident send buffer until wait() so MPI can read from it
+/// asynchronously. The receive buffer (dst from the migrate_async call) is
+/// caller-owned and must not be touched until wait() returns — same semantics
+/// as MPI_Irecv.
+class migrate_handle_t {
+  public:
+    migrate_handle_t() = default;
+    migrate_handle_t(const migrate_handle_t&) = delete;
+    migrate_handle_t& operator=(const migrate_handle_t&) = delete;
+    migrate_handle_t(migrate_handle_t&& other) noexcept;
+    migrate_handle_t& operator=(migrate_handle_t&& other) noexcept;
+    ~migrate_handle_t(); // calls wait() if still in-flight
+
+    /// Block until the underlying MPI_Ialltoallv completes.
+    void wait();
+
+    /// Non-blocking poll. Returns true if the transfer has completed.
+    /// Calling wait()/test() after the handle has completed is a no-op.
+    bool test();
+
+    /// True iff the handle has no outstanding MPI request.
+    bool completed() const noexcept { return _completed; }
+
+  private:
+    friend class distribution_plan_t;
+    MPI_Request _req = MPI_REQUEST_NULL;
+    Kokkos::View<char*, grace::default_space> _send_buf; // kept alive in flight
+    bool _completed = true;
+};
+
 class distribution_plan_t {
   public:
     /// Build a plan from a per-element destination-rank view.
@@ -68,28 +101,48 @@ class distribution_plan_t {
     // (or -1 if element is dropped).
     Kokkos::View<int*, grace::default_space> _send_perm;
 
-    // Internal helper exposed to the typed migrate() template.
+    // Internal helpers exposed to the typed migrate templates.
     template <typename T> friend void migrate(
         const distribution_plan_t&,
         Kokkos::View<T*, grace::default_space>,
         Kokkos::View<T*, grace::default_space>);
 
-    void migrate_raw(const void* src_data, std::size_t bytes_per_elem,
-                     void* dst_data) const;
+    template <typename T> friend migrate_handle_t migrate_async(
+        const distribution_plan_t&,
+        Kokkos::View<T*, grace::default_space>,
+        Kokkos::View<T*, grace::default_space>);
+
+    /// Pack the source bytes into a fresh send buffer and post MPI_Ialltoallv
+    /// into the (caller-owned) dst buffer. Returns a handle owning the send
+    /// buffer + the MPI request.
+    migrate_handle_t migrate_async_raw(const void* src_data,
+                                       std::size_t bytes_per_elem,
+                                       void* dst_data) const;
 };
 
-/// Migrate a Kokkos::View<T*> of trivially-copyable T according to the plan.
-/// `dst` must already be sized to plan.total_num_import().
+/// Asynchronous migrate. Returns immediately after posting the underlying
+/// MPI_Ialltoallv. Caller must not touch `dst` until handle.wait() / .test().
+template <typename T>
+[[nodiscard]] migrate_handle_t migrate_async(
+    const distribution_plan_t& plan,
+    Kokkos::View<T*, grace::default_space> src,
+    Kokkos::View<T*, grace::default_space> dst)
+{
+    static_assert(std::is_trivially_copyable_v<T>,
+                  "particles::migrate_async<T>: T must be trivially copyable.");
+    return plan.migrate_async_raw(static_cast<const void*>(src.data()),
+                                  sizeof(T),
+                                  static_cast<void*>(dst.data()));
+}
+
+/// Synchronous migrate. Thin wrapper around migrate_async + handle.wait().
 template <typename T>
 void migrate(const distribution_plan_t& plan,
              Kokkos::View<T*, grace::default_space> src,
              Kokkos::View<T*, grace::default_space> dst)
 {
-    static_assert(std::is_trivially_copyable_v<T>,
-                  "particles::migrate<T>: T must be trivially copyable.");
-    plan.migrate_raw(static_cast<const void*>(src.data()),
-                     sizeof(T),
-                     static_cast<void*>(dst.data()));
+    auto handle = migrate_async(plan, src, dst);
+    handle.wait();
 }
 
 } // namespace particles
