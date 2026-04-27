@@ -163,7 +163,7 @@ void fetch_at_positions(
         Kokkos::ViewAllocateWithoutInitializing("particle_fetch_resp"),
         n_recv);
 
-    auto& vars = grace::variables::variable_list::get();
+    auto& vars = grace::variable_list::get();
     auto state_view = vars.getstate();
     auto aux_view   = vars.getaux();
     const int ngz_  = grace::amr::get_n_ghosts();
