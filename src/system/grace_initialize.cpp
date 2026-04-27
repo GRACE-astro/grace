@@ -58,6 +58,10 @@
 #include <grace/IO/diagnostics/co_tracker.hh>
 #ifdef GRACE_ENABLE_Z4C_METRIC
 #include <grace/IO/diagnostics/apparent_horizon.hh>
+
+#ifdef GRACE_ENABLE_PARTICLES
+#include <grace/particles/particles_module.hh>
+#endif
 #endif
 
 #include <grace/amr/grace_amr.hh>
@@ -312,12 +316,17 @@ void initialize(int& argc, char* argv[])
         grace::compute_auxiliary_quantities() ;
     }
     //--
-    // setup spherical surfaces 
+    // setup spherical surfaces
     //--
     grace::spherical_surface_manager::initialize() ;
     //--
     #ifdef GRACE_ENABLE_Z4C_METRIC
     grace::compute_constraint_violations() ;
+    #endif
+    #ifdef GRACE_ENABLE_PARTICLES
+    // Init after the grid is settled and aux is populated, since seeding
+    // walks fluid_topology_shadow_t::local_geometry().
+    grace::particles::particles_module_t::get().initialize() ;
     #endif
     
     Kokkos::fence() ; 

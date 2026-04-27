@@ -65,6 +65,9 @@ const std::vector< std::string > code_modules {
     #ifdef GRACE_ENABLE_Z4C_METRIC
     , "apparent_horizon"
     #endif
+    #ifdef GRACE_ENABLE_PARTICLES
+    , "particles"
+    #endif
 } ;
 //*****************************************************************************************************
 const std::vector< std::string > code_modules_default_configs {
@@ -96,6 +99,9 @@ const std::vector< std::string > code_modules_default_configs {
      , "${CMAKE_SOURCE_DIR}/parameters/mhd_diagnostics.yaml"
      #ifdef GRACE_ENABLE_Z4C_METRIC
      , "${CMAKE_SOURCE_DIR}/parameters/apparent_horizon.yaml"
+     #endif
+     #ifdef GRACE_ENABLE_PARTICLES
+     , "${CMAKE_SOURCE_DIR}/parameters/particles.yaml"
      #endif
 } ;
 //*****************************************************************************************************

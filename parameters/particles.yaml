@@ -1,0 +1,54 @@
+particles:
+  type: schema
+  description: >
+    Lagrangian tracer particle subsystem. v1: passive tracers advected with
+    the fluid 3-velocity, sampling rho/T/Y_e/etc. for nucleosynthesis
+    post-processing. See doc/design/particles.md.
+
+  enabled:
+    type: bool
+    default: false
+    description: >
+      Master enable for the particle subsystem. When false, the entire path
+      is a no-op even if GRACE_ENABLE_PARTICLES was set at compile time.
+
+  n_tracers_per_rank:
+    type: int
+    range: "[0,*)"
+    default: 0
+    description: >
+      Number of tracers seeded per MPI rank at startup. v1 seeds them
+      deterministically across the local quads (one column per quad with
+      offsets in y/z). For first-cut runs; YAML-driven seed lists land in
+      Phase 4.
+
+  refresh_owners_every:
+    type: int
+    range: "[1,*)"
+    default: 1
+    description: >
+      Re-resolve tracer owner_rank via fluid_topology_shadow_t every N
+      iterations. Cheap (one Allgather + a few partition searches) for
+      handfuls of tracers. Must be small enough that no tracer crosses
+      more than its owner's halo width between refreshes — N=1 is the safe
+      default until migration (Phase 2a) lands.
+
+  output_every:
+    type: int
+    range: "[0,*)"
+    default: 0
+    description: >
+      Dump tracer state every N iterations. 0 disables output. Format is
+      one ASCII file per rank (basename.rank.txt) appended to per dump.
+
+  output_directory:
+    type: string
+    default: "./output_particles"
+    description: >
+      Directory for tracer ASCII output, relative to running directory.
+
+  output_basename:
+    type: string
+    default: "tracers"
+    description: >
+      Base filename. Per-rank file is basename.<rank>.txt.

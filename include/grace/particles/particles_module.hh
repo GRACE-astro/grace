@@ -35,6 +35,28 @@ class particles_module_t {
     bool        enabled() const noexcept;
     std::size_t local_count() const noexcept;
 
+    /// One advance per full RK step. Sample fluid SRC state at current
+    /// tracer positions and push by dt (Forward Euler at t^n).
+    /// No-op when the module is disabled or has zero tracers.
+    ///
+    /// Sub-CFL safety: the fluid CFL bounds the signal speed, and
+    /// |v_fluid| <= |v_signal|, so |v|*dt < dx. Tracers cannot cross
+    /// more than one cell per call, so a single push per step is safe
+    /// and migration in Phase 2a only needs to handle one quad-jump
+    /// per particle per step.
+    ///
+    /// PIC extensibility: PIC species back-react on EM fields and need
+    /// proper per-substage RK with field deposition between substages.
+    /// They will get a separate advance_substep(dt, dtfact, ...) family
+    /// dispatched per-species; this entry point stays tracer-shaped.
+    void advance_step(double dt);
+
+    /// Direct access to the tracer container. Mostly for tests and the
+    /// (forthcoming) IO layer; the RK loop itself goes through
+    /// advance_step().
+    tracer_container_t<>&       tracers() noexcept;
+    const tracer_container_t<>& tracers() const noexcept;
+
   private:
     particles_module_t();
     ~particles_module_t();

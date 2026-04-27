@@ -73,7 +73,11 @@
 
 #include <grace/amr/grace_amr.hh>
 
-#include <string> 
+#ifdef GRACE_ENABLE_PARTICLES
+#include <grace/particles/particles_module.hh>
+#endif
+
+#include <string>
 
 
 #include <fstream> 
@@ -146,7 +150,17 @@ void evolve_impl() {
         aux(i,j,k,C2P_DENS_ERR_,q) = 0.0 ; 
     });
     #endif
-    #endif 
+    #endif
+
+    #ifdef GRACE_ENABLE_PARTICLES
+    // Tracer push: sample fluid SRC state (state, aux at t^n) and FE-push
+    // by dt. One call per full RK step is sub-CFL safe (|v_fluid| <=
+    // |v_signal|, fluid CFL bounds the latter). No-op when the module is
+    // disabled or empty. PIC species, when added, will need a per-substage
+    // hook with field deposition between substages — not this entry point.
+    grace::particles::particles_module_t::get().advance_step(dt);
+    #endif
+
     if ( tstepper == "euler" ) {
         //compute_auxiliary_quantities<eos_t>(state, aux) ;
         advance_substep<eos_t>(t,dt,1.0,state,state_p,sstate,sstate_p) ; 
