@@ -22,33 +22,56 @@ particles:
       offsets in y/z). For first-cut runs; YAML-driven seed lists land in
       Phase 4.
 
-  refresh_owners_every:
+  rebalance_strategy:
+    type: keyword
+    allowed: ["quad_owner"]
+    default: "quad_owner"
+    description: >
+      How to assign tracer destination ranks during topology rebalance.
+        - quad_owner: send each tracer to the rank owning the quad that
+          contains its position. Simple and correct, but bad load balance
+          when fluid clusters (e.g. NS merger remnant). Default.
+      Future strategies (SFC-equal-count, weighted-by-cost, PIC field-locality)
+      slot in here; the migration mechanism is policy-agnostic.
+
+  rebalance_every:
     type: int
     range: "[1,*)"
     default: 1
     description: >
-      Re-resolve tracer owner_rank via fluid_topology_shadow_t every N
-      iterations. Cheap (one Allgather + a few partition searches) for
-      handfuls of tracers. Must be small enough that no tracer crosses
-      more than its owner's halo width between refreshes — N=1 is the safe
-      default until migration (Phase 2a) lands.
+      Re-resolve tracer ownership and migrate data to new owners every N
+      iterations. Cheap for handfuls of tracers but does a host roundtrip
+      per call until a device-side path lands; consider N>1 for production.
+
+  compact_every:
+    type: int
+    range: "[0,*)"
+    default: 100
+    description: >
+      Drop tracers whose status != PARTICLE_DEFAULT every N iterations.
+      0 disables. Compaction does not free ids — appended tracers always
+      get fresh ids that cannot collide with culled ones.
 
   output_every:
     type: int
     range: "[0,*)"
     default: 0
     description: >
-      Dump tracer state every N iterations. 0 disables output. Format is
-      one ASCII file per rank (basename.rank.txt) appended to per dump.
+      Write a collective HDF5 snapshot every N iterations. 0 disables.
+      Each snapshot is one parallel-IO HDF5 file (basename_iterNNNNNNNN.h5)
+      plus a master XDMF (basename.xmf) updated in place; ParaView opens
+      the .xmf and renders an animated point cloud, with full trajectories
+      via the "Temporal Particles To Pathlines" filter on the `id` field.
 
   output_directory:
     type: string
     default: "./output_particles"
     description: >
-      Directory for tracer ASCII output, relative to running directory.
+      Directory for tracer HDF5 + XMF output, relative to running directory.
 
   output_basename:
     type: string
     default: "tracers"
     description: >
-      Base filename. Per-rank file is basename.<rank>.txt.
+      Base filename. HDF5 snapshots: basename_iter<N>.h5. Master XDMF:
+      basename.xmf.

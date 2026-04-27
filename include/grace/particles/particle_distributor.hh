@@ -113,6 +113,16 @@ class distribution_plan_t {
         Kokkos::View<T*, grace::default_space>,
         Kokkos::View<T*, grace::default_space>);
 
+    template <typename T, std::size_t N> friend migrate_handle_t migrate_async(
+        const distribution_plan_t&,
+        Kokkos::View<T*[N], grace::default_space>,
+        Kokkos::View<T*[N], grace::default_space>);
+
+    template <typename T, std::size_t N> friend void migrate(
+        const distribution_plan_t&,
+        Kokkos::View<T*[N], grace::default_space>,
+        Kokkos::View<T*[N], grace::default_space>);
+
     /// Pack the source bytes into a fresh send buffer and post MPI_Ialltoallv
     /// into the (caller-owned) dst buffer. Returns a handle owning the send
     /// buffer + the MPI request.
@@ -148,6 +158,35 @@ template <typename T>
 void migrate(const distribution_plan_t& plan,
              Kokkos::View<T*, grace::default_space> src,
              Kokkos::View<T*, grace::default_space> dst)
+{
+    auto handle = migrate_async(plan, src, dst);
+    handle.wait();
+}
+
+/// Asynchronous migrate for multi-component views (Kokkos::View<T*[N]>).
+/// Treats each row of N components as one packed element of size N*sizeof(T).
+/// Same contract as the rank-1 overload.
+template <typename T, std::size_t N>
+[[nodiscard]] migrate_handle_t migrate_async(
+    const distribution_plan_t& plan,
+    Kokkos::View<T*[N], grace::default_space> src,
+    Kokkos::View<T*[N], grace::default_space> dst)
+{
+    static_assert(std::is_trivially_copyable_v<T>,
+                  "particles::migrate_async<T,N>: T must be trivially copyable.");
+    ASSERT(src.span_is_contiguous(),
+           "particles::migrate_async: src view is not contiguous.");
+    ASSERT(dst.span_is_contiguous(),
+           "particles::migrate_async: dst view is not contiguous.");
+    return plan.migrate_async_raw(static_cast<const void*>(src.data()),
+                                  N * sizeof(T),
+                                  static_cast<void*>(dst.data()));
+}
+
+template <typename T, std::size_t N>
+void migrate(const distribution_plan_t& plan,
+             Kokkos::View<T*[N], grace::default_space> src,
+             Kokkos::View<T*[N], grace::default_space> dst)
 {
     auto handle = migrate_async(plan, src, dst);
     handle.wait();

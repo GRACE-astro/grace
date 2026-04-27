@@ -324,9 +324,14 @@ void initialize(int& argc, char* argv[])
     grace::compute_constraint_violations() ;
     #endif
     #ifdef GRACE_ENABLE_PARTICLES
-    // Init after the grid is settled and aux is populated, since seeding
-    // walks fluid_topology_shadow_t::local_geometry().
-    grace::particles::particles_module_t::get().initialize() ;
+    // For restarts, particles_module is already initialized inside
+    // checkpoint_handler::load_checkpoint() (where the file is open and
+    // the loader can replace the seed contents). For fresh starts, init
+    // here — by this point the grid is settled and aux is populated, so
+    // seed_local can walk fluid_topology_shadow_t::local_geometry().
+    if (!started_from_checkpoint) {
+        grace::particles::particles_module_t::get().initialize() ;
+    }
     #endif
     
     Kokkos::fence() ; 

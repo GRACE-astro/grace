@@ -18,6 +18,8 @@
 
 #include <grace/particles/particle_storage.hh>
 
+#include <hdf5.h>
+
 #include <cstddef>
 
 namespace grace {
@@ -29,11 +31,24 @@ class particles_module_t {
   public:
     static particles_module_t& get();
 
-    void initialize();
+    /// Initialize from config. If `restore_file_id` is a valid HDF5 file
+    /// id (i.e., nonnegative), tracers are loaded from `/particles/` in
+    /// that file instead of being freshly seeded. The two paths must not
+    /// both fire — call once per startup, choosing the right argument.
+    /// Default (= H5I_INVALID_HID) is the fresh-start path.
+    void initialize(hid_t restore_file_id = H5I_INVALID_HID);
     void finalize();
 
     bool        enabled() const noexcept;
     std::size_t local_count() const noexcept;
+
+    /// Post-AMR-regrid hook. Quad numbering on every rank changes during
+    /// regrid, so fluid_topology_shadow_t and per-tracer owner_local_quad
+    /// are universally stale. Refreshes the shadow, forces an immediate
+    /// rebalance (independent of the rebalance_every cadence), and
+    /// re-fetches samples so post-regrid output reflects the new state.
+    /// No-op when the module is disabled or has zero tracers.
+    void on_regrid();
 
     /// One advance per full RK step. Sample fluid SRC state at current
     /// tracer positions and push by dt (Forward Euler at t^n).

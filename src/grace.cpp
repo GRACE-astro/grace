@@ -54,6 +54,9 @@
 #ifdef GRACE_ENABLE_Z4C_METRIC
 #include <grace/IO/diagnostics/apparent_horizon.hh>
 #endif
+#ifdef GRACE_ENABLE_PARTICLES
+#include <grace/particles/particles_module.hh>
+#endif
 /**********************************************************************************/
 int main(int argc, char* argv[])
 {
@@ -143,9 +146,15 @@ int main(int argc, char* argv[])
                 //******************************************************************************************/
                 grace::compute_auxiliary_quantities() ;
                 //******************************************************************************************/
+                /*                               Update particles                                          */
+                //******************************************************************************************/
+                #ifdef GRACE_ENABLE_PARTICLES
+                grace::particles::particles_module_t::get().on_regrid() ;
+                #endif
+                //******************************************************************************************/
                 /*                               Update spheres                                            */
                 //******************************************************************************************/
-                grace::spherical_surface_manager::get().update(true) ; 
+                grace::spherical_surface_manager::get().update(true) ;
                 //******************************************************************************************/
                 /*                           Recompute violations                                          */
                 //******************************************************************************************/
