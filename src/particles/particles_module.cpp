@@ -7,7 +7,7 @@
 
 #ifdef GRACE_ENABLE_PARTICLES
 
-#include <grace/particles/particles_utilities.hh>
+#include <grace/particles/particle_utilities.hh>
 #include <grace/particles/particles_module.hh>
 #include <grace/particles/particle_storage.hh>
 #include <grace/particles/particle_advance.hh>
