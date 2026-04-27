@@ -1,6 +1,6 @@
 /**
  * @file test_particle_aux_fetch.cpp
- * @brief Phase 1b validation: round-trip Cabana::Distributor fetch.
+ * @brief Phase 1b validation: round-trip distribution_plan_t-based fetch.
  *
  * Strategy: fill aux[RHO_] with a known LINEAR function f(x,y,z) (trilinear
  * interp is exact for linear functions). Place tracers at random positions in
@@ -10,7 +10,7 @@
  */
 #include <grace_config.h>
 
-#ifdef GRACE_ENABLE_CABANA
+#ifdef GRACE_ENABLE_PARTICLES
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
@@ -175,4 +175,4 @@ TEST_CASE("particle_aux_fetch: trilinear round-trip on aux[RHO_]",
     REQUIRE(n_checked > 0);
 }
 
-#endif // GRACE_ENABLE_CABANA
+#endif // GRACE_ENABLE_PARTICLES

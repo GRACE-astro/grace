@@ -85,7 +85,7 @@ add_grace_test(emf_reflux_test test_reflux.cpp)
 add_grace_test(test_sph_int test_spherical_surface.cpp)
 add_grace_test(interp_on_sphere_test test_interpolation_on_shere.cpp)
 
-if( GRACE_ENABLE_CABANA )
+if( GRACE_ENABLE_PARTICLES )
 add_grace_test(particle_owner_search_test test_particle_owner_search.cpp)
 add_grace_test(particle_aux_fetch_test test_particle_aux_fetch.cpp)
 endif()
@@ -152,7 +152,7 @@ add_test(NAME gamma2_c2p_test COMMAND
 add_test(NAME sly4_pw_c2p_test COMMAND
         mpirun -n 1 ./c2p_test --grace-parfile ./configs/c2p_test_sly4_pw.yaml )
 
-if( GRACE_ENABLE_CABANA )
+if( GRACE_ENABLE_PARTICLES )
 add_test(NAME particle_owner_search_test COMMAND
         mpirun -n 2 ./particle_owner_search_test --grace-parfile ./configs/regrid_test_cartesian.yaml )
 add_test(NAME particle_aux_fetch_test COMMAND

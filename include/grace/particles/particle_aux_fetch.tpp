@@ -7,42 +7,42 @@
 #ifndef GRACE_PARTICLES_PARTICLE_AUX_FETCH_TPP
 #define GRACE_PARTICLES_PARTICLE_AUX_FETCH_TPP
 
-#ifdef GRACE_ENABLE_CABANA
+#ifdef GRACE_ENABLE_PARTICLES
 
+#include <grace/particles/particle_distributor.hh>
 #include <grace/particles/particle_owner_search.hh>
 #include <grace/data_structures/variables.hh>
 #include <grace/amr/amr_functions.hh>
 #include <grace/utils/grace_utils.hh>
 
-#include <Cabana_Core.hpp>
+#include <Kokkos_Core.hpp>
 
 namespace grace {
 namespace particles {
 
 namespace detail {
 
-// AoSoA payload types. Vector length kept small; will be tuned later.
-constexpr int fetch_vector_length = 16;
+// Wire-format request POD. Trivially copyable, sized for tight pack.
+struct alignas(8) fetch_request_t {
+    int    orig_rank;
+    int    orig_idx;
+    int    quad_local;
+    int    _pad;
+    double pos[3];
+};
+static_assert(std::is_trivially_copyable_v<fetch_request_t>);
 
-// Request: orig_rank, orig_idx, owner_local_quad, position[3].
-using request_member_types = Cabana::MemberTypes<
-    int,         // orig_rank
-    int,         // orig_idx
-    int,         // owner_local_quad
-    double[3]    // position
->;
-
+// Wire-format response POD, parametrized by field count.
 template <int N_FIELDS>
-using response_member_types = Cabana::MemberTypes<
-    int,                // orig_rank
-    int,                // orig_idx
-    double[N_FIELDS]    // interpolated values
->;
+struct alignas(8) fetch_response_t {
+    int    orig_rank;
+    int    orig_idx;
+    double values[N_FIELDS];
+};
 
-// Pack-into-device-view helper for the per-quad geometry table.
 struct quad_geom_dev_t {
-    Kokkos::View<double*[6], grace::default_space> bbox;   // (q, {xlo,ylo,zlo,xhi,yhi,zhi})
-    Kokkos::View<double*,    grace::default_space> dx;     // dx_cell per quad
+    Kokkos::View<double*[6], grace::default_space> bbox;
+    Kokkos::View<double*,    grace::default_space> dx;
 };
 
 inline quad_geom_dev_t copy_geom_to_device()
@@ -75,7 +75,7 @@ inline quad_geom_dev_t copy_geom_to_device()
 
 template <int N_FIELDS>
 struct field_specs_dev_t {
-    Kokkos::View<int*, grace::default_space> source; // STATE=0, AUX=1
+    Kokkos::View<int*, grace::default_space> source;
     Kokkos::View<int*, grace::default_space> idx;
 };
 
@@ -113,26 +113,19 @@ void fetch_at_positions(
     Kokkos::View<double*[3],   grace::default_space> positions,
     Kokkos::View<double**,     grace::default_space> out)
 {
-    using exec_space = typename grace::default_space::execution_space;
-    using request_t  = detail::request_member_types;
-    using response_t = detail::response_member_types<N_FIELDS>;
-    constexpr int vlen = detail::fetch_vector_length;
+    using exec_space   = typename grace::default_space::execution_space;
+    using request_t    = detail::fetch_request_t;
+    using response_t   = detail::fetch_response_t<N_FIELDS>;
 
     int my_rank = -1;
     MPI_Comm_rank(comm, &my_rank);
 
     // -------------------------------------------------------------------
-    // 1. Build forward request AoSoA. Particles with owner_rank<0 are routed
-    //    to my_rank with quad=-1 so the owner-side kernel can no-op them
-    //    cheaply rather than special-casing the export plan.
+    // 1. Pack forward request buffer + export-rank vector.
     // -------------------------------------------------------------------
-    Cabana::AoSoA<request_t, grace::default_space, vlen>
-        req("particle_fetch_req", n_particles);
-    auto req_orig_rank = Cabana::slice<0>(req);
-    auto req_orig_idx  = Cabana::slice<1>(req);
-    auto req_quad      = Cabana::slice<2>(req);
-    auto req_pos       = Cabana::slice<3>(req);
-
+    Kokkos::View<request_t*, grace::default_space> req(
+        Kokkos::ViewAllocateWithoutInitializing("particle_fetch_req"),
+        n_particles);
     Kokkos::View<int*, grace::default_space> export_ranks(
         Kokkos::ViewAllocateWithoutInitializing("particle_fetch_export"),
         n_particles);
@@ -140,56 +133,40 @@ void fetch_at_positions(
     Kokkos::parallel_for("particle_fetch_pack_request",
         Kokkos::RangePolicy<exec_space>(0, n_particles),
         KOKKOS_LAMBDA(const int i) {
-            int dst = owner_rank(i);
-            if (dst < 0) {
-                req_orig_rank(i) = my_rank;
-                req_orig_idx(i)  = i;
-                req_quad(i)      = -1;
-                req_pos(i, 0)    = 0.0;
-                req_pos(i, 1)    = 0.0;
-                req_pos(i, 2)    = 0.0;
-                export_ranks(i)  = my_rank;
-            } else {
-                req_orig_rank(i) = my_rank;
-                req_orig_idx(i)  = i;
-                req_quad(i)      = owner_local_quad(i);
-                req_pos(i, 0)    = positions(i, 0);
-                req_pos(i, 1)    = positions(i, 1);
-                req_pos(i, 2)    = positions(i, 2);
-                export_ranks(i)  = dst;
-            }
+            request_t r;
+            r.orig_rank = my_rank;
+            r.orig_idx  = i;
+            r._pad      = 0;
+            r.quad_local = owner_local_quad(i);
+            r.pos[0] = positions(i, 0);
+            r.pos[1] = positions(i, 1);
+            r.pos[2] = positions(i, 2);
+            req(i) = r;
+            export_ranks(i) = owner_rank(i); // -1 → distributor drops the elem
         });
     Kokkos::fence();
 
     // -------------------------------------------------------------------
-    // 2. Forward Distributor: ship requests to fluid owners.
+    // 2. Forward distributor: ship requests to fluid owners.
     // -------------------------------------------------------------------
-    Cabana::Distributor<grace::default_space> fwd(comm, export_ranks);
-    Cabana::AoSoA<request_t, grace::default_space, vlen>
-        req_recv("particle_fetch_req_recv", fwd.totalNumImport());
-    Cabana::migrate(fwd, req, req_recv);
+    distribution_plan_t fwd(comm, export_ranks);
+    Kokkos::View<request_t*, grace::default_space> req_recv(
+        Kokkos::ViewAllocateWithoutInitializing("particle_fetch_req_recv"),
+        fwd.total_num_import());
+    migrate(fwd, req, req_recv);
 
     // -------------------------------------------------------------------
     // 3. Owner-side fulfillment: trilinear interp per requested field.
     // -------------------------------------------------------------------
-    auto rcv_orig_rank = Cabana::slice<0>(req_recv);
-    auto rcv_orig_idx  = Cabana::slice<1>(req_recv);
-    auto rcv_quad      = Cabana::slice<2>(req_recv);
-    auto rcv_pos       = Cabana::slice<3>(req_recv);
-
     const std::size_t n_recv = req_recv.size();
-    Cabana::AoSoA<response_t, grace::default_space, vlen>
-        resp("particle_fetch_resp", n_recv);
-    auto resp_orig_rank = Cabana::slice<0>(resp);
-    auto resp_orig_idx  = Cabana::slice<1>(resp);
-    auto resp_values    = Cabana::slice<2>(resp);
+    Kokkos::View<response_t*, grace::default_space> resp(
+        Kokkos::ViewAllocateWithoutInitializing("particle_fetch_resp"),
+        n_recv);
 
     auto& vars = grace::variables::variable_list::get();
     auto state_view = vars.getstate();
     auto aux_view   = vars.getaux();
-    auto extents = grace::amr::get_quadrant_extents();
-    const int nx_  = static_cast<int>(std::get<0>(extents));
-    const int ngz_ = grace::amr::get_n_ghosts();
+    const int ngz_  = grace::amr::get_n_ghosts();
 
     auto geom_dev   = detail::copy_geom_to_device();
     auto specs_dev  = detail::copy_field_specs_to_device<N_FIELDS>(fields);
@@ -202,29 +179,32 @@ void fetch_at_positions(
     Kokkos::parallel_for("particle_fetch_fulfill",
         Kokkos::RangePolicy<exec_space>(0, n_recv),
         KOKKOS_LAMBDA(const int r) {
-            resp_orig_rank(r) = rcv_orig_rank(r);
-            resp_orig_idx(r)  = rcv_orig_idx(r);
+            request_t  in  = req_recv(r);
+            response_t out_r;
+            out_r.orig_rank = in.orig_rank;
+            out_r.orig_idx  = in.orig_idx;
 
-            const int q = rcv_quad(r);
+            const int q = in.quad_local;
             if (q < 0) {
-                for (int f = 0; f < N_FIELDS; ++f) resp_values(r, f) = 0.0;
+                for (int f = 0; f < N_FIELDS; ++f) out_r.values[f] = 0.0;
+                resp(r) = out_r;
                 return;
             }
 
-            const double x = rcv_pos(r, 0);
-            const double y = rcv_pos(r, 1);
-            const double z = rcv_pos(r, 2);
-            const double xlo = bbox_v(q, 0);
-            const double ylo = bbox_v(q, 1);
-            const double zlo = bbox_v(q, 2);
+            const double x = in.pos[0];
+            const double y = in.pos[1];
+            const double z = in.pos[2];
+            const double xlo    = bbox_v(q, 0);
+            const double ylo    = bbox_v(q, 1);
+            const double zlo    = bbox_v(q, 2);
             const double inv_dx = 1.0 / dx_v(q);
 
             const double cx = (x - xlo) * inv_dx - 0.5;
             const double cy = (y - ylo) * inv_dx - 0.5;
             const double cz = (z - zlo) * inv_dx - 0.5;
-            const int bi = static_cast<int>(Kokkos::floor(cx));
-            const int bj = static_cast<int>(Kokkos::floor(cy));
-            const int bk = static_cast<int>(Kokkos::floor(cz));
+            const int    bi = static_cast<int>(Kokkos::floor(cx));
+            const int    bj = static_cast<int>(Kokkos::floor(cy));
+            const int    bk = static_cast<int>(Kokkos::floor(cz));
             const double fx = cx - static_cast<double>(bi);
             const double fy = cy - static_cast<double>(bj);
             const double fz = cz - static_cast<double>(bk);
@@ -244,7 +224,7 @@ void fetch_at_positions(
             const double w111 =      fx *     fy *     fz ;
 
             for (int f = 0; f < N_FIELDS; ++f) {
-                const int src = src_v(f);
+                const int src  = src_v(f);
                 const int vidx = idx_v(f);
                 double v;
                 if (src == 0) {
@@ -266,14 +246,14 @@ void fetch_at_positions(
                         + w011 * aux_view(vi  , vj+1, vk+1, vidx, q)
                         + w111 * aux_view(vi+1, vj+1, vk+1, vidx, q);
                 }
-                resp_values(r, f) = v;
+                out_r.values[f] = v;
             }
+            resp(r) = out_r;
         });
     Kokkos::fence();
-    (void)nx_; // (currently unused; reserved for bounds debug asserts)
 
     // -------------------------------------------------------------------
-    // 4. Reverse Distributor: ship responses back to originating ranks.
+    // 4. Reverse distributor: ship responses back to originating ranks.
     // -------------------------------------------------------------------
     Kokkos::View<int*, grace::default_space> resp_export(
         Kokkos::ViewAllocateWithoutInitializing("particle_fetch_resp_export"),
@@ -281,28 +261,26 @@ void fetch_at_positions(
     Kokkos::parallel_for("particle_fetch_build_resp_export",
         Kokkos::RangePolicy<exec_space>(0, n_recv),
         KOKKOS_LAMBDA(const int r) {
-            resp_export(r) = resp_orig_rank(r);
+            resp_export(r) = resp(r).orig_rank;
         });
     Kokkos::fence();
 
-    Cabana::Distributor<grace::default_space> rev(comm, resp_export);
-    Cabana::AoSoA<response_t, grace::default_space, vlen>
-        resp_recv("particle_fetch_resp_recv", rev.totalNumImport());
-    Cabana::migrate(rev, resp, resp_recv);
+    distribution_plan_t rev(comm, resp_export);
+    Kokkos::View<response_t*, grace::default_space> resp_recv(
+        Kokkos::ViewAllocateWithoutInitializing("particle_fetch_resp_recv"),
+        rev.total_num_import());
+    migrate(rev, resp, resp_recv);
 
     // -------------------------------------------------------------------
     // 5. Write back into the caller's output view, indexed by orig_idx.
     // -------------------------------------------------------------------
-    auto recv_orig_idx = Cabana::slice<1>(resp_recv);
-    auto recv_values   = Cabana::slice<2>(resp_recv);
     const std::size_t n_back = resp_recv.size();
-
     Kokkos::parallel_for("particle_fetch_writeback",
         Kokkos::RangePolicy<exec_space>(0, n_back),
         KOKKOS_LAMBDA(const int r) {
-            const int dst = recv_orig_idx(r);
+            response_t in_r = resp_recv(r);
             for (int f = 0; f < N_FIELDS; ++f) {
-                out(dst, f) = recv_values(r, f);
+                out(in_r.orig_idx, f) = in_r.values[f];
             }
         });
     Kokkos::fence();
@@ -311,6 +289,6 @@ void fetch_at_positions(
 } // namespace particles
 } // namespace grace
 
-#endif // GRACE_ENABLE_CABANA
+#endif // GRACE_ENABLE_PARTICLES
 
 #endif // GRACE_PARTICLES_PARTICLE_AUX_FETCH_TPP

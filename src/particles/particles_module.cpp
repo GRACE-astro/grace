@@ -5,7 +5,7 @@
  */
 #include <grace_config.h>
 
-#ifdef GRACE_ENABLE_CABANA
+#ifdef GRACE_ENABLE_PARTICLES
 
 #include <grace/particles/particles_module.hh>
 #include <grace/particles/particle_storage.hh>
@@ -15,8 +15,8 @@ namespace particles {
 
 class particles_module_impl_t {
   public:
-    bool enabled = false;
-    tracer_aosoa_t<> particles{"grace_tracers", 0};
+    bool                 enabled = false;
+    tracer_container_t<> tracers;
 };
 
 particles_module_t::particles_module_t()
@@ -37,7 +37,7 @@ void particles_module_t::initialize() {
 }
 
 void particles_module_t::finalize() {
-    _impl->particles = tracer_aosoa_t<>{"grace_tracers", 0};
+    _impl->tracers = tracer_container_t<>{};
     _impl->enabled = false;
 }
 
@@ -46,10 +46,10 @@ bool particles_module_t::enabled() const noexcept {
 }
 
 std::size_t particles_module_t::local_count() const noexcept {
-    return _impl->particles.size();
+    return _impl->tracers.size();
 }
 
 } // namespace particles
 } // namespace grace
 
-#endif // GRACE_ENABLE_CABANA
+#endif // GRACE_ENABLE_PARTICLES

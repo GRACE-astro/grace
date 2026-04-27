@@ -135,7 +135,7 @@ namespace grace {
 
 #cmakedefine GRACE_ENABLE_M1 
 
-#cmakedefine GRACE_ENABLE_CABANA 
+#cmakedefine GRACE_ENABLE_PARTICLES
 
 #cmakedefine GRACE_GRMHD_USE_GS
 

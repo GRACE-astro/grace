@@ -3,9 +3,9 @@
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
  * @brief Top-level entry point for the GRACE particle subsystem.
  *
- * The whole module is compiled out when GRACE_ENABLE_CABANA is undefined.
+ * The whole module compiles out when GRACE_ENABLE_PARTICLES is undefined.
  * When enabled, callers should still respect the runtime config flag
- * particles.enabled before calling into module APIs that mutate state.
+ * particles.enabled before invoking module APIs that mutate state.
  *
  * See doc/design/particles.md for the full architecture.
  */
@@ -14,7 +14,7 @@
 
 #include <grace_config.h>
 
-#ifdef GRACE_ENABLE_CABANA
+#ifdef GRACE_ENABLE_PARTICLES
 
 #include <grace/particles/particle_storage.hh>
 
@@ -32,7 +32,7 @@ class particles_module_t {
     void initialize();
     void finalize();
 
-    bool enabled() const noexcept;
+    bool        enabled() const noexcept;
     std::size_t local_count() const noexcept;
 
   private:
@@ -47,6 +47,6 @@ class particles_module_t {
 } // namespace particles
 } // namespace grace
 
-#endif // GRACE_ENABLE_CABANA
+#endif // GRACE_ENABLE_PARTICLES
 
 #endif // GRACE_PARTICLES_PARTICLES_MODULE_HH

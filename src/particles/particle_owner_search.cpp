@@ -5,7 +5,7 @@
  */
 #include <grace_config.h>
 
-#ifdef GRACE_ENABLE_CABANA
+#ifdef GRACE_ENABLE_PARTICLES
 
 #include <grace/particles/particle_owner_search.hh>
 
@@ -317,4 +317,4 @@ stencil_t fluid_topology_shadow_t::make_stencil(int local_quad,
 } // namespace particles
 } // namespace grace
 
-#endif // GRACE_ENABLE_CABANA
+#endif // GRACE_ENABLE_PARTICLES

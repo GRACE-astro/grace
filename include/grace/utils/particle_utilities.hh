@@ -4,9 +4,9 @@
  * @brief Shared types for the GRACE particle subsystem.
  *
  * This header defines particle-related types that are usable everywhere in
- * GRACE regardless of whether Cabana is enabled. Cabana-dependent storage and
- * kernels live under include/grace/particles/ and are guarded by
- * GRACE_ENABLE_CABANA.
+ * GRACE regardless of whether the particle subsystem is built. Particle
+ * storage and kernels live under include/grace/particles/ and are guarded by
+ * GRACE_ENABLE_PARTICLES.
  *
  * @copyright This file is part of of the General Relativistic Astrophysics
  * Code for Exascale.

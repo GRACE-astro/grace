@@ -1,87 +1,122 @@
 /**
  * @file particle_storage.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief AoSoA layout and field-index conventions for GRACE particles.
+ * @brief Tracer particle SoA storage built directly on Kokkos.
  *
- * The storage type is a Cabana::AoSoA. Field indices are exposed as a strong
- * enum so that callers do not depend on the order of MemberTypes.
+ * v1 layout: one Kokkos::View per field. Per-particle access via
+ * `slice<F>()(i)`. AoSoA migration is a Phase 5 optimization and would
+ * preserve this API; for tracers SoA is fast enough (G2P touches ~3 fields
+ * per particle, push touches ~5).
  *
- * Sort key: ascending (owner_rank, owner_local_quad, intra_quad_idx). Because
- * p4est SFC traversal is z-order, this is particle Morton order at the quad's
- * level — see doc/design/particles.md.
+ * Sort key (for the partition): ascending (owner_rank, owner_local_quad,
+ * intra_quad_idx). p4est SFC ordering of quads makes this Morton order on
+ * particle positions at the quad's level — see doc/design/particles.md.
  */
 #ifndef GRACE_PARTICLES_PARTICLE_STORAGE_HH
 #define GRACE_PARTICLES_PARTICLE_STORAGE_HH
 
 #include <grace_config.h>
 
-#ifdef GRACE_ENABLE_CABANA
+#ifdef GRACE_ENABLE_PARTICLES
 
-#include <Cabana_Core.hpp>
+#include <grace/data_structures/memory_defaults.hh>
+
 #include <Kokkos_Core.hpp>
 
+#include <cstddef>
 #include <cstdint>
 
 namespace grace {
 namespace particles {
 
-// Tracer AoSoA field indices. The advection block is what the per-substep
-// fetch needs; the sample block is what the tracer actually records for
-// scientific output. Both are populated in the same fetch round-trip — see
-// doc/design/particles.md (sampling section).
+/// Field-index enum. Order matches the slices declared on tracer_container_t.
 enum class particle_field : int {
     // Identity / topology
-    pos              = 0,  // double[3]   physical position
-    id               = 1,  // uint64      immortal global id
-    status           = 2,  // uint8       particle_status_flag_t
-    owner_rank       = 3,  // int32       cached owning fluid rank
-    owner_local_quad = 4,  // int32       cached local quad index on owner
-    // Advection inputs (sampled at src_pos every substep)
-    sample_alpha     = 5,  // double      lapse
-    sample_beta      = 6,  // double[3]   shift
-    sample_v         = 7,  // double[3]   3-velocity
-    sample_W         = 8,  // double      Lorentz factor
+    pos              = 0,
+    id               = 1,
+    status           = 2,
+    owner_rank       = 3,
+    owner_local_quad = 4,
+    // Advection inputs (sampled every substep)
+    sample_alpha     = 5,
+    sample_beta      = 6,
+    sample_v         = 7,
+    sample_W         = 8,
     // Hydro samples (output)
-    sample_rho       = 9,  // double      rest-mass density
-    sample_temp      = 10, // double      temperature
-    sample_ye        = 11, // double      electron fraction
-    sample_entropy   = 12, // double      specific entropy
-    sample_press     = 13, // double      pressure
-    sample_eps       = 14, // double      specific internal energy
-    // Magnetic field samples
-    sample_B         = 15  // double[3]   3-magnetic-field
+    sample_rho       = 9,
+    sample_temp      = 10,
+    sample_ye        = 11,
+    sample_entropy   = 12,
+    sample_press     = 13,
+    sample_eps       = 14,
+    sample_B         = 15
 };
 
-using tracer_member_types = Cabana::MemberTypes<
-    double[3],   // pos
-    uint64_t,    // id
-    uint8_t,     // status
-    int32_t,     // owner_rank
-    int32_t,     // owner_local_quad
-    double,      // sample_alpha
-    double[3],   // sample_beta
-    double[3],   // sample_v
-    double,      // sample_W
-    double,      // sample_rho
-    double,      // sample_temp
-    double,      // sample_ye
-    double,      // sample_entropy
-    double,      // sample_press
-    double,      // sample_eps
-    double[3]    // sample_B
->;
+/// Number of scalar-equivalent slots per particle (counting vector fields as 3).
+/// Used to size the per-substep aux fetch response payload.
+constexpr int n_tracer_sample_scalars =
+    1 /*alpha*/ + 3 /*beta*/ + 3 /*v*/ + 1 /*W*/
+    + 1 /*rho*/ + 1 /*temp*/ + 1 /*ye*/ + 1 /*entropy*/
+    + 1 /*press*/ + 1 /*eps*/ + 3 /*B*/;
+static_assert(n_tracer_sample_scalars == 16,
+              "Update aux-fetch N_FIELDS instantiation if this changes.");
 
-constexpr int particle_vector_length = 16;
+/// SoA tracer container. Trivially resizable; lifetime managed by caller.
+template <class MemorySpace = grace::default_space>
+class tracer_container_t {
+  public:
+    // Identity / topology
+    Kokkos::View<double*[3], MemorySpace> pos;
+    Kokkos::View<uint64_t*,  MemorySpace> id;
+    Kokkos::View<uint8_t*,   MemorySpace> status;
+    Kokkos::View<int32_t*,   MemorySpace> owner_rank;
+    Kokkos::View<int32_t*,   MemorySpace> owner_local_quad;
+    // Advection inputs
+    Kokkos::View<double*,    MemorySpace> sample_alpha;
+    Kokkos::View<double*[3], MemorySpace> sample_beta;
+    Kokkos::View<double*[3], MemorySpace> sample_v;
+    Kokkos::View<double*,    MemorySpace> sample_W;
+    // Hydro samples
+    Kokkos::View<double*,    MemorySpace> sample_rho;
+    Kokkos::View<double*,    MemorySpace> sample_temp;
+    Kokkos::View<double*,    MemorySpace> sample_ye;
+    Kokkos::View<double*,    MemorySpace> sample_entropy;
+    Kokkos::View<double*,    MemorySpace> sample_press;
+    Kokkos::View<double*,    MemorySpace> sample_eps;
+    Kokkos::View<double*[3], MemorySpace> sample_B;
 
-using default_memory_space = Kokkos::DefaultExecutionSpace::memory_space;
+    tracer_container_t() = default;
 
-template <class MemorySpace = default_memory_space>
-using tracer_aosoa_t = Cabana::AoSoA<tracer_member_types, MemorySpace,
-                                     particle_vector_length>;
+    /// Resize all fields to n elements. Initializes to zero.
+    void resize(std::size_t n) {
+        _n = n;
+        pos              = decltype(pos)             ("tracer_pos",          n);
+        id               = decltype(id)              ("tracer_id",           n);
+        status           = decltype(status)          ("tracer_status",       n);
+        owner_rank       = decltype(owner_rank)      ("tracer_owner_rank",   n);
+        owner_local_quad = decltype(owner_local_quad)("tracer_owner_quad",   n);
+        sample_alpha     = decltype(sample_alpha)    ("tracer_alpha",        n);
+        sample_beta      = decltype(sample_beta)     ("tracer_beta",         n);
+        sample_v         = decltype(sample_v)        ("tracer_v",            n);
+        sample_W         = decltype(sample_W)        ("tracer_W",            n);
+        sample_rho       = decltype(sample_rho)      ("tracer_rho",          n);
+        sample_temp      = decltype(sample_temp)     ("tracer_temp",         n);
+        sample_ye        = decltype(sample_ye)       ("tracer_ye",           n);
+        sample_entropy   = decltype(sample_entropy)  ("tracer_entropy",      n);
+        sample_press     = decltype(sample_press)    ("tracer_press",        n);
+        sample_eps       = decltype(sample_eps)      ("tracer_eps",          n);
+        sample_B         = decltype(sample_B)        ("tracer_B",            n);
+    }
+
+    std::size_t size() const noexcept { return _n; }
+
+  private:
+    std::size_t _n = 0;
+};
 
 } // namespace particles
 } // namespace grace
 
-#endif // GRACE_ENABLE_CABANA
+#endif // GRACE_ENABLE_PARTICLES
 
 #endif // GRACE_PARTICLES_PARTICLE_STORAGE_HH

@@ -10,7 +10,7 @@
  */
 #include <grace_config.h>
 
-#ifdef GRACE_ENABLE_CABANA
+#ifdef GRACE_ENABLE_PARTICLES
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -199,4 +199,4 @@ TEST_CASE("particle_owner_search: fast_path_check + make_stencil for cell-center
     REQUIRE(std::abs(st.fx - 0.5) < 1e-12);
 }
 
-#endif // GRACE_ENABLE_CABANA
+#endif // GRACE_ENABLE_PARTICLES

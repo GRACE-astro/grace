@@ -28,6 +28,6 @@ add_subdirectory(physics)
 
 add_subdirectory(config)
 
-if( GRACE_ENABLE_CABANA )
+if( GRACE_ENABLE_PARTICLES )
 add_subdirectory(particles)
 endif()

@@ -1,7 +1,21 @@
 # GRACE Particles — Design & Implementation Plan
 
-**Status:** Draft, 2026-04-27
+**Status:** Draft, 2026-04-27 (revised 2026-04-28: Cabana dependency dropped)
 **Author:** Carlo Musolino (with planning assistance)
+
+## Dependency policy
+
+The particle subsystem builds **directly on Kokkos and MPI** with no external
+particle library. We previously sketched this on top of Cabana but dropped
+that dependency for two reasons: (1) Kokkos ≥ 4.7 requires Cabana to be built
+against `Kokkos_ENABLE_IMPL_VIEW_LEGACY=ON` until Cabana ports its custom
+AoSoA layouts to mdspan-based Views, with no public timeline; (2) post-ECP
+Cabana maintenance is uncertain. The Cabana value-add for our v1 use case
+(AoSoA storage + Distributor + HDF5 helper) is small enough that owning
+~500 LOC of Kokkos+MPI primitives wins on long-term maintenance.
+
+Build flag: `GRACE_ENABLE_PARTICLES=ON`. No external dependency beyond the
+existing GRACE stack.
 
 ## Goals
 
@@ -33,10 +47,18 @@ self-interactions, particle-AMR coupling beyond what migration requires.
 
 ### Storage
 
-One global `Cabana::AoSoA` per rank, sorted by `(global_quad_id, intra_quad_idx)`
-where `global_quad_id` is the p4est SFC index of the owning quad. Because p4est's
-SFC traversal is z-order, this sort *is* particle Morton order at the quad's
-level — no separate position-Morton step needed.
+One `tracer_container_t<MemorySpace>` per rank — a struct of `Kokkos::View`s,
+one per field (SoA layout). Sorted by `(global_quad_id, intra_quad_idx)`
+where `global_quad_id` is the p4est SFC index of the owning quad. Because
+p4est's SFC traversal is z-order, this sort *is* particle Morton order at the
+quad's level — no separate position-Morton step needed.
+
+SoA is sufficient for tracers (G2P touches ~3 fields per particle, push
+touches ~5). For PIC kernels that touch ≥4 fields per particle in tight
+loops, AoSoA gives a single-digit-percent improvement in published
+benchmarks; we'd migrate then by replacing the per-field Views with a single
+char-buffer + offset math, keeping the same accessor API. Phase 5
+optimization, not a requirement.
 
 Slices (v1) split into three blocks: identity/topology, advection inputs, and
 hydro samples for output.
@@ -93,13 +115,15 @@ extending `tracer_member_types` or by introducing additional species AoSoAs.
        flag for end-of-step slow-path re-search
      else: HARD FLAG (drift exceeded ghost width)
 
-2. forward Cabana::Distributor: ship "give me aux at (quad, i, j, k)" requests
-   to fluid owners
+2. forward distribution_plan_t: ship "give me aux at (quad, position)"
+   request POD tuples to fluid owners (MPI_Alltoallv under the hood, with
+   GPU-aware MPI; same path GRACE uses for fluid halos)
 
-3. fluid rank fulfills: kernel reads 8 cell-centered aux values
-   (alpha, beta^i, v^i) from its src state arrays per request, packs response
+3. fluid rank fulfills: kernel computes the trilinear stencil locally from
+   per-quad geometry, reads 8 cell-centered values per requested field from
+   its state/aux arrays, packs interpolated values into a response POD
 
-4. reverse Cabana::Distributor: response back to particle ranks
+4. reverse distribution_plan_t: response back to particle ranks
 
 5. local trilinear G2P + RK substep update:
      dst_pos = src_pos + dtfact * dt * (alpha * v - beta)
@@ -196,15 +220,17 @@ every N steps OR imbalance OR after regrid:
 ```
 include/grace/particles/
   particles_module.hh         singleton + main API entry
-  particle_storage.hh         AoSoA layout, slices, MemberTypes
+  particle_storage.hh         tracer_container_t (SoA Kokkos::Views per field)
+  particle_distributor.hh     distribution_plan_t (per-rank MPI plan + migrate())
   particle_advance.hh         per-substep RK push + G2P trilinear
   particle_owner_search.hh    fluid bbox shadow + p4est_search wrapper
-  particle_migration.hh       Cabana::Distributor wrappers (fetch + redistribute)
+  particle_aux_fetch.hh/.tpp  per-substep fetch protocol (templated on N_FIELDS)
+  particle_migration.hh       end-of-step redistribute (uses distributor)
   particle_io.hh              HDF5 output + checkpoint hooks
 
 src/particles/
   particles_module.cpp
-  particle_storage.cpp
+  particle_distributor.cpp
   particle_advance.cpp
   particle_owner_search.cpp
   particle_migration.cpp
@@ -264,6 +290,6 @@ src/particles/
 |---|---|
 | Fetch latency dominates substep | Overlap with fluid flux compute; coalesce per-quad requests; fallback to local fetch when particle inside fluid-owned quad on this rank |
 | Hot fluid quad serializes responses | Intrinsic; mitigation via ghost-fan-out is a future optimization |
-| Cabana version drift (HDF5 helper is `Experimental::`) | Pin Cabana version in env modules; abstract output behind a thin wrapper |
 | GPU-aware MPI failure modes | Already exercised by fluid halos; same path |
 | Regrid + particle migration ordering bugs | Make particle re-search part of the regrid `update()` task graph, not a separate phase |
+| SoA vs AoSoA perf gap at PIC time | Container API hides storage layout; Phase 5 swap to AoSoA is local change |

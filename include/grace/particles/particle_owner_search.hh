@@ -15,7 +15,7 @@
 
 #include <grace_config.h>
 
-#ifdef GRACE_ENABLE_CABANA
+#ifdef GRACE_ENABLE_PARTICLES
 
 #include <array>
 #include <cstddef>
@@ -116,6 +116,6 @@ class fluid_topology_shadow_t {
 } // namespace particles
 } // namespace grace
 
-#endif // GRACE_ENABLE_CABANA
+#endif // GRACE_ENABLE_PARTICLES
 
 #endif // GRACE_PARTICLES_PARTICLE_OWNER_SEARCH_HH

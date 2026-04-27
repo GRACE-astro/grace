@@ -1,24 +1,22 @@
 /**
  * @file particle_aux_fetch.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief Per-substep aux-fetch protocol via Cabana::Distributor.
+ * @brief Per-substep aux-fetch protocol via distribution_plan_t.
  *
- * Mechanism: forward Distributor ships request tuples (orig_rank, orig_idx,
- * owner_local_quad, position) to fluid owners; owners run trilinear interp on
- * the requested cell-centered fields; reverse Distributor ships responses
- * back. See doc/design/particles.md.
+ * Mechanism: forward distributor ships request POD tuples
+ * (orig_rank, orig_idx, owner_local_quad, position) to fluid owners; owners
+ * run trilinear interp on the requested cell-centered fields; reverse
+ * distributor ships responses back. See doc/design/particles.md.
  *
- * This header exposes the protocol as a templated function parametrized by
- * the number of fetched fields. The v1 tracer-fetch field count is fixed and
- * declared in particle_storage.hh (sample block of tracer_member_types); for
- * MC/PIC species, instantiate with a different N_FIELDS.
+ * Templated on the field count so callers can specialize per particle
+ * species (v1 tracers use n_tracer_sample_scalars from particle_storage.hh).
  */
 #ifndef GRACE_PARTICLES_PARTICLE_AUX_FETCH_HH
 #define GRACE_PARTICLES_PARTICLE_AUX_FETCH_HH
 
 #include <grace_config.h>
 
-#ifdef GRACE_ENABLE_CABANA
+#ifdef GRACE_ENABLE_PARTICLES
 
 #include <grace/data_structures/memory_defaults.hh>
 
@@ -45,12 +43,9 @@ struct fetch_field_spec_t {
 /// Fetch N_FIELDS scalar cell-centered fields at each particle's position via
 /// trilinear interpolation on the owning fluid rank.
 ///
-/// All input/output views must be allocated on grace::default_space. The
-/// caller is responsible for setting `owner_rank` and `owner_local_quad` to
-/// values consistent with the current fluid topology shadow (see
-/// particle_owner_search.hh). Particles with `owner_rank < 0` are skipped
-/// silently — `out` rows are left untouched (caller should pre-zero if
-/// desired).
+/// All input/output views must be allocated on grace::default_space. Particles
+/// with `owner_rank < 0` are skipped silently — `out` rows are left untouched
+/// (caller should pre-zero if desired).
 ///
 /// `fields[].source` selects the source array on the owner side (STATE or AUX);
 /// `fields[].var_idx` is the variable index within that array.
@@ -73,6 +68,6 @@ void fetch_at_positions(
 
 #include "particle_aux_fetch.tpp"
 
-#endif // GRACE_ENABLE_CABANA
+#endif // GRACE_ENABLE_PARTICLES
 
 #endif // GRACE_PARTICLES_PARTICLE_AUX_FETCH_HH
