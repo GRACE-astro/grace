@@ -51,6 +51,45 @@ namespace particles {
 Kokkos::View<int*, grace::default_space>
 compute_export_ranks_quad_owner(const tracer_container_t<>& tr);
 
+/// Outcome of a rebalance lookup: the lookup itself runs every step (we
+/// need the destination ranks so the fetch protocol routes to the new
+/// fluid owners), but the data shuffle is gated on a strategy-specific
+/// imbalance metric. The decoupling lets us amortise the alltoallv across
+/// many cheap lookups while keeping fetches correct in between.
+///
+/// Fields:
+///   - export_ranks(i): rank that owns the fluid quad containing tracer i,
+///     or -1 if the position is outside the global domain.
+///   - local_quads(i):  if export_ranks(i) == this rank, the local quad
+///     index; else -1 (we don't have meaningful local-quad info for
+///     elsewhere-owned tracers).
+///   - imbalance:       per-strategy scalar measuring how stale the current
+///     placement is (semantics defined per strategy).
+///   - should_migrate:  uniform across ranks (computed via Allreduce); true
+///     iff the strategy decided the imbalance warrants a data shuffle.
+struct rebalance_decision_t {
+    bool                                     should_migrate = false;
+    double                                   imbalance      = 0.0;
+    Kokkos::View<int*, grace::default_space> export_ranks;
+    Kokkos::View<int*, grace::default_space> local_quads;
+};
+
+/// quad_owner decision function. Computes destinations + a global imbalance
+/// metric defined as the fraction of tracers whose quad-owner is a rank
+/// different from where they currently live. Triggers migration when
+/// imbalance exceeds threshold. The Allreduce inside is collective —
+/// every rank must call this (n==0 ranks contribute zeros).
+rebalance_decision_t
+decide_rebalance_quad_owner(const tracer_container_t<>& tr,
+                            double imbalance_threshold);
+
+/// Refresh tr.owner_rank (and tr.owner_local_quad where meaningful) from
+/// a decision. Called every step regardless of whether migrate fires, so
+/// that subsequent fetch_at_positions calls route to the rank that
+/// currently owns each tracer's fluid quad. Local kernel; n==0 safe.
+void update_owner_only(tracer_container_t<>&        tr,
+                       const rebalance_decision_t&  decision);
+
 /// Migrate pos/id/status to new owners per the supplied export_ranks view.
 /// Resizes `tr` in place to the post-migration count. After return:
 ///   - owner_rank(i) == this rank   for every surviving tracer

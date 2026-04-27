@@ -42,6 +42,81 @@ compute_export_ranks_quad_owner(const tracer_container_t<>& tr)
     return ranks;
 }
 
+rebalance_decision_t
+decide_rebalance_quad_owner(const tracer_container_t<>& tr,
+                            double imbalance_threshold)
+{
+    rebalance_decision_t d;
+    const std::size_t n        = tr.size();
+    const int         self_rank = parallel::mpi_comm_rank();
+
+    d.export_ranks = Kokkos::View<int*, grace::default_space>(
+        Kokkos::ViewAllocateWithoutInitializing("decide_export_ranks"), n);
+    d.local_quads  = Kokkos::View<int*, grace::default_space>(
+        Kokkos::ViewAllocateWithoutInitializing("decide_local_quads"), n);
+
+    // Local count of tracers that would migrate. Excludes -1 (off-domain
+    // drops) — those aren't a load-balance concern, they're cull events.
+    long long local_n_migrating = 0;
+
+    if (n > 0) {
+        auto h_pos = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{},
+                                                         tr.pos);
+        std::vector<std::array<double, 3>> positions(n);
+        for (std::size_t i = 0; i < n; ++i) {
+            positions[i] = {h_pos(i, 0), h_pos(i, 1), h_pos(i, 2)};
+        }
+        std::vector<owner_t> owners;
+        fluid_topology_shadow_t::get().find_owners_batch(positions, owners);
+
+        auto h_er = Kokkos::create_mirror_view(d.export_ranks);
+        auto h_lq = Kokkos::create_mirror_view(d.local_quads);
+        for (std::size_t i = 0; i < n; ++i) {
+            h_er(i) = owners[i].rank;
+            // local_quad is meaningful only on the owning rank.
+            h_lq(i) = (owners[i].rank == self_rank) ? owners[i].local_quad : -1;
+            if (owners[i].rank != self_rank && owners[i].rank >= 0) {
+                ++local_n_migrating;
+            }
+        }
+        Kokkos::deep_copy(d.export_ranks, h_er);
+        Kokkos::deep_copy(d.local_quads,  h_lq);
+    }
+
+    // Allreduce {total, n_migrating} so every rank gets the same imbalance
+    // and the same should_migrate decision. Must run unconditionally.
+    long long lg[2] = { static_cast<long long>(n), local_n_migrating };
+    long long gg[2] = { 0, 0 };
+    MPI_Allreduce(lg, gg, 2, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
+    d.imbalance      = (gg[0] > 0) ? static_cast<double>(gg[1])
+                                     / static_cast<double>(gg[0])
+                                   : 0.0;
+    d.should_migrate = (d.imbalance > imbalance_threshold);
+    return d;
+}
+
+void update_owner_only(tracer_container_t<>&        tr,
+                       const rebalance_decision_t&  decision)
+{
+    const std::size_t n = tr.size();
+    if (n == 0) return;
+    auto own_r = tr.owner_rank;
+    auto own_q = tr.owner_local_quad;
+    auto er    = decision.export_ranks;
+    auto lq    = decision.local_quads;
+    Kokkos::parallel_for("update_owner_only",
+        Kokkos::RangePolicy<grace::default_execution_space>(0, n),
+        KOKKOS_LAMBDA(const int i) {
+            // -1 entries (off-domain drops) get carried through; the next
+            // flag_outside_domain + cull pass deals with them. For everything
+            // else, owner_rank now points at the rank that owns the fluid
+            // quad containing this tracer, so the next fetch routes there
+            // even though the persistent data hasn't been moved yet.
+            own_r(i) = er(i);
+            own_q(i) = lq(i);
+        });
+}
+
 void migrate_topology(MPI_Comm                                       comm,
                       tracer_container_t<>&                          tr,
                       Kokkos::View<int*, grace::default_space>       export_ranks)
