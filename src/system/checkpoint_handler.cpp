@@ -52,6 +52,10 @@
 #include <grace/IO/diagnostics/co_tracker.hh>
 #ifdef GRACE_ENABLE_GRMHD
 #include <grace/physics/b_field_injection.hh>
+#ifdef GRACE_ENABLE_PARTICLES
+#include <grace/particles/particles_module.hh>
+#include <grace/particles/particle_checkpoint.hh>
+#endif
 #endif
 #ifdef GRACE_ENABLE_Z4C_METRIC
 #include <grace/IO/diagnostics/apparent_horizon.hh>
@@ -614,6 +618,11 @@ void checkpoint_handler_impl_t::save_checkpoint()
     }
     #endif
 
+    // particle subsystem state
+    #ifdef GRACE_ENABLE_PARTICLES
+    grace::particles::save_particles_to_checkpoint(file_id, dxpl);
+    #endif
+
     // if active, write apparent horizon finder state
     #ifdef GRACE_ENABLE_Z4C_METRIC
     {
@@ -1002,6 +1011,15 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
             HDF5_CALL(err, H5Gclose(inj_grp));
         }
     }
+    #endif
+
+    // if present, restore particle subsystem state. Routed through the
+    // module's initialize() so the config + bcs + min_quad_width are set
+    // up before the loader replaces the would-be seed contents. Must run
+    // after the grid has been restored — load_particles_from_checkpoint
+    // resolves ownership against the current fluid topology shadow.
+    #ifdef GRACE_ENABLE_PARTICLES
+    grace::particles::particles_module_t::get().initialize(file_id);
     #endif
 
     // if present, load apparent horizon finder state

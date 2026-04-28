@@ -87,10 +87,9 @@ else()
     message(STATUS "Profiling disabled.")
 endif()
 
-option(GRACE_ENABLE_CABANA "Include Cabana support for particle functionality" OFF)
-if( GRACE_ENABLE_CABANA )
-    message(STATUS "Cabana support enabled")
-    find_package(Cabana REQUIRED)
+option(GRACE_ENABLE_PARTICLES "Build the GRACE particle subsystem (tracers, MC, PIC)" OFF)
+if( GRACE_ENABLE_PARTICLES )
+    message(STATUS "Particle subsystem enabled (Kokkos+MPI only — no external particle library)")
 endif()
 
 # Select a per-architecture performance-tuning header.  The chosen file is

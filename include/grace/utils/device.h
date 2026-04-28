@@ -107,18 +107,32 @@
     #define EVENT_QUERY(event) hipEventQuery(event)
 #elif defined(GRACE_ENABLE_SYCL)
     #include <sycl/sycl.hpp>
-    /* 
-    * Due to the differences in the SYCL DAG and CUDA/HIP stream concurrency models, 
+    #include <Kokkos_Core.hpp>
+    /*
+    * Due to the differences in the SYCL DAG and CUDA/HIP stream concurrency models,
     * these macros need to be no-op;
-    * this is achieved in two ways: 
-    * 1 ) in gpu_task_t we fence for SYCL after every kernel dispatch (end of run routine) 
+    * this is achieved in two ways:
+    * 1 ) in gpu_task_t we fence for SYCL after every kernel dispatch (end of run routine)
     * 2 ) query always returns SUCCESS
     */
-    #define DEVICE_SUCCESS 0                  // 0 for success 
+    #define DEVICE_SUCCESS 0                  // 0 for success
     #define DEVICE_NOT_READY -1               // dummy, SYCL does not have this
 
-    struct dummy_stream { 
-        sycl::queue q{sycl::default_selector_v, sycl::property::queue::in_order()}; // hold a default SYCL queue 
+    // Per-stream sycl::queue, constructed inside Kokkos's SYCL context so that
+    // USM allocated by Kokkos can be referenced by kernels submitted on this
+    // queue. Default-selecting the queue (the previous behaviour) created an
+    // independent context, which made cross-context USM access fail with
+    // PI_ERROR_INVALID_QUEUE on newer oneAPI runtimes.
+    // Precondition: Kokkos::initialize() must have been called before any
+    // dummy_stream is default-constructed (true in GRACE because the
+    // device_stream_pool is a lazily-initialised singleton accessed only
+    // after grace::initialize()).
+    struct dummy_stream {
+        sycl::queue q{
+            Kokkos::SYCL{}.sycl_queue().get_context(),
+            Kokkos::SYCL{}.sycl_queue().get_device(),
+            sycl::property::queue::in_order()
+        };
     };
 
     struct dummy_event {};

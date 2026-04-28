@@ -90,6 +90,12 @@ if(GRACE_ENABLE_Z4C_METRIC)
     add_grace_test(adm_integrals_test test_adm_integrals.cpp)
 endif()
 
+if( GRACE_ENABLE_PARTICLES )
+add_grace_test(particle_owner_search_test test_particle_owner_search.cpp)
+add_grace_test(particle_aux_fetch_test    test_particle_aux_fetch.cpp)
+add_grace_test(particle_advance_test      test_particle_advance.cpp)
+endif()
+
 target_compile_options(exchange_test PRIVATE -g -gdwarf-4)
 
 add_kokkos_test(interpolator_test test_interpolators.cpp)
@@ -156,6 +162,14 @@ add_test(NAME grid_interpolator_test COMMAND
 if(GRACE_ENABLE_Z4C_METRIC)
     add_test(NAME adm_integrals_test COMMAND
             mpirun -n 1 ./adm_integrals_test --grace-parfile ./configs/adm_integrals_test.yaml )
+
+if( GRACE_ENABLE_PARTICLES )
+add_test(NAME particle_owner_search_test COMMAND
+        mpirun -n 2 ./particle_owner_search_test --grace-parfile ./configs/regrid_test_cartesian.yaml )
+add_test(NAME particle_aux_fetch_test COMMAND
+        mpirun -n 2 ./particle_aux_fetch_test --grace-parfile ./configs/regrid_test_cartesian.yaml )
+add_test(NAME particle_advance_test COMMAND
+        mpirun -n 2 ./particle_advance_test --grace-parfile ./configs/regrid_test_cartesian.yaml )
 endif()
 ##add_custom_command(
 #        TARGET
