@@ -82,11 +82,7 @@ z4c: {
   kappa_2: 0.0,
   eta: 1.0,
   eps_diss: 0.0,
-  is_vacuum: true,
-  eta_damp_radius: -1,
-  theta_damp_radius: -1,
-  kappa_damp_radius: -1,
-  alp_excision: -1.0
+  is_vacuum: true
 }
 
 spherical_surfaces: {

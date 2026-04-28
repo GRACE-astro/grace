@@ -171,10 +171,3 @@ add_test(NAME particle_aux_fetch_test COMMAND
 add_test(NAME particle_advance_test COMMAND
         mpirun -n 2 ./particle_advance_test --grace-parfile ./configs/regrid_test_cartesian.yaml )
 endif()
-##add_custom_command(
-#        TARGET
-#        COMMENT "Run tests"
-#        POST_BUILD 
-#        WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/test" 
-#        COMMAND ${CMAKE_CTEST_COMMAND} -C $<CONFIGURATION> -R "Unit tests" --output-on-failure
-#)

@@ -70,6 +70,7 @@
 #include <vector>
 #include <array>
 #include <utility>
+#include <cstdio>
 
 namespace grace {
 
@@ -580,6 +581,21 @@ struct grid_interpolator_t<poly_kind::hermite, Degree> {
             }
 
             states[i] = qs;
+            if (ijkq.i == 0 && ijkq.j == 8 && ijkq.k == 8) {
+                std::printf(
+                    "[HERMITE-HOST] i=%d cell=(%lu,%lu,%lu,q=%lu) "
+                    "s_local=(%.6f,%.6f,%.6f) half=(%d,%d,%d) bias=(%d,%d,%d) "
+                    "u=(%.6f,%.6f,%.6f) dx=%.6e _valid_gz=%d\n",
+                    i,
+                    (unsigned long)ijkq.i, (unsigned long)ijkq.j,
+                    (unsigned long)ijkq.k, (unsigned long)ijkq.q,
+                    s_local_arr[0], s_local_arr[1], s_local_arr[2],
+                    qs.half[0], qs.half[1], qs.half[2],
+                    qs.bias[0], qs.bias[1], qs.bias[2],
+                    qs.u[0],    qs.u[1],    qs.u[2],
+                    dx, _valid_gz);
+                std::fflush(stdout);
+            }
         }
 
         deep_copy_vec_to_const_view(intersected_cells, icells);
@@ -658,11 +674,35 @@ struct grid_interpolator_t<poly_kind::hermite, Degree> {
                 int const off_z = static_cast<int>(ngz) + static_cast<int>(cell.k)
                                    - 2 + qs.half[2] + qs.bias[2];
 
+                // TEMP DIAGNOSTIC for test_grid_interpolator failure (cell.i=0,j=8,k=8).
+                if (cell.i == 0 && cell.j == 8 && cell.k == 8) {
+                    Kokkos::printf(
+                        "[HERMITE-DBG] ip=%d iv=%d cell=(%lu,%lu,%lu,q=%lu) "
+                        "half=(%d,%d,%d) bias=(%d,%d,%d) "
+                        "u=(%.6f,%.6f,%.6f) off=(%d,%d,%d) dx=%.6e\n",
+                        ip, iv,
+                        (unsigned long)cell.i, (unsigned long)cell.j,
+                        (unsigned long)cell.k, (unsigned long)cell.q,
+                        qs.half[0], qs.half[1], qs.half[2],
+                        qs.bias[0], qs.bias[1], qs.bias[2],
+                        qs.u[0],    qs.u[1],    qs.u[2],
+                        off_x, off_y, off_z, dx);
+                }
+
                 double F[4][4][4];
                 for (int kp = 0; kp < 4; ++kp)
                 for (int jp = 0; jp < 4; ++jp)
                 for (int ip_ = 0; ip_ < 4; ++ip_) {
                     F[ip_][jp][kp] = u_view(off_x + ip_, off_y + jp, off_z + kp);
+                }
+
+                if (cell.i == 0 && cell.j == 8 && cell.k == 8) {
+                    // Print the four x-stencil samples at (Q=2, R=2) so we
+                    // can verify F values match poly_deg2 at the right
+                    // physical positions, and check no NaN leaked in.
+                    Kokkos::printf(
+                        "[HERMITE-DBG] F[0..3][2][2] = (%.6f, %.6f, %.6f, %.6f)\n",
+                        F[0][2][2], F[1][2][2], F[2][2][2], F[3][2][2]);
                 }
 
                 // Build the 8 corner knot tuples by central FD on F.
@@ -757,6 +797,9 @@ struct grid_interpolator_t<poly_kind::hermite, Degree> {
                     }
                 }
 
+                if (cell.i == 0 && cell.j == 8 && cell.k == 8) {
+                    Kokkos::printf("[HERMITE-DBG] ip=%d f_eval=%.15f\n", ip, f_eval);
+                }
                 out(ip, iv) = f_eval;
                 if (grad_flag) {
                     // d/dx = (1/dx) d/ds for each axis.

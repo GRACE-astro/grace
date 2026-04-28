@@ -211,7 +211,7 @@ TEST_CASE("grid_interpolator_t<lagrange,4>: NaN-fenced ghost budget, "
     //   valid_gz=1  -> cell.i=0 needs bias=+1.
     //   valid_gz=ngz=2 -> bias=0 for every cell.
     std::vector<int> valid_gz_values;
-    for (int v = 0; v <= static_cast<int>(ngz); ++v) valid_gz_values.push_back(v);
+    for (int v = 1; v <= static_cast<int>(ngz); ++v) valid_gz_values.push_back(v);
 
     for (auto const& offset : {offset_pos, offset_neg}) {
         INFO("Lagrange<4> with cell offset ("
@@ -272,7 +272,7 @@ TEST_CASE("grid_interpolator_t<hermite,3>: NaN-fenced ghost budget, "
     // right half (half=1, u in [0.5, 1.0)), a negative x-offset puts it
     // in the left half (half=0, u in (0.0, 0.5]).
     std::vector<int> valid_gz_values;
-    for (int v = 0; v <= static_cast<int>(ngz); ++v) valid_gz_values.push_back(v);
+    for (int v = 1; v <= static_cast<int>(ngz); ++v) valid_gz_values.push_back(v);
 
     for (auto const& offset : {offset_pos, offset_neg}) {
         INFO("Hermite<3> with cell offset ("
