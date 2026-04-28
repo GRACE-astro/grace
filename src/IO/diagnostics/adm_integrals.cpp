@@ -199,7 +199,7 @@ double adm_integrals::compute_local(size_t sphere_idx) {
         auto const& xyz    = detector.points_h[ip].second;
         double const dOmega = detector.weights_h[ip];
 
-        // Conformal metric and chi at the point.
+        // Conformal metric (gamma~_ij) and chi at the point.
         double const gtxx = ivals_h(i, SLOT_GTXX);
         double const gtxy = ivals_h(i, SLOT_GTXY);
         double const gtxz = ivals_h(i, SLOT_GTXZ);
@@ -212,58 +212,88 @@ double adm_integrals::compute_local(size_t sphere_idx) {
         double const inv_chi2 = inv_chi * inv_chi;
         double const inv_chi3 = inv_chi2 * inv_chi;
 
-        // Physical metric components.
-        double const gxx = gtxx * inv_chi2;
-        double const gyy = gtyy * inv_chi2;
-        double const gzz = gtzz * inv_chi2;
+        // Physical metric gamma_ij = gamma~_ij / chi^2 (3x3 symmetric).
+        double g[3][3];
+        g[0][0] = gtxx * inv_chi2;
+        g[1][1] = gtyy * inv_chi2;
+        g[2][2] = gtzz * inv_chi2;
+        g[0][1] = g[1][0] = gtxy * inv_chi2;
+        g[0][2] = g[2][0] = gtxz * inv_chi2;
+        g[1][2] = g[2][1] = gtyz * inv_chi2;
 
-        // Gradients of conformal metric and chi.
-        // ivals_grad_h(i, slot, k) is d/dx^k of slot.
+        // Inverse 3-metric and sqrt(det g).
+        double const det_g =
+              g[0][0] * (g[1][1]*g[2][2] - g[1][2]*g[1][2])
+            - g[0][1] * (g[0][1]*g[2][2] - g[0][2]*g[1][2])
+            + g[0][2] * (g[0][1]*g[1][2] - g[0][2]*g[1][1]);
+        double const inv_det = 1.0 / std::max(det_g, 1e-300);
+        double const sqrt_det_g = std::sqrt(std::max(det_g, 0.0));
+
+        double gI[3][3];
+        gI[0][0] = (g[1][1]*g[2][2] - g[1][2]*g[1][2]) * inv_det;
+        gI[1][1] = (g[0][0]*g[2][2] - g[0][2]*g[0][2]) * inv_det;
+        gI[2][2] = (g[0][0]*g[1][1] - g[0][1]*g[0][1]) * inv_det;
+        gI[0][1] = gI[1][0] = (g[0][2]*g[1][2] - g[0][1]*g[2][2]) * inv_det;
+        gI[0][2] = gI[2][0] = (g[0][1]*g[1][2] - g[0][2]*g[1][1]) * inv_det;
+        gI[1][2] = gI[2][1] = (g[0][1]*g[0][2] - g[0][0]*g[1][2]) * inv_det;
+
+        // d_k gamma_ij via product rule on gamma~_ij/chi^2 (3x3x3, symmetric in i,j).
         auto dgt = [&] (int slot, int k) { return ivals_grad_h(i, slot, k); };
         auto dchi = [&] (int k)          { return ivals_grad_h(i, SLOT_CHI, k); };
-
-        // Physical-metric gradient via product rule:
-        //     d_k gamma_ij = d_k gamma~_ij / chi^2 - 2 gamma~_ij d_k chi / chi^3
-        auto dgamma = [&](int slot, double gt_val, int k) {
+        auto dgamma_of = [&](int slot, double gt_val, int k) {
             return dgt(slot, k) * inv_chi2 - 2.0 * gt_val * dchi(k) * inv_chi3;
         };
+        double dg[3][3][3];
+        for (int k = 0; k < 3; ++k) {
+            dg[0][0][k] = dgamma_of(SLOT_GTXX, gtxx, k);
+            dg[1][1][k] = dgamma_of(SLOT_GTYY, gtyy, k);
+            dg[2][2][k] = dgamma_of(SLOT_GTZZ, gtzz, k);
+            dg[0][1][k] = dg[1][0][k] = dgamma_of(SLOT_GTXY, gtxy, k);
+            dg[0][2][k] = dg[2][0][k] = dgamma_of(SLOT_GTXZ, gtxz, k);
+            dg[1][2][k] = dg[2][1][k] = dgamma_of(SLOT_GTYZ, gtyz, k);
+        }
 
-        // ADM-mass integrand pieces:
-        //   L_i = sum_j d_j gamma_ij  -  d_i sum_j gamma_jj
+        // Covariant ADM integrand (Eq. 1 in ADMMass thorn doc; O Murchadha &
+        // York 1974). Free index l contracts with the surface element:
         //
-        //   L_x = d_y gamma_xy + d_z gamma_xz - d_x gamma_yy - d_x gamma_zz
-        //   L_y = d_x gamma_xy + d_z gamma_yz - d_y gamma_xx - d_y gamma_zz
-        //   L_z = d_x gamma_xz + d_y gamma_yz - d_z gamma_xx - d_z gamma_yy
-        double const Lx =
-              dgamma(SLOT_GTXY, gtxy, 1) + dgamma(SLOT_GTXZ, gtxz, 2)
-            - dgamma(SLOT_GTYY, gtyy, 0) - dgamma(SLOT_GTZZ, gtzz, 0);
+        //   T^l = gamma^{ij} gamma^{kl} ( d_j gamma_{ik} - d_k gamma_{ij} )
+        //
+        // Factored as T^l = gamma^{kl} H_k with
+        //
+        //   H_k = sum_{ij} gamma^{ij} ( d_j gamma_{ik} - d_k gamma_{ij} )
+        //
+        // The integrand on the sphere is sqrt(det gamma) * T^l n_l r^2 dOmega;
+        // at infinity gamma^{ij}->delta^{ij}, sqrt(det g)->1 and this reduces
+        // to the asymptotically-flat L_i n^i form.
+        double H[3] = {0.0, 0.0, 0.0};
+        for (int k = 0; k < 3; ++k) {
+            double sum = 0.0;
+            for (int ii = 0; ii < 3; ++ii)
+                for (int jj = 0; jj < 3; ++jj)
+                    sum += gI[ii][jj] * (dg[ii][k][jj] - dg[ii][jj][k]);
+            H[k] = sum;
+        }
 
-        double const Ly =
-              dgamma(SLOT_GTXY, gtxy, 0) + dgamma(SLOT_GTYZ, gtyz, 2)
-            - dgamma(SLOT_GTXX, gtxx, 1) - dgamma(SLOT_GTZZ, gtzz, 1);
-
-        double const Lz =
-              dgamma(SLOT_GTXZ, gtxz, 0) + dgamma(SLOT_GTYZ, gtyz, 1)
-            - dgamma(SLOT_GTXX, gtxx, 2) - dgamma(SLOT_GTYY, gtyy, 2);
-
-        // Silence unused-variable warnings while keeping the assignments:
-        // gxx, gyy, gzz are not used in the asymptotically-flat form, but
-        // are computed above so the diagnostic is easy to extend (e.g. to a
-        // generic curved-2-surface integrand).
-        (void) gxx; (void) gyy; (void) gzz;
+        double T[3] = {0.0, 0.0, 0.0};
+        for (int l = 0; l < 3; ++l) {
+            double sum = 0.0;
+            for (int k = 0; k < 3; ++k)
+                sum += gI[k][l] * H[k];
+            T[l] = sum;
+        }
 
         // Outward unit normal w.r.t. sphere centre (flat-space).
-        double const dx = xyz[0] - center[0];
-        double const dy = xyz[1] - center[1];
-        double const dz = xyz[2] - center[2];
-        double const r_pt = std::sqrt(dx*dx + dy*dy + dz*dz);
+        double const xx = xyz[0] - center[0];
+        double const yy = xyz[1] - center[1];
+        double const zz = xyz[2] - center[2];
+        double const r_pt = std::sqrt(xx*xx + yy*yy + zz*zz);
         double const inv_r_pt = 1.0 / std::max(r_pt, 1e-100);
-        double const nx = dx * inv_r_pt;
-        double const ny = dy * inv_r_pt;
-        double const nz = dz * inv_r_pt;
+        double const n_l[3] = {xx * inv_r_pt, yy * inv_r_pt, zz * inv_r_pt};
+
+        double const integrand = sqrt_det_g * (T[0]*n_l[0] + T[1]*n_l[1] + T[2]*n_l[2]);
 
         // dA = r^2 dOmega
-        local_sum += (Lx * nx + Ly * ny + Lz * nz) * r2 * dOmega;
+        local_sum += integrand * r2 * dOmega;
     }
 
     return ONE_OVER_16PI * sym_factor * local_sum;

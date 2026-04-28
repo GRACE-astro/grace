@@ -41,7 +41,7 @@ particles:
           ejecta. Requires GRMHD.
 
   seeding_rho_threshold:
-    type: float
+    type: double
     range: "[0,*)"
     default: 0.0
     description: >
@@ -91,7 +91,7 @@ particles:
     description: Settings specific to rebalance_strategy=quad_owner.
 
     imbalance_threshold:
-      type: float
+      type: double
       range: "[0,1]"
       default: 0.05
       description: >

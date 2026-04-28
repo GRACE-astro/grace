@@ -7,18 +7,25 @@
  *
  *            psi = 1 + M / (2 r),     gamma_ij = psi^4 delta_ij,    K_ij = 0.
  *
- *        Inserting this into the ADM-mass surface integral
+ *        With the *covariant* ADM surface integrand
  *
- *            M_ADM(r) = (1/16 pi) oint (d_j gamma_ij - d_i gamma_jj) n^i dA
+ *            M_ADM(r) = (1/16 pi) oint sqrt(gamma) gamma^{ij} gamma^{kl}
+ *                       (d_j gamma_{ik} - d_k gamma_{ij}) dS_l
  *
- *        yields the closed-form result on a sphere of radius r centred on
- *        the puncture:
+ *        the conformally-flat metric gives a sqrt(gamma) gamma^{ij} gamma^{kl}
+ *        = psi^{-2} delta^{ij} delta^{kl}, so the integrand factor in front
+ *        of L_i n^i picks up an extra psi^{-2}, and the closed-form value
+ *        on a sphere of radius r centred on the puncture is
  *
- *            M_ADM(r) = M * (1 + M/(2 r))^3.
+ *            M_ADM(r) = M * (1 + M/(2 r)).
  *
- *        Convergence to M as r -> infinity is the well-known asymptotic
- *        statement; at finite r, the integral has an exact analytic value
- *        that we compare against.
+ *        This converges to M much faster than the asymptotically-flat form
+ *        (linear in M/r vs cubic) and is the variant used by the
+ *        Einstein Toolkit ADMMass thorn. Finite-r values:
+ *
+ *            r =  8  -> M_ADM = 1.0625
+ *            r = 12  -> M_ADM ~ 1.04167
+ *            r = 16  -> M_ADM = 1.03125
  *
  *        This test is gated on GRACE_ENABLE_Z4C_METRIC because the
  *        diagnostic itself only does anything when Z4c is built in.
@@ -63,9 +70,9 @@ TEST_CASE("ADM-mass integral on analytic Schwarzschild puncture",
         auto const& detector = spheres.get(sidx);
         double const r       = detector.radius;
 
-        // Analytic finite-r value.
+        // Analytic finite-r value (covariant form): M * (1 + M/(2r)).
         double const psi      = 1.0 + 0.5 * M_punct / r;
-        double const expected = M_punct * psi * psi * psi;
+        double const expected = M_punct * psi;
 
         // Tolerance: the FD truncation error of the in-kernel central FD
         // on chi (= psi^{-2} for GRACE's Z4c convention gamma = gtilde/chi^2)
