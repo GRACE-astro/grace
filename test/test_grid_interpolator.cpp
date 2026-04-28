@@ -204,9 +204,6 @@ TEST_CASE("grid_interpolator_t<lagrange,4>: NaN-fenced ghost budget, "
     DECLARE_GRID_EXTENTS;
     REQUIRE(nq > 0);
 
-    auto queries = build_x_row_queries(/*test_q=*/0);
-    REQUIRE(queries.points.size() == static_cast<size_t>(nx));
-
     // Lagrange<4> stencil is 5-wide. With basic_config (nx=16, ngz=2),
     // valid_gz can range over [0, ngz]:
     //   valid_gz=0  -> cell.i=0 needs bias=+2, cell.i=1 needs bias=+1.
@@ -216,32 +213,40 @@ TEST_CASE("grid_interpolator_t<lagrange,4>: NaN-fenced ghost budget, "
     std::vector<int> valid_gz_values;
     for (int v = 0; v <= static_cast<int>(ngz); ++v) valid_gz_values.push_back(v);
 
-    for (int valid_gz : valid_gz_values) {
-        INFO("Lagrange<4> NaN-fenced with _valid_gz = " << valid_gz);
+    for (auto const& offset : {offset_pos, offset_neg}) {
+        INFO("Lagrange<4> with cell offset ("
+             << offset[0] << ", " << offset[1] << ", " << offset[2] << ")");
 
-        fill_state_with_polynomial_and_nan_fence(0, valid_gz, poly_deg4);
+        auto queries = build_x_row_queries(/*test_q=*/0, offset);
+        REQUIRE(queries.points.size() == static_cast<size_t>(nx));
 
-        grid_interpolator_t<poly_kind::lagrange, 4> interp(valid_gz);
-        interp.compute_weights(queries.points, queries.ipoints, queries.icells);
+        for (int valid_gz : valid_gz_values) {
+            INFO("Lagrange<4> NaN-fenced with _valid_gz = " << valid_gz);
 
-        Kokkos::View<double**, default_space> out("out_lagr", 0, 0);
-        auto& state = variable_list::get().getstate();
-        interp.interpolate(state, std::vector<int>{0}, out);
+            fill_state_with_polynomial_and_nan_fence(0, valid_gz, poly_deg4);
 
-        auto out_h = Kokkos::create_mirror_view(out);
-        Kokkos::deep_copy(out_h, out);
+            grid_interpolator_t<poly_kind::lagrange, 4> interp(valid_gz);
+            interp.compute_weights(queries.points, queries.ipoints, queries.icells);
 
-        for (size_t i = 0; i < queries.ipoints.size(); ++i) {
-            auto const& pc = queries.points[queries.ipoints[i]].second;
-            double const expected = poly_deg4(pc[0], pc[1], pc[2]);
-            INFO("cell.i = " << queries.icells[i].i
-                 << " coords = (" << pc[0] << ", " << pc[1] << ", " << pc[2] << ")"
-                 << " valid_gz = " << valid_gz);
-            // No NaN leakage from the stomped ghosts.
-            REQUIRE(std::isfinite(out_h(i, 0)));
-            // Polynomial-exact result.
-            REQUIRE_THAT(out_h(i, 0),
-                         Catch::Matchers::WithinAbs(expected, 1e-9));
+            Kokkos::View<double**, default_space> out("out_lagr", 0, 0);
+            auto& state = variable_list::get().getstate();
+            interp.interpolate(state, std::vector<int>{0}, out);
+
+            auto out_h = Kokkos::create_mirror_view(out);
+            Kokkos::deep_copy(out_h, out);
+
+            for (size_t i = 0; i < queries.ipoints.size(); ++i) {
+                auto const& pc = queries.points[queries.ipoints[i]].second;
+                double const expected = poly_deg4(pc[0], pc[1], pc[2]);
+                INFO("cell.i = " << queries.icells[i].i
+                     << " coords = (" << pc[0] << ", " << pc[1] << ", " << pc[2] << ")"
+                     << " valid_gz = " << valid_gz);
+                // No NaN leakage from the stomped ghosts.
+                REQUIRE(std::isfinite(out_h(i, 0)));
+                // Polynomial-exact result.
+                REQUIRE_THAT(out_h(i, 0),
+                             Catch::Matchers::WithinAbs(expected, 1e-9));
+            }
         }
     }
 }
@@ -259,51 +264,60 @@ TEST_CASE("grid_interpolator_t<hermite,3>: NaN-fenced ghost budget, "
     DECLARE_GRID_EXTENTS;
     REQUIRE(nq > 0);
 
-    auto queries = build_x_row_queries(/*test_q=*/0);
-    REQUIRE(queries.points.size() == static_cast<size_t>(nx));
-
     // Hermite<3> stencil is 4-wide with the half-aware shift. Stencil
     // half is effectively 2 on each side at half=1 (or the mirror at
     // half=0), so the bias path activates similarly to Lagrange<4>.
+    // Two passes (offset_pos / offset_neg) make sure both half-dispatch
+    // branches are exercised: a positive x-offset puts the query in the
+    // right half (half=1, u in [0.5, 1.0)), a negative x-offset puts it
+    // in the left half (half=0, u in (0.0, 0.5]).
     std::vector<int> valid_gz_values;
     for (int v = 0; v <= static_cast<int>(ngz); ++v) valid_gz_values.push_back(v);
 
-    for (int valid_gz : valid_gz_values) {
-        INFO("Hermite<3> NaN-fenced with _valid_gz = " << valid_gz);
+    for (auto const& offset : {offset_pos, offset_neg}) {
+        INFO("Hermite<3> with cell offset ("
+             << offset[0] << ", " << offset[1] << ", " << offset[2] << ")");
 
-        fill_state_with_polynomial_and_nan_fence(0, valid_gz, poly_deg2);
+        auto queries = build_x_row_queries(/*test_q=*/0, offset);
+        REQUIRE(queries.points.size() == static_cast<size_t>(nx));
 
-        grid_interpolator_t<poly_kind::hermite, 3> interp(valid_gz);
-        interp.compute_weights(queries.points, queries.ipoints, queries.icells);
+        for (int valid_gz : valid_gz_values) {
+            INFO("Hermite<3> NaN-fenced with _valid_gz = " << valid_gz);
 
-        Kokkos::View<double**,  default_space> out     ("out_hrm",      0, 0);
-        Kokkos::View<double***, default_space> out_grad("out_hrm_grad", 0, 0, 0);
-        auto& state = variable_list::get().getstate();
-        interp.interpolate_with_grad(state, std::vector<int>{0}, out, out_grad, true);
+            fill_state_with_polynomial_and_nan_fence(0, valid_gz, poly_deg2);
 
-        auto out_h    = Kokkos::create_mirror_view(out);
-        auto out_g_h  = Kokkos::create_mirror_view(out_grad);
-        Kokkos::deep_copy(out_h,   out);
-        Kokkos::deep_copy(out_g_h, out_grad);
+            grid_interpolator_t<poly_kind::hermite, 3> interp(valid_gz);
+            interp.compute_weights(queries.points, queries.ipoints, queries.icells);
 
-        for (size_t i = 0; i < queries.ipoints.size(); ++i) {
-            auto const& pc = queries.points[queries.ipoints[i]].second;
-            double const expected = poly_deg2(pc[0], pc[1], pc[2]);
-            auto const expected_grad = grad_poly_deg2(pc[0], pc[1], pc[2]);
+            Kokkos::View<double**,  default_space> out     ("out_hrm",      0, 0);
+            Kokkos::View<double***, default_space> out_grad("out_hrm_grad", 0, 0, 0);
+            auto& state = variable_list::get().getstate();
+            interp.interpolate_with_grad(state, std::vector<int>{0}, out, out_grad, true);
 
-            INFO("cell.i = " << queries.icells[i].i
-                 << " coords = (" << pc[0] << ", " << pc[1] << ", " << pc[2] << ")"
-                 << " valid_gz = " << valid_gz);
+            auto out_h    = Kokkos::create_mirror_view(out);
+            auto out_g_h  = Kokkos::create_mirror_view(out_grad);
+            Kokkos::deep_copy(out_h,   out);
+            Kokkos::deep_copy(out_g_h, out_grad);
 
-            REQUIRE(std::isfinite(out_h(i, 0)));
-            REQUIRE_THAT(out_h(i, 0),
-                         Catch::Matchers::WithinAbs(expected, 1e-9));
+            for (size_t i = 0; i < queries.ipoints.size(); ++i) {
+                auto const& pc = queries.points[queries.ipoints[i]].second;
+                double const expected = poly_deg2(pc[0], pc[1], pc[2]);
+                auto const expected_grad = grad_poly_deg2(pc[0], pc[1], pc[2]);
 
-            for (int d = 0; d < 3; ++d) {
-                INFO("axis = " << d);
-                REQUIRE(std::isfinite(out_g_h(i, 0, d)));
-                REQUIRE_THAT(out_g_h(i, 0, d),
-                             Catch::Matchers::WithinAbs(expected_grad[d], 1e-9));
+                INFO("cell.i = " << queries.icells[i].i
+                     << " coords = (" << pc[0] << ", " << pc[1] << ", " << pc[2] << ")"
+                     << " valid_gz = " << valid_gz);
+
+                REQUIRE(std::isfinite(out_h(i, 0)));
+                REQUIRE_THAT(out_h(i, 0),
+                             Catch::Matchers::WithinAbs(expected, 1e-9));
+
+                for (int d = 0; d < 3; ++d) {
+                    INFO("axis = " << d);
+                    REQUIRE(std::isfinite(out_g_h(i, 0, d)));
+                    REQUIRE_THAT(out_g_h(i, 0, d),
+                                 Catch::Matchers::WithinAbs(expected_grad[d], 1e-9));
+                }
             }
         }
     }
