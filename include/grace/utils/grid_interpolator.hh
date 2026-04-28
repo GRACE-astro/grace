@@ -429,7 +429,7 @@ namespace detail {
  *   dphi_ds[a]  : d/ds of phi_a at s
  */
 GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-inline void cubic_hermite_basis_1d(
+void cubic_hermite_basis_1d(
     double s,
     double psi[2], double phi[2],
     double dpsi_ds[2], double dphi_ds[2]
