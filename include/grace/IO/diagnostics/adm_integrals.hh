@@ -1,28 +1,49 @@
 /**
  * @file adm_integrals.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
- * @date 2026-01-15
- * 
- * @copyright This file is part of of the General Relativistic Astrophysics
- * Code for Exascale.
- * GRACE is an evolution framework that uses Finite Volume
+ * @brief ADM-mass surface integral on a 2-sphere, evaluated by Hermite-cubic
+ *        interpolation of the spatial metric components and their analytic
+ *        gradients.
+ *
+ *        Asymptotic flat-space form (e.g. Gourgoulhon 8.59):
+ *
+ *            M_ADM = (1/16 pi) oint_S sum_{i,j} (d_j gamma_{ij} - d_i gamma_{jj}) n^i dA
+ *
+ *        with dA = r^2 sin(theta) dtheta dphi for a sphere of radius r and
+ *        n^i the flat-space outward unit normal, both with respect to the
+ *        sphere's centre.
+ *
+ *        For Z4c the physical metric and its gradient are reconstructed from
+ *        the conformal pair (gamma~, chi):
+ *
+ *            gamma_ij     = gamma~_ij / chi^2
+ *            d_k gamma_ij = d_k gamma~_ij / chi^2 - 2 gamma~_ij d_k chi / chi^3
+ *
+ *        For the Cowling / non-conformal metric the physical components are
+ *        evolved directly and no conversion is needed.
+ *
+ *        Each sphere named under adm_integrals.detector_names produces one
+ *        scalar output stream M_ADM_<sphere>.dat.
+ *
+ * @date 2026-04-27
+ *
+ * @copyright This file is part of GRACE.
+ * GRACE is an evolution framework that uses Finite Difference / Volume
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
- *                                    
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * any later version.
- *   
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *   
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- * 
  */
 
 #ifndef GRACE_IO_ADM_INTEGRALS_HH
@@ -33,54 +54,66 @@
 #include <grace/utils/device.h>
 #include <grace/utils/inline.h>
 
-#include <grace/utils/metric_utils.hh>
-
+#include <grace/utils/grid_interpolator.hh>
 #include <grace/IO/spherical_surfaces.hh>
 
-#include <grace/IO/diagnostics/black_hole_diagnostics.hh>
-
-#include <array>
 #include <vector>
-#include <string> 
+#include <string>
+#include <unordered_map>
 
 
 namespace grace {
 
-struct adm_integrals: 
-    public diagnostic_base_t<adm_integrals> 
-{
-    using base_t = diagnostic_base_t<adm_integrals>; 
+/**
+ * @brief Surface ADM-mass diagnostic.
+ *
+ * Owns one Hermite-cubic interpolator per registered detector sphere. The
+ * interpolator is rebuilt every call from the sphere's already-computed
+ * (intersected_cells_h, intersecting_points_h, points_h) — that data is
+ * refreshed by the spherical_surface_manager whenever the mesh or the
+ * sphere moves.
+ *
+ * This class deliberately does not derive from diagnostic_base_t: the base
+ * pipeline routes through interpolate_on_sphere, which only knows about the
+ * detector's Lagrange interpolator and yields values, not gradients.
+ */
+struct adm_integrals {
 
-    static constexpr size_t n_fluxes = static_cast<size_t>(1 + 3 + 3 /*E P J*/);
+    adm_integrals();
 
-    static std::vector<std::string> flux_names ; 
+    /// Open per-sphere output files and write headers (rank 0 only).
+    void initialize_files();
 
+    /// Recompute and append one row per sphere to its output file.
+    void compute_and_write();
 
-    adm_integrals()
-        : base_t("gw_integrals")
-    {
-        #ifdef GRACE_ENABLE_Z4C_METRIC
-        this->var_interp_idx = std::vector<int>({
-            GTXX,GTXY,GTXZ,GTYY,GTYZ,GTZZ,
-            ATXX,ATXY,ATXZ,ATYY,ATYZ,ATZZ,
-            KHAT,THETA,CHI
-        });
-        #else 
-        this->var_interp_idx = std::vector<int>({
-            GXX,GXY,GXZ,GYY,GYZ,GZZ,
-            KXX,KXY,KXZ,KYY,KYZ,KZZ
-        });
-        #endif 
-    }
+    /// Recompute M_ADM at every registered sphere and return them in the
+    /// same order as sphere_indices(). All ranks return the globally-reduced
+    /// value. Exposed for programmatic / unit-test use; compute_and_write()
+    /// is a thin wrapper around it.
+    std::vector<double> compute();
 
-    std::array<double,n_fluxes> 
-    compute_local_fluxes(
-        Kokkos::View<double**> ivals_d, 
-        Kokkos::View<double**> ivals_aux_d, 
-        spherical_surface_iface const& detector 
-    )  ;
-}; 
+    /// View of the (sorted, deduplicated) sphere indices this diagnostic
+    /// is registered against.
+    std::vector<size_t> const& sphere_indices_view() const { return sphere_indices; }
 
-}
+private:
 
-#endif 
+    /// Rebuild the Hermite interpolator for sphere idx from its current
+    /// detector data. Idempotent — safe to call every step.
+    void refresh_interpolator(size_t sphere_idx);
+
+    /// Local (rank-owned) integrand sum for one sphere.
+    double compute_local(size_t sphere_idx);
+
+    using hermite_interp_t = grid_interpolator_t<poly_kind::hermite, 3>;
+
+    std::vector<size_t>                          sphere_indices;
+    std::unordered_map<size_t, hermite_interp_t> interpolators;
+    /// Indices of metric variables we need to interpolate (with grad).
+    std::vector<int>                             var_interp_idx;
+};
+
+}  // namespace grace
+
+#endif  // GRACE_IO_ADM_INTEGRALS_HH

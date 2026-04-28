@@ -1,0 +1,128 @@
+# Config for the ADM-mass diagnostic unit test (Z4c required).
+# Sets up a single analytic Schwarzschild puncture with M=1 in isotropic
+# coordinates (psi = 1 + M/(2r)), then registers detector spheres at three
+# extraction radii. The expected analytic value at finite radius is
+#
+#     M_ADM(r) = M * (1 + M/(2 r))^3
+#
+# which the test compares against the diagnostic output. The grid is
+# intentionally small so the test runs quickly.
+
+name: "grace"
+
+amr: {
+  npoints_block_x: 16,
+  npoints_block_y: 16,
+  npoints_block_z: 16,
+
+  xmin: -32.0,
+  xmax:  32.0,
+  ymin: -32.0,
+  ymax:  32.0,
+  zmin:  0.0,
+  zmax:  32.0,
+
+  reflection_symmetries: { x: false, y: false, z: true },
+
+  n_ghostzones: 4,
+  initial_refinement_level: 2,
+  max_refinement_level: 5,
+
+  regrid_every: -1,
+  regrid_at_postinitial: false,
+
+  n_fmr_boxes: 2,
+  fmr_boxes: [
+    {
+      target_level_delta: 1,
+      x_min: -16, x_max: 16,
+      y_min: -16, y_max: 16,
+      z_min:  0,  z_max: 16
+    },
+    {
+      target_level_delta: 2,
+      x_min:  -8, x_max:  8,
+      y_min:  -8, y_max:  8,
+      z_min:   0, z_max:  8
+    }
+  ]
+}
+
+IO: {
+  info_output_every: 0,
+  scalar_output_every: 0,
+  diagnostic_output_every: 0,
+
+  output_use_hdf5: false,
+  hdf5_compression_level: 0,
+  hdf5_chunk_size: 8192,
+  output_extra_quantities: false
+}
+
+system: {
+  console_log_level: "warn",
+  file_log_level:    "warn",
+  flush_logs_based_on_severity: false,
+  flush_level: "trace",
+  n_device_streams: 2
+}
+
+evolution: {
+  time_stepper: "rk3",
+  cfl_factor: 0.1,
+  final_time: 0
+}
+
+grmhd: {
+  id_type: "puncture"
+}
+
+z4c: {
+  kappa_1: 0.02,
+  kappa_2: 0.0,
+  eta: 1.0,
+  eps_diss: 0.0,
+  is_vacuum: true,
+  eta_damp_radius: -1,
+  theta_damp_radius: -1,
+  kappa_damp_radius: -1,
+  alp_excision: -1.0
+}
+
+spherical_surfaces: {
+  n_surfaces: 3,
+  spherical_detectors: [
+    {
+      name: "ADM_R8",
+      tracking: "none",
+      radius: 8.0,
+      x_c: 0.0, y_c: 0.0, z_c: 0.0,
+      sampling_policy: "uniform",
+      resolution: 31
+    },
+    {
+      name: "ADM_R12",
+      tracking: "none",
+      radius: 12.0,
+      x_c: 0.0, y_c: 0.0, z_c: 0.0,
+      sampling_policy: "uniform",
+      resolution: 31
+    },
+    {
+      name: "ADM_R16",
+      tracking: "none",
+      radius: 16.0,
+      x_c: 0.0, y_c: 0.0, z_c: 0.0,
+      sampling_policy: "uniform",
+      resolution: 31
+    }
+  ]
+}
+
+adm_integrals: {
+  detector_names: ["ADM_R8", "ADM_R12", "ADM_R16"]
+}
+
+gw_integrals:   { detector_names: [] }
+bh_diagnostics: { detector_names: [] }
+co_tracker:     { tracker_names: [] }

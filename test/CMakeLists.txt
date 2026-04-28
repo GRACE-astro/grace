@@ -84,6 +84,11 @@ add_grace_test(exchange_test test_new_exchange.cpp)
 add_grace_test(emf_reflux_test test_reflux.cpp)
 add_grace_test(test_sph_int test_spherical_surface.cpp)
 add_grace_test(interp_on_sphere_test test_interpolation_on_shere.cpp)
+add_grace_test(grid_interpolator_test test_grid_interpolator.cpp)
+
+if(GRACE_ENABLE_Z4C_METRIC)
+    add_grace_test(adm_integrals_test test_adm_integrals.cpp)
+endif()
 
 target_compile_options(exchange_test PRIVATE -g -gdwarf-4)
 
@@ -144,8 +149,14 @@ add_test(NAME metric_test COMMAND
         mpirun -n 1 ./metric_test --grace-parfile ./configs/basic_config.yaml )
 add_test(NAME gamma2_c2p_test COMMAND 
         mpirun -n 1 ./c2p_test --grace-parfile ./configs/c2p_test_gamma2.yaml )
-add_test(NAME sly4_pw_c2p_test COMMAND 
+add_test(NAME sly4_pw_c2p_test COMMAND
         mpirun -n 1 ./c2p_test --grace-parfile ./configs/c2p_test_sly4_pw.yaml )
+add_test(NAME grid_interpolator_test COMMAND
+        mpirun -n 1 ./grid_interpolator_test --grace-parfile ./configs/basic_config.yaml )
+if(GRACE_ENABLE_Z4C_METRIC)
+    add_test(NAME adm_integrals_test COMMAND
+            mpirun -n 1 ./adm_integrals_test --grace-parfile ./configs/adm_integrals_test.yaml )
+endif()
 ##add_custom_command(
 #        TARGET
 #        COMMENT "Run tests"
