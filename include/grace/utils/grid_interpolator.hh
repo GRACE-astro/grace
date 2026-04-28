@@ -64,13 +64,13 @@
 #include <grace/errors/assert.hh>
 #include <grace/IO/surface_IO_utils.hh>
 #include <grace/coordinates/coordinate_systems.hh>
+#include <grace/amr/amr_functions.hh>
 
 #include <Kokkos_Core.hpp>
 
 #include <vector>
 #include <array>
 #include <utility>
-#include <cstdio>
 
 namespace grace {
 
@@ -472,8 +472,9 @@ struct grid_interpolator_t<poly_kind::hermite, Degree> {
         std::array<int,3> half;
         // Normalised query coord within the Hermite cell, in [0,1]^3.
         std::array<double,3> u;
-        // Cell width of the containing quadrant.
-        double dx;
+        // Per-axis PHYSICAL cell width (not the logical 1/nx). Differs
+        // per axis on brick connectivities with non-cubic tree extents.
+        std::array<double,3> dx;
     };
 
     grid_interpolator_t(int valid_gz)
@@ -495,7 +496,22 @@ struct grid_interpolator_t<poly_kind::hermite, Degree> {
             auto pidx = ipoints[i];
             auto const& point_coords = points[pidx].second;
             auto const ijkq = icells[i];
-            double const dx = coord_system.get_spacing(ijkq.q);
+
+            // Per-axis PHYSICAL cell width. coord_system.get_spacing returns
+            // the LOGICAL spacing (1/nx within a tree's [0,1] frame); on
+            // brick connectivities with non-cubic domains the physical dx
+            // is dx_logical * tree_extent_d. Lagrange's barycentric weights
+            // are dx-scale invariant (the factor cancels in the
+            // normalisation), but Hermite uses dx directly in s_local and
+            // the gradient transform, so we must use the PHYSICAL dx here.
+            double const dx_logical = coord_system.get_spacing(ijkq.q);
+            int64_t const itree     = grace::amr::get_quadrant_owner(ijkq.q);
+            auto    const tree_ext  = grace::amr::get_tree_spacing(itree);
+            std::array<double,3> dx_phys{{
+                dx_logical * tree_ext[0],
+                dx_logical * tree_ext[1],
+                dx_logical * tree_ext[2]
+            }};
 
             // Cell-centre physical coords for cell ijkq.
             std::array<size_t,3> ijk{{ijkq.i, ijkq.j, ijkq.k}};
@@ -504,15 +520,18 @@ struct grid_interpolator_t<poly_kind::hermite, Degree> {
             );
 
             query_state_t qs;
-            qs.dx = dx;
+            qs.dx[0] = dx_phys[0];
+            qs.dx[1] = dx_phys[1];
+            qs.dx[2] = dx_phys[2];
 
             // For each axis pick the half (which neighbouring cell-centre
             // pair would bracket the query in the unbiased stencil).
             // s_local in [-0.5, 0.5] is the query offset from the cell
-            // centre, in units of dx.
+            // centre, in units of (per-axis) physical dx.
             std::array<double,3> s_local_arr;
             for (int idir = 0; idir < 3; ++idir) {
-                double const s_local = (point_coords[idir] - cell_centre[idir]) / dx;
+                double const s_local = (point_coords[idir] - cell_centre[idir])
+                                       / dx_phys[idir];
                 s_local_arr[idir] = s_local;
                 qs.half[idir] = (s_local >= 0.0) ? 1 : 0;
             }
@@ -581,21 +600,6 @@ struct grid_interpolator_t<poly_kind::hermite, Degree> {
             }
 
             states[i] = qs;
-            if (ijkq.i == 0 && ijkq.j == 8 && ijkq.k == 8) {
-                std::printf(
-                    "[HERMITE-HOST] i=%d cell=(%lu,%lu,%lu,q=%lu) "
-                    "s_local=(%.6f,%.6f,%.6f) half=(%d,%d,%d) bias=(%d,%d,%d) "
-                    "u=(%.6f,%.6f,%.6f) dx=%.6e _valid_gz=%d\n",
-                    i,
-                    (unsigned long)ijkq.i, (unsigned long)ijkq.j,
-                    (unsigned long)ijkq.k, (unsigned long)ijkq.q,
-                    s_local_arr[0], s_local_arr[1], s_local_arr[2],
-                    qs.half[0], qs.half[1], qs.half[2],
-                    qs.bias[0], qs.bias[1], qs.bias[2],
-                    qs.u[0],    qs.u[1],    qs.u[2],
-                    dx, _valid_gz);
-                std::fflush(stdout);
-            }
         }
 
         deep_copy_vec_to_const_view(intersected_cells, icells);
@@ -661,9 +665,6 @@ struct grid_interpolator_t<poly_kind::hermite, Degree> {
                 auto q_id        = cell.q;
                 auto u_view      = subview(data, ALL(), ALL(), ALL(), var_idx(iv), q_id);
 
-                double const dx  = qs.dx;
-                double const inv_dx = 1.0 / dx;
-
                 // Load the 4x4x4 stencil of f values into a local buffer.
                 // Index mapping along axis d for stencil index p in {0,1,2,3}:
                 //     ic_d(p) = ngz + cell.[ijk]_d + (p - 2 + qs.half[d] + qs.bias[d])
@@ -674,35 +675,11 @@ struct grid_interpolator_t<poly_kind::hermite, Degree> {
                 int const off_z = static_cast<int>(ngz) + static_cast<int>(cell.k)
                                    - 2 + qs.half[2] + qs.bias[2];
 
-                // TEMP DIAGNOSTIC for test_grid_interpolator failure (cell.i=0,j=8,k=8).
-                if (cell.i == 0 && cell.j == 8 && cell.k == 8) {
-                    Kokkos::printf(
-                        "[HERMITE-DBG] ip=%d iv=%d cell=(%lu,%lu,%lu,q=%lu) "
-                        "half=(%d,%d,%d) bias=(%d,%d,%d) "
-                        "u=(%.6f,%.6f,%.6f) off=(%d,%d,%d) dx=%.6e\n",
-                        ip, iv,
-                        (unsigned long)cell.i, (unsigned long)cell.j,
-                        (unsigned long)cell.k, (unsigned long)cell.q,
-                        qs.half[0], qs.half[1], qs.half[2],
-                        qs.bias[0], qs.bias[1], qs.bias[2],
-                        qs.u[0],    qs.u[1],    qs.u[2],
-                        off_x, off_y, off_z, dx);
-                }
-
                 double F[4][4][4];
                 for (int kp = 0; kp < 4; ++kp)
                 for (int jp = 0; jp < 4; ++jp)
                 for (int ip_ = 0; ip_ < 4; ++ip_) {
                     F[ip_][jp][kp] = u_view(off_x + ip_, off_y + jp, off_z + kp);
-                }
-
-                if (cell.i == 0 && cell.j == 8 && cell.k == 8) {
-                    // Print the four x-stencil samples at (Q=2, R=2) so we
-                    // can verify F values match poly_deg2 at the right
-                    // physical positions, and check no NaN leaked in.
-                    Kokkos::printf(
-                        "[HERMITE-DBG] F[0..3][2][2] = (%.6f, %.6f, %.6f, %.6f)\n",
-                        F[0][2][2], F[1][2][2], F[2][2][2], F[3][2][2]);
                 }
 
                 // Build the 8 corner knot tuples by central FD on F.
@@ -797,15 +774,12 @@ struct grid_interpolator_t<poly_kind::hermite, Degree> {
                     }
                 }
 
-                if (cell.i == 0 && cell.j == 8 && cell.k == 8) {
-                    Kokkos::printf("[HERMITE-DBG] ip=%d f_eval=%.15f\n", ip, f_eval);
-                }
                 out(ip, iv) = f_eval;
                 if (grad_flag) {
-                    // d/dx = (1/dx) d/ds for each axis.
-                    out_grad(ip, iv, 0) = gx * inv_dx;
-                    out_grad(ip, iv, 1) = gy * inv_dx;
-                    out_grad(ip, iv, 2) = gz * inv_dx;
+                    // d/dx_d = (1/dx_d) d/ds_d for each axis (per-axis dx).
+                    out_grad(ip, iv, 0) = gx / qs.dx[0];
+                    out_grad(ip, iv, 1) = gy / qs.dx[1];
+                    out_grad(ip, iv, 2) = gz / qs.dx[2];
                 }
             }
         );
