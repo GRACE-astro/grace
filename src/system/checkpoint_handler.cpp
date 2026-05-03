@@ -699,67 +699,6 @@ void checkpoint_handler_impl_t::save_checkpoint()
 
             HDF5_CALL(err, H5Gclose(ah_grp));
         }
-
-        // Write name as a string attribute on the group
-        {
-            hid_t aspace_id, atype_id, attr_id;
-            HDF5_CALL(aspace_id, H5Screate(H5S_SCALAR));
-            HDF5_CALL(atype_id,  H5Tcopy(H5T_C_S1));
-            HDF5_CALL(err,       H5Tset_size(atype_id, name.size()+1));
-            HDF5_CALL(err,       H5Tset_strpad(atype_id, H5T_STR_NULLTERM));
-            HDF5_CALL(attr_id,   H5Acreate2(grp_id, "name", atype_id,
-                                            aspace_id, H5P_DEFAULT, H5P_DEFAULT));
-            HDF5_CALL(err, H5Awrite(attr_id, atype_id, name.c_str()));
-            HDF5_CALL(err, H5Aclose(attr_id));
-            HDF5_CALL(err, H5Tclose(atype_id));
-            HDF5_CALL(err, H5Sclose(aspace_id));
-        }
-
-        // Write kind as a string attribute on the group
-        {
-            auto kind = co->get_kind() ; 
-            hid_t aspace_id, atype_id, attr_id;
-            HDF5_CALL(aspace_id, H5Screate(H5S_SCALAR));
-            HDF5_CALL(atype_id,  H5Tcopy(H5T_C_S1));
-            HDF5_CALL(err,       H5Tset_size(atype_id, kind.size()+1));
-            HDF5_CALL(err,       H5Tset_strpad(atype_id, H5T_STR_NULLTERM));
-            HDF5_CALL(attr_id,   H5Acreate2(grp_id, "kind", atype_id,
-                                            aspace_id, H5P_DEFAULT, H5P_DEFAULT));
-            HDF5_CALL(err, H5Awrite(attr_id, atype_id, kind.c_str()));
-            HDF5_CALL(err, H5Aclose(attr_id));
-            HDF5_CALL(err, H5Tclose(atype_id));
-            HDF5_CALL(err, H5Sclose(aspace_id));
-        }
-
-        HDF5_CALL(err, H5Gclose(grp_id));
-    };
-    auto& co_tracker = grace::co_tracker::get() ;
-    if (co_tracker.is_active()) {
-        int ncos    = co_tracker.get_n_cos() ; 
-        int merged  = static_cast<int>(co_tracker.get_merged()) ; 
-        hid_t tracker_grp;
-        HDF5_CALL(tracker_grp, H5Gcreate2(file_id, "co_tracker", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
-        {
-            hid_t space_id, dset_id;
-            HDF5_CALL(space_id, H5Screate(H5S_SCALAR));
-            HDF5_CALL(dset_id, H5Dcreate2(tracker_grp, "n_cos", H5T_NATIVE_INT,
-                                          space_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
-            HDF5_CALL(err, H5Dwrite(dset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, dxpl, &ncos));
-            HDF5_CALL(err, H5Dclose(dset_id));
-            HDF5_CALL(err, H5Sclose(space_id));
-        }
-        {
-            hid_t space_id, dset_id;
-            HDF5_CALL(space_id, H5Screate(H5S_SCALAR));
-            HDF5_CALL(dset_id, H5Dcreate2(tracker_grp, "has_merged", H5T_NATIVE_INT,
-                                          space_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
-            HDF5_CALL(err, H5Dwrite(dset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, dxpl, &merged));
-            HDF5_CALL(err, H5Dclose(dset_id));
-            HDF5_CALL(err, H5Sclose(space_id));
-        }
-        for( int ico=0; ico<ncos; ++ico) write_co_dset(tracker_grp, ico, co_tracker.get(ico)) ; 
-
-        HDF5_CALL(err, H5Gclose(tracker_grp));
     }
     #endif
 
