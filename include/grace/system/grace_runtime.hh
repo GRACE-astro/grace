@@ -551,8 +551,9 @@ class grace_runtime_impl_t
             "Bvec[0]", "zvec[0]", "Bdiv", "c2p_err", "entropy"
         };
         
-        #ifdef GRACE_ENABLE_M1
+        
         const std::vector<std::string> m1_vars = {
+            #ifdef GRACE_ENABLE_M1
             "Erad1", "Nrad1", "Frad1[0]"
             #ifdef M1_NU_THREESPECIES
             , "Erad2", "Nrad2", "Frad2[0]"
@@ -562,10 +563,8 @@ class grace_runtime_impl_t
             , "Erad4", "Nrad4", "Frad4[0]"
             , "Erad5", "Nrad5", "Frad5[0]"
             #endif
+            #endif
         };
-        #else
-        const std::vector<std::string> m1_vars = {};
-        #endif
 
         const std::vector<std::string> rates_aux  = {
             #ifdef GRACE_ENABLE_M1

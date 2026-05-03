@@ -463,6 +463,19 @@ void compute_fluxes(
             old_state(VEC(i,j,k),FRADZ3_,q) /=  old_state(VEC(i,j,k),ERAD3_,q); 
             old_state(VEC(i,j,k),ERAD3_,q)  /= metric.sqrtg() ; 
             #endif 
+            #ifdef M1_NU_FIVESPECIES
+            old_state(VEC(i,j,k),NRAD4_,q)  /=  old_state(VEC(i,j,k),ERAD4_,q); 
+            old_state(VEC(i,j,k),FRADX4_,q) /=  old_state(VEC(i,j,k),ERAD4_,q); 
+            old_state(VEC(i,j,k),FRADY4_,q) /=  old_state(VEC(i,j,k),ERAD4_,q); 
+            old_state(VEC(i,j,k),FRADZ4_,q) /=  old_state(VEC(i,j,k),ERAD4_,q); 
+            old_state(VEC(i,j,k),ERAD4_,q)  /= metric.sqrtg() ; 
+
+            old_state(VEC(i,j,k),NRAD5_,q)  /=  old_state(VEC(i,j,k),ERAD5_,q); 
+            old_state(VEC(i,j,k),FRADX5_,q) /=  old_state(VEC(i,j,k),ERAD5_,q); 
+            old_state(VEC(i,j,k),FRADY5_,q) /=  old_state(VEC(i,j,k),ERAD5_,q); 
+            old_state(VEC(i,j,k),FRADZ5_,q) /=  old_state(VEC(i,j,k),ERAD5_,q); 
+            old_state(VEC(i,j,k),ERAD5_,q)  /= metric.sqrtg() ; 
+            #endif 
         }
     ) ; 
     #endif 
@@ -538,6 +551,14 @@ void compute_fluxes(
             q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
         );
         #endif
+        #ifdef M1_NU_FIVESPECIES
+        m1_eq_system.template compute_x_flux<slope_limited_reconstructor_t<MCbeta>,3>(
+            q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
+        );
+        m1_eq_system.template compute_x_flux<slope_limited_reconstructor_t<MCbeta>,4>(
+            q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
+        );
+        #endif
     }) ; 
     #endif 
     //**************************************************************************************************/
@@ -563,6 +584,14 @@ void compute_fluxes(
             q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
         );
         #endif
+        #ifdef M1_NU_FIVESPECIES
+        m1_eq_system.template compute_y_flux<slope_limited_reconstructor_t<MCbeta>,3>(
+            q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
+        );
+        m1_eq_system.template compute_y_flux<slope_limited_reconstructor_t<MCbeta>,4>(
+            q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
+        );
+        #endif
     }) ; 
     #endif 
     //**************************************************************************************************/
@@ -585,6 +614,14 @@ void compute_fluxes(
             q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
         );
         m1_eq_system.template compute_z_flux<slope_limited_reconstructor_t<MCbeta>,2>(
+            q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
+        );
+        #endif
+        #ifdef M1_NU_FIVESPECIES
+        m1_eq_system.template compute_z_flux<slope_limited_reconstructor_t<MCbeta>,3>(
+            q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
+        );
+        m1_eq_system.template compute_z_flux<slope_limited_reconstructor_t<MCbeta>,4>(
             q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
         );
         #endif
@@ -638,6 +675,19 @@ void compute_fluxes(
             old_state(VEC(i,j,k),FRADX3_,q) *=  old_state(VEC(i,j,k),ERAD3_,q); 
             old_state(VEC(i,j,k),FRADY3_,q) *=  old_state(VEC(i,j,k),ERAD3_,q); 
             old_state(VEC(i,j,k),FRADZ3_,q) *=  old_state(VEC(i,j,k),ERAD3_,q);
+            #endif 
+            #ifdef M1_NU_FIVESPECIES
+            old_state(VEC(i,j,k),ERAD4_,q)  *= metric.sqrtg() ; 
+            old_state(VEC(i,j,k),NRAD4_,q)  *=  old_state(VEC(i,j,k),ERAD4_,q); 
+            old_state(VEC(i,j,k),FRADX4_,q) *=  old_state(VEC(i,j,k),ERAD4_,q); 
+            old_state(VEC(i,j,k),FRADY4_,q) *=  old_state(VEC(i,j,k),ERAD4_,q); 
+            old_state(VEC(i,j,k),FRADZ4_,q) *=  old_state(VEC(i,j,k),ERAD4_,q);
+
+            old_state(VEC(i,j,k),ERAD5_,q)  *= metric.sqrtg() ; 
+            old_state(VEC(i,j,k),NRAD5_,q)  *=  old_state(VEC(i,j,k),ERAD5_,q); 
+            old_state(VEC(i,j,k),FRADX5_,q) *=  old_state(VEC(i,j,k),ERAD5_,q); 
+            old_state(VEC(i,j,k),FRADY5_,q) *=  old_state(VEC(i,j,k),ERAD5_,q); 
+            old_state(VEC(i,j,k),FRADZ5_,q) *=  old_state(VEC(i,j,k),ERAD5_,q);
             #endif 
         }
     ) ; 
