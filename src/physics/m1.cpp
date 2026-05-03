@@ -50,6 +50,7 @@
 #include <grace/physics/m1_helpers.hh>
 #include <grace/physics/eas_policies.hh>
 #include <grace/physics/id/m1_initial_data.hh>
+#include <grace/physics/grace_weakhub_table.hh>
 
 // grmhd + eos includes 
 #include <grace/physics/grmhd_helpers.hh>
@@ -87,7 +88,7 @@ void set_m1_eas(
 
     auto eos = eos::get().get_eos<eos_t>() ;  
 
-    auto eas_kind = grace::get_param<std::string>("m1","eas","kind") ; 
+    auto eas_kind = get_param<std::string>("m1","eas","kind") ; 
 
     MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
         policy({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq}) ;
@@ -116,6 +117,23 @@ void set_m1_eas(
                 double xyz[3] ;
                 coords.get_physical_coordinates(i,j,k,q,xyz) ; 
                 op(VEC(i,j,k),q,xyz) ; 
+            }
+        );
+    } else if ( eas_kind == "neutrino_analytic" || eas_kind == "neutrino_weakhub" ) {
+        static bool weakhub_initialized = false;
+        if (!weakhub_initialized && eas_kind == "neutrino_weakhub") {
+            Kokkos::printf("NNOOOOOOTTT GOOD THAT I AM HERE");
+            weakhub::initialize_weakhub_from_params();
+            weakhub_initialized = true;
+        }
+        auto coords = grace::coordinate_system::get().get_device_coord_system() ;
+        neutrinos_eas_op<eos_t> op(aux) ;
+        parallel_for(GRACE_EXECUTION_TAG("EVOL","compute_eas"), policy,
+            KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+            {
+                double xyz[3] ;
+                coords.get_physical_coordinates(i,j,k,q,xyz) ;
+                op(VEC(i,j,k),q,xyz) ;
             }
         );
     } else {
@@ -149,11 +167,11 @@ static void set_m1_initial_data_impl(
             metric_array_t metric ; 
             FILL_METRIC_ARRAY(metric,state,q,i,j,k) ; 
             // set id 
-            state(VEC(i,j,k),ERAD_,q)  = metric.sqrtg() * id.erad ; 
-            state(VEC(i,j,k),NRAD_,q)  = metric.sqrtg() * id.nrad ; 
-            state(VEC(i,j,k),FRADX_,q) = metric.sqrtg() * id.fradx ; 
-            state(VEC(i,j,k),FRADY_,q) = metric.sqrtg() * id.frady ; 
-            state(VEC(i,j,k),FRADZ_,q) = metric.sqrtg() * id.fradz ; 
+            state(VEC(i,j,k),ERAD1_,q)  = metric.sqrtg() * id.erad ; 
+            state(VEC(i,j,k),NRAD1_,q)  = metric.sqrtg() * id.nrad ; 
+            state(VEC(i,j,k),FRADX1_,q) = metric.sqrtg() * id.fradx ; 
+            state(VEC(i,j,k),FRADY1_,q) = metric.sqrtg() * id.frady ; 
+            state(VEC(i,j,k),FRADZ1_,q) = metric.sqrtg() * id.fradz ; 
         }
     ) ; 
 }
@@ -275,4 +293,4 @@ INSTANTIATE_TEMPLATE(grace::ideal_gas_eos_t) ;
 #undef INSTANTIATE_TEMPLATE
 /***********************************************************************/
 
-} // namespace grace 
+} // namespace grace

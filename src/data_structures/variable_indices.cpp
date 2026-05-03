@@ -409,34 +409,56 @@ void register_variables() {
     // m1 
     auto m1_bc = detail::get_bc_type(get_param<std::string>("m1","bc_kind")) ; 
     // evolved 
-    register_evolved_scalar(ERAD_,"Erad",m1_bc,"second_order") ; 
-    register_evolved_scalar(NRAD_,"Nrad",m1_bc,"second_order") ; 
-    register_evolved_scalar({FRADX_,FRADY_,FRADZ_},"Frad",m1_bc,"second_order") ; 
-    #ifdef M1_NU_THREESPECIES
     register_evolved_scalar(ERAD1_,"Erad1",m1_bc,"second_order") ; 
     register_evolved_scalar(NRAD1_,"Nrad1",m1_bc,"second_order") ; 
-    register_evolved_scalar({FRADX1_,FRADY1_,FRADZ1_},"Frad1",m1_bc,"second_order") ; 
+    register_evolved_vector({FRADX1_,FRADY1_,FRADZ1_},"Frad1",m1_bc,"second_order") ; 
+    #ifdef M1_NU_THREESPECIES
     register_evolved_scalar(ERAD2_,"Erad2",m1_bc,"second_order") ; 
     register_evolved_scalar(NRAD2_,"Nrad2",m1_bc,"second_order") ; 
-    register_evolved_scalar({FRADX2_,FRADY2_,FRADZ2_},"Frad2",m1_bc,"second_order") ; 
+    register_evolved_vector({FRADX2_,FRADY2_,FRADZ2_},"Frad2",m1_bc,"second_order") ; 
+    register_evolved_scalar(ERAD3_,"Erad3",m1_bc,"second_order") ; 
+    register_evolved_scalar(NRAD3_,"Nrad3",m1_bc,"second_order") ; 
+    register_evolved_vector({FRADX3_,FRADY3_,FRADZ3_},"Frad3",m1_bc,"second_order") ; 
+    #endif 
+    #ifdef M1_NU_FIVESPECIES
+    register_evolved_scalar(ERAD4_,"Erad4",m1_bc,"second_order") ; 
+    register_evolved_scalar(NRAD4_,"Nrad4",m1_bc,"second_order") ; 
+    register_evolved_vector({FRADX4_,FRADY4_,FRADZ4_},"Frad4",m1_bc,"second_order") ; 
+    register_evolved_scalar(ERAD5_,"Erad5",m1_bc,"second_order") ; 
+    register_evolved_scalar(NRAD5_,"Nrad5",m1_bc,"second_order") ; 
+    register_evolved_vector({FRADX5_,FRADY5_,FRADZ5_},"Frad5",m1_bc,"second_order") ; 
     #endif 
     // aux 
-    register_aux_scalar(KAPPAA_,"kappa_a") ; 
-    register_aux_scalar(KAPPAS_,"kappa_s") ; 
-    register_aux_scalar(ETA_,"eta") ; 
-    register_aux_scalar(KAPPAAN_,"kappa_n") ; 
-    register_aux_scalar(ETAN_,"eta_n") ; 
+    register_aux_scalar(KAPPAA1_,"kappa_a1") ; 
+    register_aux_scalar(KAPPAS1_,"kappa_s1") ; 
+    register_aux_scalar(ETA1_,"eta1") ; 
+    register_aux_scalar(KAPPAAN1_,"kappa_n1") ; 
+    register_aux_scalar(ETAN1_,"eta_n1") ; 
     #ifdef M1_NU_THREESPECIES
-    register_aux_scalar(KAPPAA1_,"kappa_a_1") ; 
-    register_aux_scalar(KAPPAS1_,"kappa_s_1") ; 
-    register_aux_scalar(ETA1_,"eta_1") ; 
-    register_aux_scalar(KAPPAAN1_,"kappa_n_1") ; 
-    register_aux_scalar(ETAN1_,"eta_n_2") ;
-    register_aux_scalar(KAPPAA2_,"kappa_a_2") ; 
-    register_aux_scalar(KAPPAS2_,"kappa_s_2") ; 
-    register_aux_scalar(ETA2_,"eta_2") ; 
-    register_aux_scalar(KAPPAAN2_,"kappa_n_2") ; 
-    register_aux_scalar(ETAN2_,"eta_n_2") ;
+    register_aux_scalar(KAPPAA2_,"kappa_a2") ; 
+    register_aux_scalar(KAPPAS2_,"kappa_s2") ; 
+    register_aux_scalar(ETA2_,"eta2") ; 
+    register_aux_scalar(KAPPAAN2_,"kappa_n2") ; 
+    register_aux_scalar(ETAN2_,"eta_n2") ;
+    register_aux_scalar(KAPPAA3_,"kappa_a3") ; 
+    register_aux_scalar(KAPPAS3_,"kappa_s3") ; 
+    register_aux_scalar(ETA3_,"eta3") ; 
+    register_aux_scalar(KAPPAAN3_,"kappa_n3") ; 
+    register_aux_scalar(ETAN3_,"eta_n3") ;
+    #endif
+    #ifdef M1_NU_FIVESPECIES
+    register_aux_scalar(KAPPAA4_,"kappa_a4") ; 
+    register_aux_scalar(KAPPAS4_,"kappa_s4") ; 
+    register_aux_scalar(ETA4_,"eta4") ; 
+    register_aux_scalar(KAPPAAN4_,"kappa_n4") ; 
+    register_aux_scalar(ETAN4_,"eta_n4") ;
+    register_aux_scalar(KAPPAA5_,"kappa_a5") ; 
+    register_aux_scalar(KAPPAS5_,"kappa_s5") ; 
+    register_aux_scalar(ETA5_,"eta5") ; 
+    register_aux_scalar(KAPPAAN5_,"kappa_n5") ; 
+    register_aux_scalar(ETAN5_,"eta_n5") ;
+    register_aux_scalar(YMU_, "ymu") ; 
+
     #endif
     #endif  
 

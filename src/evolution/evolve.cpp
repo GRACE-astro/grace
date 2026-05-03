@@ -445,23 +445,23 @@ void compute_fluxes(
         , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
             metric_array_t metric ; 
             FILL_METRIC_ARRAY(metric,old_state,q,VEC(i,j,k)) ;
-            old_state(VEC(i,j,k),NRAD_,q)  /=  old_state(VEC(i,j,k),ERAD_,q); 
-            old_state(VEC(i,j,k),FRADX_,q) /=  old_state(VEC(i,j,k),ERAD_,q); 
-            old_state(VEC(i,j,k),FRADY_,q) /=  old_state(VEC(i,j,k),ERAD_,q); 
-            old_state(VEC(i,j,k),FRADZ_,q) /=  old_state(VEC(i,j,k),ERAD_,q); 
-            old_state(VEC(i,j,k),ERAD_,q)  /= metric.sqrtg() ; 
-            #ifdef M1_NU_THREESPECIES
             old_state(VEC(i,j,k),NRAD1_,q)  /=  old_state(VEC(i,j,k),ERAD1_,q); 
             old_state(VEC(i,j,k),FRADX1_,q) /=  old_state(VEC(i,j,k),ERAD1_,q); 
             old_state(VEC(i,j,k),FRADY1_,q) /=  old_state(VEC(i,j,k),ERAD1_,q); 
             old_state(VEC(i,j,k),FRADZ1_,q) /=  old_state(VEC(i,j,k),ERAD1_,q); 
             old_state(VEC(i,j,k),ERAD1_,q)  /= metric.sqrtg() ; 
-
+            #ifdef M1_NU_THREESPECIES
             old_state(VEC(i,j,k),NRAD2_,q)  /=  old_state(VEC(i,j,k),ERAD2_,q); 
             old_state(VEC(i,j,k),FRADX2_,q) /=  old_state(VEC(i,j,k),ERAD2_,q); 
             old_state(VEC(i,j,k),FRADY2_,q) /=  old_state(VEC(i,j,k),ERAD2_,q); 
             old_state(VEC(i,j,k),FRADZ2_,q) /=  old_state(VEC(i,j,k),ERAD2_,q); 
             old_state(VEC(i,j,k),ERAD2_,q)  /= metric.sqrtg() ; 
+
+            old_state(VEC(i,j,k),NRAD3_,q)  /=  old_state(VEC(i,j,k),ERAD3_,q); 
+            old_state(VEC(i,j,k),FRADX3_,q) /=  old_state(VEC(i,j,k),ERAD3_,q); 
+            old_state(VEC(i,j,k),FRADY3_,q) /=  old_state(VEC(i,j,k),ERAD3_,q); 
+            old_state(VEC(i,j,k),FRADZ3_,q) /=  old_state(VEC(i,j,k),ERAD3_,q); 
+            old_state(VEC(i,j,k),ERAD3_,q)  /= metric.sqrtg() ; 
             #endif 
         }
     ) ; 
@@ -621,23 +621,23 @@ void compute_fluxes(
 
             metric_array_t metric ; 
             FILL_METRIC_ARRAY(metric,old_state,q,VEC(i,j,k)) ;
-            old_state(VEC(i,j,k),ERAD_,q)  *= metric.sqrtg() ; 
-            old_state(VEC(i,j,k),NRAD_,q)  *=  old_state(VEC(i,j,k),ERAD_,q); 
-            old_state(VEC(i,j,k),FRADX_,q) *=  old_state(VEC(i,j,k),ERAD_,q); 
-            old_state(VEC(i,j,k),FRADY_,q) *=  old_state(VEC(i,j,k),ERAD_,q); 
-            old_state(VEC(i,j,k),FRADZ_,q) *=  old_state(VEC(i,j,k),ERAD_,q); 
-            #ifdef M1_NU_THREESPECIES
             old_state(VEC(i,j,k),ERAD1_,q)  *= metric.sqrtg() ; 
             old_state(VEC(i,j,k),NRAD1_,q)  *=  old_state(VEC(i,j,k),ERAD1_,q); 
             old_state(VEC(i,j,k),FRADX1_,q) *=  old_state(VEC(i,j,k),ERAD1_,q); 
             old_state(VEC(i,j,k),FRADY1_,q) *=  old_state(VEC(i,j,k),ERAD1_,q); 
-            old_state(VEC(i,j,k),FRADZ1_,q) *=  old_state(VEC(i,j,k),ERAD1_,q);
-
+            old_state(VEC(i,j,k),FRADZ1_,q) *=  old_state(VEC(i,j,k),ERAD1_,q); 
+            #ifdef M1_NU_THREESPECIES
             old_state(VEC(i,j,k),ERAD2_,q)  *= metric.sqrtg() ; 
             old_state(VEC(i,j,k),NRAD2_,q)  *=  old_state(VEC(i,j,k),ERAD2_,q); 
             old_state(VEC(i,j,k),FRADX2_,q) *=  old_state(VEC(i,j,k),ERAD2_,q); 
             old_state(VEC(i,j,k),FRADY2_,q) *=  old_state(VEC(i,j,k),ERAD2_,q); 
             old_state(VEC(i,j,k),FRADZ2_,q) *=  old_state(VEC(i,j,k),ERAD2_,q);
+
+            old_state(VEC(i,j,k),ERAD3_,q)  *= metric.sqrtg() ; 
+            old_state(VEC(i,j,k),NRAD3_,q)  *=  old_state(VEC(i,j,k),ERAD3_,q); 
+            old_state(VEC(i,j,k),FRADX3_,q) *=  old_state(VEC(i,j,k),ERAD3_,q); 
+            old_state(VEC(i,j,k),FRADY3_,q) *=  old_state(VEC(i,j,k),ERAD3_,q); 
+            old_state(VEC(i,j,k),FRADZ3_,q) *=  old_state(VEC(i,j,k),ERAD3_,q);
             #endif 
         }
     ) ; 
@@ -1095,6 +1095,10 @@ void add_fluxes_and_source_terms(
         m1_eq_system.compute_source_terms<1>(q, VEC(i,j,k), idx, new_state, dt, dtfact );
         m1_eq_system.compute_source_terms<2>(q, VEC(i,j,k), idx, new_state, dt, dtfact );
         #endif 
+        #ifdef M1_NU_FIVESPECIES
+        m1_eq_system.compute_source_terms<3>(q, VEC(i,j,k), idx, new_state, dt, dtfact );
+        m1_eq_system.compute_source_terms<4>(q, VEC(i,j,k), idx, new_state, dt, dtfact );
+        #endif 
     });
     #endif 
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_sources")
@@ -1391,6 +1395,14 @@ void advance_implicit_substep( double const t, double const dt, double const dtf
                 q, VEC(i,j,k), _idx, new_state, dt, dtfact
             );
             m1_eq_system.compute_implicit_update<2>(
+                q, VEC(i,j,k), _idx, new_state, dt, dtfact
+            );
+            #endif 
+            #ifdef M1_NU_FIVESPECIES
+            m1_eq_system.compute_implicit_update<3>(
+                q, VEC(i,j,k), _idx, new_state, dt, dtfact
+            );
+            m1_eq_system.compute_implicit_update<4>(
                 q, VEC(i,j,k), _idx, new_state, dt, dtfact
             );
             #endif 

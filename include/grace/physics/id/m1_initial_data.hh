@@ -115,9 +115,9 @@ struct equil_m1_id_t {
         }; 
         /* Get eas to check regime */
         m1_eas_array_t eas ; 
-        eas[KAL] = aux(VEC(i,j,k),KAPPAA_,q) ; 
-        eas[KSL] = aux(VEC(i,j,k),KAPPAS_,q) ; 
-        eas[ETAL] = aux(VEC(i,j,k),ETA_,q) ; 
+        eas[KAL] = aux(VEC(i,j,k),KAPPAA1_,q) ; 
+        eas[KSL] = aux(VEC(i,j,k),KAPPAS1_,q) ; 
+        eas[ETAL] = aux(VEC(i,j,k),ETA1_,q) ; 
 
         // this is l / dx --> small == thick
         double A = fmin(1.,1./((eas[KAL]+eas[KSL]+1e-20)*dx(0,q))) ; 
