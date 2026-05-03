@@ -458,7 +458,6 @@ void register_variables() {
     register_aux_scalar(KAPPAAN5_,"kappa_n5") ; 
     register_aux_scalar(ETAN5_,"eta_n5") ;
     register_aux_scalar(YMU_, "ymu") ; 
-
     #endif
     #endif  
 
