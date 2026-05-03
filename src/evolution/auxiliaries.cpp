@@ -189,6 +189,10 @@ void compute_auxiliary_quantities(
         m1_eq_system.compute_auxiliaries<1>(VEC(i,j,k), q, dev_coords);
         m1_eq_system.compute_auxiliaries<2>(VEC(i,j,k), q, dev_coords);
         #endif 
+        #ifdef M1_NU_FIVESPECIES
+        m1_eq_system.compute_auxiliaries<3>(VEC(i,j,k), q, dev_coords);
+        m1_eq_system.compute_auxiliaries<4>(VEC(i,j,k), q, dev_coords);
+        #endif 
     }) ; 
     // now fill out the eas 
     set_m1_eas<eos_t>(state,sstate,aux) ; 

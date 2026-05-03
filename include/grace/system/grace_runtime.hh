@@ -550,6 +550,36 @@ class grace_runtime_impl_t
             "rho", "press", "eps", "ye", "temperature",
             "Bvec[0]", "zvec[0]", "Bdiv", "c2p_err", "entropy"
         };
+        
+        #ifdef GRACE_ENABLE_M1
+        const std::vector<std::string> m1_vars = {
+            "Erad1", "Nrad1", "Frad1[0]"
+            #ifdef M1_NU_THREESPECIES
+            , "Erad2", "Nrad2", "Frad2[0]"
+            , "Erad3", "Nrad3", "Frad3[0]"
+            #endif
+            #ifdef M1_NU_FIVESPECIES
+            , "Erad4", "Nrad4", "Frad4[0]"
+            , "Erad5", "Nrad5", "Frad5[0]"
+            #endif
+        };
+        #else
+        const std::vector<std::string> m1_vars = {};
+        #endif
+
+        const std::vector<std::string> rates_aux  = {
+            #ifdef GRACE_ENABLE_M1
+            "kappa_a1", "kappa_s1", "eta1", "kappa_n1", "eta_n1"
+            #ifdef M1_NU_THREESPECIES
+            ,  "kappa_a2", "kappa_s2", "eta2", "kappa_n2", "eta_n2"
+            ,  "kappa_a3", "kappa_s3", "eta3", "kappa_n3", "eta_n3"
+            #endif
+            #ifdef M1_NU_FIVESPECIES
+            ,  "kappa_a4", "kappa_s4", "eta4", "kappa_n4", "eta_n4"
+            ,  "kappa_a5", "kappa_s5", "eta5", "kappa_n5", "eta_n5"
+            #endif
+            #endif
+        };
         auto out_cell_vars_volume = get_param<std::vector<std::string>>("IO","volume_output_cell_variables") ; 
         auto out_cell_vars_plane_surface = get_param<std::vector<std::string>>("IO","plane_surface_output_cell_variables") ; 
         auto out_cell_vars_sphere_surface = get_param<std::vector<std::string>>("IO","sphere_surface_output_cell_variables") ; 
@@ -580,6 +610,22 @@ class grace_runtime_impl_t
                 }
             } else if ( x == "hydro" ) {
                 for( auto const& vn: hydro_aux ) {
+                    if ( auxprops[vn].is_vector ) {
+                        _cell_volume_output_vector_aux.push_back(auxprops[vn].name) ;
+                    } else {
+                        _cell_volume_output_scalar_aux.push_back(vn) ; 
+                    }
+                }
+            } else if ( x == "m1" ) {
+                for( auto const& vn: m1_vars ) {
+                    if ( vprops[vn].is_vector ) {
+                        _cell_volume_output_vector_vars.push_back(vprops[vn].name);
+                    } else {
+                        _cell_volume_output_scalar_vars.push_back(vn);
+                    }
+                }
+            }else if ( x == "rates" ) {
+                for( auto const& vn: rates_aux ) {
                     if ( auxprops[vn].is_vector ) {
                         _cell_volume_output_vector_aux.push_back(auxprops[vn].name) ;
                     } else {
@@ -629,6 +675,22 @@ class grace_runtime_impl_t
                         _cell_plane_surface_output_scalar_aux.push_back(vn) ; 
                     }
                 }
+            } else if ( x == "m1" ) {
+                for( auto const& vn: m1_vars ) {
+                    if ( vprops[vn].is_vector ) {
+                        _cell_plane_surface_output_vector_vars.push_back(vprops[vn].name);
+                    } else {
+                        _cell_plane_surface_output_scalar_vars.push_back(vn);
+                    }
+                }
+            } else if ( x == "rates" ) {
+                for( auto const& vn: rates_aux ) {
+                    if ( auxprops[vn].is_vector ) {
+                        _cell_plane_surface_output_vector_aux.push_back(auxprops[vn].name) ;
+                    } else {
+                        _cell_plane_surface_output_scalar_aux.push_back(vn) ; 
+                    }
+                }
             } else {
                 if(std::find(vnames.begin(), vnames.end(), x) != vnames.end()) {
                     if( vprops[x].is_vector ){
@@ -666,6 +728,22 @@ class grace_runtime_impl_t
                 }
             } else if ( x == "hydro" ) {
                 for( auto const& vn: hydro_aux ) {
+                    if ( auxprops[vn].is_vector ) {
+                        _cell_sphere_surface_output_vector_aux.push_back(auxprops[vn].name) ;
+                    } else {
+                        _cell_sphere_surface_output_scalar_aux.push_back(vn) ; 
+                    }
+                }
+            } else if ( x == "m1" ) {
+                for( auto const& vn: m1_vars ) {
+                    if ( vprops[vn].is_vector ) {
+                        _cell_sphere_surface_output_vector_vars.push_back(vprops[vn].name);
+                    } else {
+                        _cell_sphere_surface_output_scalar_vars.push_back(vn);
+                    }
+                }
+            } else if ( x == "rates" ) {
+                for( auto const& vn: rates_aux ) {
                     if ( auxprops[vn].is_vector ) {
                         _cell_sphere_surface_output_vector_aux.push_back(auxprops[vn].name) ;
                     } else {

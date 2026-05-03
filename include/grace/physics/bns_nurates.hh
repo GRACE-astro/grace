@@ -236,25 +236,25 @@ void get_bns_nurates()
             double eta_conv   = 1e21 / uconv.energy_density * uconv.time * constants::MeV_to_erg ; 
             double etan_conv  = 1e21 * uconv.volume * uconv.time ; 
             
-            auxijk(KAPPAA_)  = eas.kappa_a[bns_nurates::id_nue ] * kappa_conv ; 
-            auxijk(KAPPAA1_) = eas.kappa_a[bns_nurates::id_anue] * kappa_conv ; 
-            auxijk(KAPPAA2_) = (eas.kappa_a[bns_nurates::id_nux] + eas.kappa_a[bns_nurates::id_anux] )* kappa_conv ; 
+            auxijk(KAPPAA1_)  = eas.kappa_a[bns_nurates::id_nue ] * kappa_conv ; 
+            auxijk(KAPPAA2_) = eas.kappa_a[bns_nurates::id_anue] * kappa_conv ; 
+            auxijk(KAPPAA3_) = (eas.kappa_a[bns_nurates::id_nux] + eas.kappa_a[bns_nurates::id_anux] )* kappa_conv ; 
 
-            auxijk(KAPPAAN_)  = eas.kappa_0_a[bns_nurates::id_nue ] * kappa_conv ; 
-            auxijk(KAPPAAN1_) = eas.kappa_0_a[bns_nurates::id_anue] * kappa_conv ; 
-            auxijk(KAPPAAN2_) = (eas.kappa_0_a[bns_nurates::id_nux] + eas.kappa_0_a[bns_nurates::id_anux] )* kappa_conv ; 
+            auxijk(KAPPAAN1_)  = eas.kappa_0_a[bns_nurates::id_nue ] * kappa_conv ; 
+            auxijk(KAPPAAN2_) = eas.kappa_0_a[bns_nurates::id_anue] * kappa_conv ; 
+            auxijk(KAPPAAN3_) = (eas.kappa_0_a[bns_nurates::id_nux] + eas.kappa_0_a[bns_nurates::id_anux] )* kappa_conv ; 
 
-            auxijk(KAPPAS_)  = eas.kappa_s[bns_nurates::id_nue ] * kappa_conv ; 
-            auxijk(KAPPAS1_) = eas.kappa_s[bns_nurates::id_anue] * kappa_conv ; 
-            auxijk(KAPPAS2_) = (eas.kappa_s[bns_nurates::id_nux] + eas.kappa_s[bns_nurates::id_anux] )* kappa_conv ; 
+            auxijk(KAPPAS1_)  = eas.kappa_s[bns_nurates::id_nue ] * kappa_conv ; 
+            auxijk(KAPPAS2_) = eas.kappa_s[bns_nurates::id_anue] * kappa_conv ; 
+            auxijk(KAPPAS3_) = (eas.kappa_s[bns_nurates::id_nux] + eas.kappa_s[bns_nurates::id_anux] )* kappa_conv ; 
 
-            auxijk(ETA_) = eas.eta[bns_nurates::id_nue] * eta_conv ; 
-            auxijk(ETA1_) = eas.eta[bns_nurates::id_anue] * eta_conv ; 
-            auxijk(ETA2_) = ( eas.eta[bns_nurates::id_nux] + eas.eta[bns_nurates::id_anux] )* eta_conv ; 
+            auxijk(ETA1_) = eas.eta[bns_nurates::id_nue] * eta_conv ; 
+            auxijk(ETA2_) = eas.eta[bns_nurates::id_anue] * eta_conv ; 
+            auxijk(ETA3_) = ( eas.eta[bns_nurates::id_nux] + eas.eta[bns_nurates::id_anux] )* eta_conv ; 
 
-            auxijk(ETAN_) = eas.eta_0[bns_nurates::id_nue] * etan_conv ; 
-            auxijk(ETAN1_) = eas.eta_0[bns_nurates::id_anue] * etan_conv ; 
-            auxijk(ETAN2_) = ( eas.eta_0[bns_nurates::id_nux] + eas.eta_0[bns_nurates::id_anux] )* etan_conv ; 
+            auxijk(ETAN1_) = eas.eta_0[bns_nurates::id_nue] * etan_conv ; 
+            auxijk(ETAN2_) = eas.eta_0[bns_nurates::id_anue] * etan_conv ; 
+            auxijk(ETAN3_) = ( eas.eta_0[bns_nurates::id_nux] + eas.eta_0[bns_nurates::id_anux] )* etan_conv ; 
 
         }) ; 
 
@@ -263,4 +263,4 @@ void get_bns_nurates()
 
 }
 
-#endif 
+#endif

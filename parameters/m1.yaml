@@ -56,6 +56,13 @@ m1:
       range: "(0,*)" 
       description: >
         Maximum allowed average energy 
+
+    eps_scaling:
+      type: double
+      default: 0
+      range: "[0,*)"
+      description: >
+        Value to scale eps floor with r^x
   
   excision: 
     type: schema 
@@ -76,7 +83,6 @@ m1:
       description: > 
         Value of average energy inside excised regions 
 
-
   eas: 
     type: schema 
     description: >
@@ -84,10 +90,74 @@ m1:
 
     kind: 
       type: keyword 
-      allowed: ["test", "basic_photon_rates"]
+      allowed: ["test", "basic_photon_rates", "neutrino_analytic", "neutrino_weakhub"]
       default: "test" 
       description: > 
         What prescription to use to set eas 
+
+    use_analytic:
+      type: bool
+      default: true
+      descriptio: >
+          "Needed right now. Planned to remove"
+
+    beta_decay:
+      type: bool
+      default: true
+      description: >
+        Including beta_decay in the rates calculation
+
+    plasmon_decay:
+      type: bool
+      default: true
+      description: >
+        Including plasmon_decay in the rates calculation
+
+    bremsstrahlung:
+      type: bool
+      default: true
+      description: >
+        Including bremsstrahlung in the rates calculation
+
+    pair_annihilation:
+      type: bool
+      default: true
+      description: >
+        Including pair_annihilation in the rates calculation
+
+    betaeq_policy:
+      type: bool
+      default: false
+      description: >
+        Do we calculate the beta-equilibrium
+        
+    temperature_correction: 
+      type: bool
+      default: true
+      description: >
+        "Missing"
+
+    tau_outer_radius_code:
+      type: double
+      range: "[0,*)"
+      default: 0
+      description: >
+        "Not yet implemented"
+
+    tau_policy:
+      type: keyword
+      allowed: ["analytic_density","local_spherical","none"]
+      default: "none"
+      description: >
+        "Not yet implemented"
+
+    weakhub_table:
+      type: string
+      default: ""
+      description: >
+        "absolut path to the weakhub table"
+        
+        
 
   scattering_test:
     type: schema 
@@ -131,5 +201,4 @@ m1:
       default: 10 
       range: "(0,*)"
       description: > 
-        Cross section for rates 
-    
+        Cross section for rates

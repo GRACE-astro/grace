@@ -134,6 +134,9 @@ namespace grace {
 #cmakedefine GRACE_ENABLE_Z4C_METRIC
 
 #cmakedefine GRACE_ENABLE_M1 
+#cmakedefine M1_NU_THREESPECIES
+#cmakedefine M1_NU_FIVESPECIES
+
 
 #cmakedefine GRACE_ENABLE_CABANA 
 

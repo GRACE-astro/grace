@@ -168,22 +168,35 @@ enum evol_hrsc_var_cc_idx : int {
     YESTAR_,
     ENTROPYSTAR_,
     #ifdef GRACE_ENABLE_M1
-    ERAD_,
-    NRAD_,
-    FRADX_,
-    FRADY_,
-    FRADZ_,
-    #ifdef M1_NU_THREESPECIES
     ERAD1_,
     NRAD1_,
     FRADX1_,
     FRADY1_,
     FRADZ1_,
+    #ifdef M1_NU_THREESPECIES
     ERAD2_,
     NRAD2_,
     FRADX2_,
     FRADY2_,
     FRADZ2_,
+    ERAD3_,
+    NRAD3_,
+    FRADX3_,
+    FRADY3_,
+    FRADZ3_,
+    #endif 
+    #ifdef M1_NU_FIVESPECIES
+    ERAD4_,
+    NRAD4_,
+    FRADX4_,
+    FRADY4_,
+    FRADZ4_,
+    ERAD5_,
+    NRAD5_,
+    FRADX5_,
+    FRADY5_,
+    FRADZ5_,
+    YMUSTAR_,
     #endif 
     #endif 
     N_HRSC_CC
@@ -286,22 +299,35 @@ enum aux_var_idx : int {
     C2P_DENS_ERR_,
     C2P_ERR_,
     #ifdef GRACE_ENABLE_M1
-    KAPPAA_,
-    KAPPAS_,
-    ETA_,
-    ETAN_,
-    KAPPAAN_,
-    #ifdef M1_NU_THREESPECIES
     KAPPAA1_,
     KAPPAS1_,
     ETA1_,
     ETAN1_,
     KAPPAAN1_,
+    #ifdef M1_NU_THREESPECIES
     KAPPAA2_,
     KAPPAS2_,
     ETA2_,
     ETAN2_,
     KAPPAAN2_,
+    KAPPAA3_,
+    KAPPAS3_,
+    ETA3_,
+    ETAN3_,
+    KAPPAAN3_,
+    #endif
+    #ifdef M1_NU_FIVESPECIES
+    KAPPAA4_,
+    KAPPAS4_,
+    ETA4_,
+    ETAN4_,
+    KAPPAAN4_,
+    KAPPAA5_,
+    KAPPAS5_,
+    ETA5_,
+    ETAN5_,
+    KAPPAAN5_,
+    YMU_,
     #endif
     #endif
     #ifdef GRACE_ENABLE_Z4C_METRIC
