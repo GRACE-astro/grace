@@ -141,6 +141,8 @@ struct grmhd_diagnostics {
             MPI_SUM,                    // op
             MPI_COMM_WORLD              // comm
         );
+        // Scalar volume integral; report full-domain physical value.
+        disk_mass *= scalar_symmetry_multiplier();
     }
     //**************************************************************************************************
     private: 

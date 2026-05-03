@@ -39,6 +39,7 @@
 #include <grace/evolution/hrsc_evolution_system.hh>
 #include <grace/evolution/refluxing.hh>
 #include <grace/amr/amr_functions.hh>
+#include <grace/amr/boundary_conditions.hh>
 #include <grace/evolution/evolution_kernel_tags.hh>
 #include <grace/coordinates/coordinate_systems.hh>
 #include <grace/physics/eos/eos_storage.hh>
@@ -188,38 +189,38 @@ void set_A(
     auto& csys = grace::coordinate_system::get() ;
     auto dev_coords = csys.get_device_coord_system() ;
 
-    // Ax 
+    // Ax
     parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_AX")
                 , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz+1,nz+2*ngz+1),nq})
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                 {
-                    auto varv = Kokkos::subview(aux, Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL(), varidx, q ) ; 
+                    auto varv = Kokkos::subview(aux, Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL(), varidx, q ) ;
                     double val = 0. ;
-                    int cnt = 0 ; 
+                    int cnt = 0 ;
                     for( int ii=0; ii<2; ++ii ) {
                         for( int jj=0; jj<2; ++jj) {
-                            int i_idx = j - ii ; 
-                            int j_idx = k - jj ; 
-                            if ( (i_idx > 0) && (i_idx < nx+2*ngz) && (j_idx > 0) && (j_idx < ny+2*ngz) ){
-                                val += varv(i,i_idx,j_idx) ; 
-                                cnt ++ ; 
+                            int j_cc = j - ii ; // y cell-center index
+                            int k_cc = k - jj ; // z cell-center index
+                            if ( (j_cc >= 0) && (j_cc < ny+2*ngz) && (k_cc >= 0) && (k_cc < nz+2*ngz) ){
+                                val += varv(i,j_cc,k_cc) ;
+                                cnt ++ ;
                             }
-                                
+
                         }
                     }
-                    // coords of edge! 
-                    double ccoords[3] = {0,0.5,0.5} ; 
+                    // coords of edge!
+                    double ccoords[3] = {0,0.5,0.5} ;
                     double xyz[3] ;
-                    dev_coords.get_physical_coordinates(i,j,k,q,ccoords,xyz,1/*count gzs*/) ; 
+                    dev_coords.get_physical_coordinates(i,j,k,q,ccoords,xyz,1/*count gzs*/) ;
                     xyz[0] -= center[0] ;
-                    xyz[1] -= center[1] ; 
-                    xyz[2] -= center[2] ; 
-                    // check if we are within the ball 
+                    xyz[1] -= center[1] ;
+                    xyz[2] -= center[2] ;
+                    // check if we are within the ball
                     double d = Kokkos::sqrt(
-                        SQR(xyz[0]) + SQR(xyz[1]) + SQR(xyz[2]) 
+                        SQR(xyz[0]) + SQR(xyz[1]) + SQR(xyz[2])
                     ) ;
-                    if ( d <= radius )
-                        emf(VEC(i,j,k),0,q) = A_id.template get<0>({xyz[0],xyz[1],xyz[2]}, val/cnt); 
+                    if ( (d <= radius) && (cnt > 0) )
+                        emf(VEC(i,j,k),0,q) = A_id.template get<0>({xyz[0],xyz[1],xyz[2]}, val/cnt);
                 }
     );
 
@@ -228,33 +229,33 @@ void set_A(
                 , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz+1,ny+2*ngz,nz+2*ngz+1),nq})
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                 {
-                    auto varv = Kokkos::subview(aux, Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL(), varidx, q ) ; 
+                    auto varv = Kokkos::subview(aux, Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL(), varidx, q ) ;
                     double val = 0. ;
-                    int cnt = 0 ; 
+                    int cnt = 0 ;
                     for( int ii=0; ii<2; ++ii ) {
                         for( int jj=0; jj<2; ++jj) {
-                            int i_idx = i - ii ; 
-                            int j_idx = k - jj ; 
-                            if ( (i_idx > 0) && (i_idx < nx+2*ngz) && (j_idx > 0) && (j_idx < ny+2*ngz) ){
-                                val += varv(i_idx,j,j_idx) ; 
-                                cnt ++ ; 
+                            int i_cc = i - ii ; // x cell-center index
+                            int k_cc = k - jj ; // z cell-center index
+                            if ( (i_cc >= 0) && (i_cc < nx+2*ngz) && (k_cc >= 0) && (k_cc < nz+2*ngz) ){
+                                val += varv(i_cc,j,k_cc) ;
+                                cnt ++ ;
                             }
-                                
+
                         }
                     }
-                    // coords of edge! 
-                    double ccoords[3] = {0.5,0.,0.5} ; 
+                    // coords of edge!
+                    double ccoords[3] = {0.5,0.,0.5} ;
                     double xyz[3] ;
-                    dev_coords.get_physical_coordinates(i,j,k,q,ccoords,xyz,1/*count gzs*/) ; 
+                    dev_coords.get_physical_coordinates(i,j,k,q,ccoords,xyz,1/*count gzs*/) ;
                     xyz[0] -= center[0] ;
-                    xyz[1] -= center[1] ; 
-                    xyz[2] -= center[2] ; 
-                    // check if we are within the ball 
+                    xyz[1] -= center[1] ;
+                    xyz[2] -= center[2] ;
+                    // check if we are within the ball
                     double d = Kokkos::sqrt(
-                        SQR(xyz[0]) + SQR(xyz[1]) + SQR(xyz[2]) 
+                        SQR(xyz[0]) + SQR(xyz[1]) + SQR(xyz[2])
                     ) ;
-                    if ( d <= radius )
-                        emf(VEC(i,j,k),1,q) = A_id.template get<1>({xyz[0],xyz[1],xyz[2]}, val/cnt); 
+                    if ( (d <= radius) && (cnt > 0) )
+                        emf(VEC(i,j,k),1,q) = A_id.template get<1>({xyz[0],xyz[1],xyz[2]}, val/cnt);
                 }
     );
 
@@ -263,32 +264,32 @@ void set_A(
                 , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz+1,ny+2*ngz+1,nz+2*ngz),nq})
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                 {
-                    auto varv = Kokkos::subview(aux, Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL(), varidx, q ) ; 
+                    auto varv = Kokkos::subview(aux, Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL(), varidx, q ) ;
                     double val = 0. ;
-                    int cnt = 0 ; 
+                    int cnt = 0 ;
                     for( int ii=0; ii<2; ++ii ) {
                         for( int jj=0; jj<2; ++jj) {
-                            int i_idx = i - ii ; 
-                            int j_idx = j - jj ; 
-                            if ( (i_idx > 0) && (i_idx < nx+2*ngz) && (j_idx > 0) && (j_idx < ny+2*ngz) ){
-                                val += varv(i_idx,j_idx,k) ; 
-                                cnt ++ ; 
+                            int i_cc = i - ii ; // x cell-center index
+                            int j_cc = j - jj ; // y cell-center index
+                            if ( (i_cc >= 0) && (i_cc < nx+2*ngz) && (j_cc >= 0) && (j_cc < ny+2*ngz) ){
+                                val += varv(i_cc,j_cc,k) ;
+                                cnt ++ ;
                             }
-                                
+
                         }
                     }
-                    // coords of edge! 
-                    double ccoords[3] = {0.5,0.5,0.} ; 
+                    // coords of edge!
+                    double ccoords[3] = {0.5,0.5,0.} ;
                     double xyz[3] ;
-                    dev_coords.get_physical_coordinates(i,j,k,q,ccoords,xyz,1/*count gzs*/) ; 
+                    dev_coords.get_physical_coordinates(i,j,k,q,ccoords,xyz,1/*count gzs*/) ;
                     xyz[0] -= center[0] ;
-                    xyz[1] -= center[1] ; 
-                    xyz[2] -= center[2] ; 
-                    // check if we are within the ball 
+                    xyz[1] -= center[1] ;
+                    xyz[2] -= center[2] ;
+                    // check if we are within the ball
                     double d = Kokkos::sqrt(
-                        SQR(xyz[0]) + SQR(xyz[1]) + SQR(xyz[2]) 
+                        SQR(xyz[0]) + SQR(xyz[1]) + SQR(xyz[2])
                     ) ;
-                    if ( d <= radius )
+                    if ( (d <= radius) && (cnt > 0) )
                         emf(VEC(i,j,k),2,q) = A_id.template get<2>({xyz[0],xyz[1],xyz[2]}, val/cnt);
                 }
     );
@@ -382,8 +383,12 @@ void setup_confined_poloidal_B_field() {
         c2[1] = get_param<double>("grmhd", "Avec_ID", "y_c_2") ; 
         c2[2] = get_param<double>("grmhd", "Avec_ID", "z_c_2") ; 
         double r2 = get_param<double>("grmhd", "Avec_ID", "radius_2") ;
-        setup_confined_poloidal_B_field_single(c1,r1,B_target) ;  
-        setup_confined_poloidal_B_field_single(c2,r2,B_target) ; 
+        setup_confined_poloidal_B_field_single(c1,r1,B_target) ;
+        setup_confined_poloidal_B_field_single(c2,r2,B_target) ;
     }
+    // Workaround for missing ghost-zone exchange of A: after B has been
+    // computed from A in the interior, run a full ghost-zone fill so that
+    // B in the halo is consistent with the neighbour's owned interior B.
+    grace::amr::apply_boundary_conditions() ;
 }
 }

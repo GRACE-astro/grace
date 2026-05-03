@@ -59,9 +59,21 @@ of registered surfaces where integrals should be performed, and outputs the sphe
 onto these surfaces. The output frequency here is controlled by the diagnostic output frequency, and the corresponding files are placed in 
 the same directory as scalars. 
 
-Other outputs are performed in HDF5 by default, with the legacy (deprecated) option of native VTK. GRACE supports volume and plane surface output (in xy, xz, and yz planes), as 
-well as output of point data on spherical surfaces. All this data can be easily visualized in `ParaView <https://www.paraview.org/>`_ through the use of XDMF descriptors (see the :doc:`related page <../python_interface/index>` on how to generate them), 
-as well as in python through the vtk Python interface. 
+Other outputs are performed in HDF5 by default, with the legacy (deprecated) option of native VTK. GRACE supports volume and plane surface output (in xy, xz, and yz planes), as
+well as output of point data on spherical surfaces. All this data can be easily visualized in `ParaView <https://www.paraview.org/>`_ through the use of XDMF descriptors (see the :doc:`related page <../python_interface/index>` on how to generate them),
+as well as in python through the vtk Python interface.
+
+Reflection symmetries and diagnostic output
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When ``amr::reflection_symmetries`` is enabled along one or more axes, GRACE only stores and evolves the active subdomain (e.g. the upper hemisphere :math:`z \geq 0` for :math:`z` reflection symmetry).
+For diagnostics that are written to dedicated output files, namely the ones produced by the ``mhd_diagnostics`` module (``disk_mass.dat``), the magnetic energy diagnostic (``E_em.dat``),
+the ``outflows`` module (``Mdot_*.dat``), and the ``gw_integrals`` / ``adm_integrals`` spherical decompositions, GRACE automatically rescales the reported values to the
+full physical domain. The user therefore does not need to apply any post-processing correction: the numbers in these files are already full-domain physical values.
+
+This is correct as long as the integrand is invariant under each active reflection axis (rest mass, energies, fluxes through equatorially-symmetric surfaces, :math:`J_z` under :math:`z`-reflection, etc.), which covers all the named-file diagnostics shipped with GRACE.
+Generic scalar reductions (volume integrals, L2 norms, max/min) requested through the registered-variables mechanism are **not** corrected: their values reflect the integral over the active subdomain only. If the integrand is parity-even, multiply
+by :math:`2^{N}` in post-processing, where :math:`N` is the number of active reflection axes; if it is odd under any active axis, the physical value is zero by symmetry.
 
 Code Description
 *********************

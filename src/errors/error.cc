@@ -22,24 +22,24 @@ namespace detail {
     const char* sig_name = strsignal(sig);
 
     // Header
-    write(STDERR_FILENO, "\n=== FATAL SIGNAL ===\n", 22);
-    write(STDERR_FILENO, sig_name, strlen(sig_name));
-    write(STDERR_FILENO, "\n", 1);
+    (void)! write(STDERR_FILENO, "\n=== FATAL SIGNAL ===\n", 22);
+    (void)! write(STDERR_FILENO, sig_name, strlen(sig_name));
+    (void)! write(STDERR_FILENO, "\n", 1);
 
     // Fault address (if available)
     if (sig == SIGSEGV || sig == SIGBUS) {
         char buf[128];
         int len = snprintf(buf, sizeof(buf),
                            "Fault address: %p\n", info->si_addr);
-        write(STDERR_FILENO, buf, len);
+        (void)! write(STDERR_FILENO, buf, len);
     }
 
-    write(STDERR_FILENO, "Backtrace:\n", 11);
+    (void)! write(STDERR_FILENO, "Backtrace:\n", 11);
 
     // Print raw backtrace
     backtrace_symbols_fd(trace, trace_size, STDERR_FILENO);
 
-    write(STDERR_FILENO, "====================\n", 21);
+    (void)! write(STDERR_FILENO, "====================\n", 21);
 
     _exit(128 + sig);
 }

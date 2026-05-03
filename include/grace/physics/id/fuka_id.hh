@@ -66,9 +66,35 @@ struct fuka_id_t {
         using namespace Kokkos ; 
         
         atmo_params = get_atmo_params() ;
-        zero_shift = get_param<bool>("grmhd","fuka","set_shift_to_zero") ; 
+        zero_shift = get_param<bool>("grmhd","fuka","set_shift_to_zero") ;
 
-        GRACE_VERBOSE("Setting FUKA initial data.") ; 
+        // FUKA exports rho using the atomic mass unit (m_u) convention.
+        // If a tabulated EOS is in use the user should be aware that if 
+        // they stick to the compose convention of defining the baryon
+        // mass as the neutron mass the system's baryon mass will disagree
+        // with what FUKA reports..
+        {
+            auto const eos_type = get_param<std::string>("eos","eos_type") ;
+            bool tabulated_in_use = (eos_type == "tabulated") ;
+            if (eos_type == "hybrid") {
+                tabulated_in_use = (get_param<std::string>("eos","hybrid_eos","cold_eos_type") == "tabulated") ;
+            }
+            if (tabulated_in_use) {
+                bool const force_mu = get_param<bool>("eos","tabulated_eos","force_mu") ;
+                if (!force_mu) {
+                    GRACE_WARN("FUKA initial data with a tabulated EOS is "
+                          "constructed assuming that the baryon mass is m_u = 931.494 MeV/c^2. "
+                          "The eos module in GRACE uses the CompOSE convention by default "
+                          "where the baryon mass is the neutron mass, which is what you are "
+                          "doing now. You should be aware that the baryon mass of the stars "
+                         "in this simulation will not match what fuka reports. And you should make "
+                         "sure that the cold tables used in GRACE and FUKA use the same convention, "
+                         "otherwise the ID will be **inconsistent!**. See the Python docs.") ;
+                }
+            }
+        }
+
+        GRACE_VERBOSE("Setting FUKA initial data.") ;
 
         GRACE_VERBOSE("Initial data type is: {}.", id_type ) ;
         GRACE_VERBOSE("Directory: {}.",id_dir) ;
@@ -121,14 +147,16 @@ struct fuka_id_t {
     }
 
     grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE GRACE_DEVICE_EXTERNAL_LINKAGE
-    operator() (VEC(int const i, int const j, int const k), int const q) const 
+    operator() (VEC(int const i, int const j, int const k), int const q) const
     {
-        grmhd_id_t id ;     
+        grmhd_id_t id ;
         eos_err_t eos_err ;
-        bool reset_eps{false} ; // fixme 
+        bool reset_eps{false} ; // fixme
+        // FUKA's rho and eps are imported directly (slots 16 and 20 in _data);
+        // see import_kadath.cpp for the layout.
         double e = _data(16,i,j,k,q) ; 
         id.rho = _eos.rho__energy_cold_impl(e, eos_err) ; 
-        id.eps = e/id.rho - 1. ; 
+        id.eps = e/id.rho - 1. ;
 
         auto rho_atm = atmo_params.rho_fl ; 
         auto ye_atm = atmo_params.ye_fl ; 

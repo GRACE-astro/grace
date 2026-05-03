@@ -230,9 +230,7 @@ void write_grid_structure_sliced_hdf5(hid_t file_id, size_t compression_level, s
 
     double*  points      = (double      *) malloc(sizeof(double)  * npoints_sliced * 3 )                ; 
     unsigned long int* cells  = (unsigned long int*) malloc(sizeof(unsigned long int) * ncells_sliced * nvertex ) ; 
-    const size_t global_point_offset_sliced = local_quad_offset * npoints_quad_sliced ;  
-    unsigned long int icell  = 0UL ; 
-    unsigned long int ipoint = 0UL ; 
+    const size_t global_point_offset_sliced = local_quad_offset * npoints_quad_sliced ;
     auto const get_point_index = [&] ( int i, int j, int64_t q ) 
     {
         return i + (nx+1) * (j + (nx+1) * q) ; 
@@ -445,9 +443,7 @@ void write_volume_data_arrays_sliced_hdf5(hid_t file_id, size_t compression_leve
     /* Local number of cells   */
     unsigned long const ncells_sliced = ncells_quad_sliced * nq_s; //octree_slicer.num_sliced_cells() ; 
     /* Global number of cells  */
-    unsigned long const ncells_glob_sliced = ncells_quad_sliced * nq_glob_sliced ; 
-    /* Number of unique points per quadrant */
-    unsigned long ncorners_quad_sliced = (nx+1) * (nx+1); 
+    unsigned long const ncells_glob_sliced = ncells_quad_sliced * nq_glob_sliced ;
 
     /* Create parallel dataset properties */
     hid_t dxpl ; 
@@ -581,18 +577,15 @@ void write_var_arrays_sliced_hdf5( std::vector<std::string> const& varlist
 {
     herr_t err ; 
     /* Get cell and quadrant counts */
-    size_t nx,ny,nz,nq;
+    size_t nx,ny,nz;
     std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ;
-    auto nq_s = octree_slicer.sliced_quads.size() ; 
-    nq = grace::amr::get_local_num_quadrants() ;
+    auto nq_s = octree_slicer.sliced_quads.size() ;
     size_t ngz = grace::amr::get_n_ghosts() ;
     /* Number of cells per quadrant */
-    unsigned long const ncells_quad_sliced = nx*nx ; 
-    /* Number of corners per quadrant */
-    unsigned long ncorners_quad_sliced = (nx+1)*(nx+1) ;
-    auto const dir = octree_slicer._plane.axis ; 
+    unsigned long const ncells_quad_sliced = nx*nx ;
+    auto const dir = octree_slicer._plane.axis ;
     //-----------
-    auto vars = grace::variable_list::get().getstate() ; 
+    auto vars = grace::variable_list::get().getstate() ;
     auto aux  = grace::variable_list::get().getaux()   ;
     auto& view = isaux ? aux : vars ;
     //-----------
@@ -709,10 +702,8 @@ void write_vector_var_arrays_sliced_hdf5( std::vector<std::string> const& varlis
     nq = grace::amr::get_local_num_quadrants() ;
     size_t ngz = grace::amr::get_n_ghosts() ;
     /* Number of cells per quadrant */
-    unsigned long const ncells_quad_sliced = nx*nx ; 
-    /* Number of corners per quadrant */
-    unsigned long ncorners_quad_sliced = (nx+1)*(nx+1) ;
-    auto const dir = octree_slicer._plane.axis ; 
+    unsigned long const ncells_quad_sliced = nx*nx ;
+    auto const dir = octree_slicer._plane.axis ;
 
     /* Fetch variable arrays */
     auto vars = grace::variable_list::get().getstate() ; 
@@ -814,16 +805,11 @@ void write_extra_arrays_sliced_hdf5(
 ) {
     herr_t err ;
     /* Get cell and quadrant counts */
-    size_t nx,ny,nz,nq;
+    size_t nx,ny,nz;
     std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ;
-    auto nq_s = octree_slicer.sliced_quads.size() ; 
-    nq = grace::amr::get_local_num_quadrants() ;
-    size_t ngz = grace::amr::get_n_ghosts() ;
+    auto nq_s = octree_slicer.sliced_quads.size() ;
 
-    /* Number of corners per quadrant */
-    unsigned long ncorners_quad_sliced = (nx+1)*(nx+1) ;
-
-    auto const rank_loc = parallel::mpi_comm_rank() ; 
+    auto const rank_loc = parallel::mpi_comm_rank() ;
     /* Get the p4est pointer */
     auto _p4est = grace::amr::forest::get().get() ; 
     /* Get global number of quadrants and quadrant offset for this rank */

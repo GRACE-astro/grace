@@ -28,19 +28,31 @@
 #ifndef GRACE_PHYSICS_GRMHD_B_FROM_A_HH
 #define GRACE_PHYSICS_GRMHD_B_FROM_A_HH
 
-#include <grace_config.h> 
+#include <grace_config.h>
 
-#include <Kokkos_Core.hpp> 
+#include <Kokkos_Core.hpp>
+
+#include <array>
 
 namespace grace {
 
 /**
- * @brief Initialize B field from A following 
- *        the usual prescription where A is 
+ * @brief Initialize B field from A following
+ *        the usual prescription where A is
  *        directed along phi and proportional
  *        to a given power of pressure or density.
  */
-void setup_confined_poloidal_B_field() ; 
+void setup_confined_poloidal_B_field() ;
+
+/**
+ * @brief Initialize a single confined poloidal B field
+ *        patch around @p center with the given cut radius
+ *        and target |B|_max. Uses the Avec_ID cutoff_var,
+ *        cutoff_fact and A_n parameters internally.
+ */
+void setup_confined_poloidal_B_field_single(
+    std::array<double,3> const& center, double radius, double Btarget
+) ;
 
 }
 

@@ -154,12 +154,21 @@ class grace_runtime_impl_t
     /* performance metric display */
     perf_metric_display _perf_metric ;
     /* max iter */
-    size_t _max_iter ; 
+    size_t _max_iter ;
     /* max time */
-    double _max_time ; 
+    double _max_time ;
     /* max walltime */
-    double _max_walltime ; 
- public: 
+    double _max_walltime ;
+    /* soft-termination flag, settable from anywhere via request_termination() */
+    bool _user_terminate{false} ;
+ public:
+
+    bool GRACE_ALWAYS_INLINE
+    user_termination_requested() const { return _user_terminate ; }
+
+    void GRACE_ALWAYS_INLINE
+    request_termination() { _user_terminate = true ; }
+
     
     terminate GRACE_ALWAYS_INLINE
     termination_condition() const {return _term_cnd; }

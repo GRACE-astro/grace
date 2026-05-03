@@ -323,6 +323,178 @@ z4c_get_Ricci(
 }
 
 static void KOKKOS_INLINE_FUNCTION
+z4c_get_Ricci_wave(
+	double W,
+	const double gtuu[6],
+	const double ddgtdd_dx2[36],
+	double (*W2Rtdd_wave)[6]
+)
+{
+	double x0 = ((W)*(W));
+	double x1 = (1.0/2.0)*gtuu[0];
+	double x2 = (1.0/2.0)*gtuu[3];
+	double x3 = (1.0/2.0)*gtuu[5];
+	(*W2Rtdd_wave)[0] += -x0*(ddgtdd_dx2[0]*x1 + ddgtdd_dx2[12]*gtuu[2] + ddgtdd_dx2[18]*x2 + ddgtdd_dx2[24]*gtuu[4] + ddgtdd_dx2[30]*x3 + ddgtdd_dx2[6]*gtuu[1]);
+	(*W2Rtdd_wave)[1] += -x0*(ddgtdd_dx2[13]*gtuu[2] + ddgtdd_dx2[19]*x2 + ddgtdd_dx2[1]*x1 + ddgtdd_dx2[25]*gtuu[4] + ddgtdd_dx2[31]*x3 + ddgtdd_dx2[7]*gtuu[1]);
+	(*W2Rtdd_wave)[2] += -x0*(ddgtdd_dx2[14]*gtuu[2] + ddgtdd_dx2[20]*x2 + ddgtdd_dx2[26]*gtuu[4] + ddgtdd_dx2[2]*x1 + ddgtdd_dx2[32]*x3 + ddgtdd_dx2[8]*gtuu[1]);
+	(*W2Rtdd_wave)[3] += -x0*(ddgtdd_dx2[15]*gtuu[2] + ddgtdd_dx2[21]*x2 + ddgtdd_dx2[27]*gtuu[4] + ddgtdd_dx2[33]*x3 + ddgtdd_dx2[3]*x1 + ddgtdd_dx2[9]*gtuu[1]);
+	(*W2Rtdd_wave)[4] += -x0*(ddgtdd_dx2[10]*gtuu[1] + ddgtdd_dx2[16]*gtuu[2] + ddgtdd_dx2[22]*x2 + ddgtdd_dx2[28]*gtuu[4] + ddgtdd_dx2[34]*x3 + ddgtdd_dx2[4]*x1);
+	(*W2Rtdd_wave)[5] += -x0*(ddgtdd_dx2[11]*gtuu[1] + ddgtdd_dx2[17]*gtuu[2] + ddgtdd_dx2[23]*x2 + ddgtdd_dx2[29]*gtuu[4] + ddgtdd_dx2[35]*x3 + ddgtdd_dx2[5]*x1);
+}
+
+static void KOKKOS_INLINE_FUNCTION
+z4c_get_Ricci_dgamma(
+	const double gtdd[6],
+	double W,
+	const double Gammatddd[18],
+	const double GammatDu[3],
+	const double dGammatu_dx[9],
+	double (*W2Rtdd_dg)[6]
+)
+{
+	double x0 = ((W)*(W));
+	double x1 = (1.0/2.0)*x0;
+	(*W2Rtdd_dg)[0] += x0*(GammatDu[0]*Gammatddd[0] + GammatDu[1]*Gammatddd[1] + GammatDu[2]*Gammatddd[2] + dGammatu_dx[0]*gtdd[0] + dGammatu_dx[1]*gtdd[1] + dGammatu_dx[2]*gtdd[2]);
+	(*W2Rtdd_dg)[1] += x1*(GammatDu[0]*(Gammatddd[1] + Gammatddd[6]) + GammatDu[1]*(Gammatddd[3] + Gammatddd[7]) + GammatDu[2]*(Gammatddd[4] + Gammatddd[8]) + dGammatu_dx[0]*gtdd[1] + dGammatu_dx[1]*gtdd[3] + dGammatu_dx[2]*gtdd[4] + dGammatu_dx[3]*gtdd[0] + dGammatu_dx[4]*gtdd[1] + dGammatu_dx[5]*gtdd[2]);
+	(*W2Rtdd_dg)[2] += x1*(GammatDu[0]*(Gammatddd[12] + Gammatddd[2]) + GammatDu[1]*(Gammatddd[13] + Gammatddd[4]) + GammatDu[2]*(Gammatddd[14] + Gammatddd[5]) + dGammatu_dx[0]*gtdd[2] + dGammatu_dx[1]*gtdd[4] + dGammatu_dx[2]*gtdd[5] + dGammatu_dx[6]*gtdd[0] + dGammatu_dx[7]*gtdd[1] + dGammatu_dx[8]*gtdd[2]);
+	(*W2Rtdd_dg)[3] += x0*(GammatDu[0]*Gammatddd[7] + GammatDu[1]*Gammatddd[9] + GammatDu[2]*Gammatddd[10] + dGammatu_dx[3]*gtdd[1] + dGammatu_dx[4]*gtdd[3] + dGammatu_dx[5]*gtdd[4]);
+	(*W2Rtdd_dg)[4] += x1*(GammatDu[0]*(Gammatddd[13] + Gammatddd[8]) + GammatDu[1]*(Gammatddd[10] + Gammatddd[15]) + GammatDu[2]*(Gammatddd[11] + Gammatddd[16]) + dGammatu_dx[3]*gtdd[2] + dGammatu_dx[4]*gtdd[4] + dGammatu_dx[5]*gtdd[5] + dGammatu_dx[6]*gtdd[1] + dGammatu_dx[7]*gtdd[3] + dGammatu_dx[8]*gtdd[4]);
+	(*W2Rtdd_dg)[5] += x0*(GammatDu[0]*Gammatddd[14] + GammatDu[1]*Gammatddd[16] + GammatDu[2]*Gammatddd[17] + dGammatu_dx[6]*gtdd[2] + dGammatu_dx[7]*gtdd[4] + dGammatu_dx[8]*gtdd[5]);
+}
+
+static void KOKKOS_INLINE_FUNCTION
+z4c_get_Ricci_gammagamma(
+	double W,
+	const double gtuu[6],
+	const double Gammatddd[18],
+	const double Gammatudd[18],
+	double (*W2Rtdd_gg)[6]
+)
+{
+	double x0 = ((W)*(W));
+	double x1 = 3*gtuu[0];
+	double x2 = 3*gtuu[3];
+	double x3 = 3*gtuu[5];
+	double x4 = 2*Gammatddd[2];
+	double x5 = 2*Gammatddd[4];
+	double x6 = 2*Gammatddd[5];
+	double x7 = 2*Gammatddd[1];
+	double x8 = 2*Gammatddd[3];
+	double x9 = Gammatddd[0]*Gammatudd[1];
+	double x10 = Gammatddd[1]*Gammatudd[0];
+	double x11 = Gammatddd[13]*Gammatudd[12];
+	double x12 = Gammatddd[7]*Gammatudd[6];
+	double x13 = Gammatddd[0]*Gammatudd[2];
+	double x14 = Gammatddd[2]*Gammatudd[0];
+	double x15 = Gammatddd[14]*Gammatudd[12];
+	double x16 = Gammatddd[8]*Gammatudd[6];
+	double x17 = Gammatddd[13]*Gammatudd[14];
+	double x18 = Gammatddd[14]*Gammatudd[13];
+	double x19 = Gammatddd[1]*Gammatudd[2];
+	double x20 = Gammatddd[2]*Gammatudd[1];
+	double x21 = Gammatddd[8]*Gammatudd[7];
+	double x22 = Gammatddd[7]*Gammatudd[8];
+	double x23 = Gammatddd[9]*Gammatudd[7];
+	double x24 = 2*x23;
+	double x25 = Gammatddd[4]*Gammatudd[10];
+	double x26 = Gammatddd[10]*Gammatudd[8];
+	double x27 = Gammatddd[7]*Gammatudd[7];
+	double x28 = Gammatddd[9]*Gammatudd[6] + x27;
+	double x29 = Gammatddd[6]*Gammatudd[2];
+	double x30 = Gammatddd[0]*Gammatudd[4] + Gammatddd[4]*Gammatudd[0];
+	double x31 = Gammatddd[1]*Gammatudd[10];
+	double x32 = Gammatddd[10]*Gammatudd[6];
+	double x33 = x22 + x32;
+	double x34 = Gammatddd[8]*Gammatudd[14];
+	double x35 = Gammatddd[16]*Gammatudd[12];
+	double x36 = Gammatddd[2]*Gammatudd[16] + x35;
+	double x37 = x19 + x20;
+	double x38 = Gammatddd[10]*Gammatudd[13];
+	double x39 = Gammatddd[15]*Gammatudd[13];
+	double x40 = Gammatddd[1]*Gammatudd[3];
+	double x41 = Gammatddd[3]*Gammatudd[1];
+	double x42 = Gammatddd[7]*Gammatudd[1];
+	double x43 = Gammatddd[4]*Gammatudd[16];
+	double x44 = Gammatddd[16]*Gammatudd[13];
+	double x45 = Gammatddd[10]*Gammatudd[14] + x44;
+	double x46 = Gammatddd[3]*Gammatudd[10];
+	double x47 = Gammatddd[10]*Gammatudd[7];
+	double x48 = Gammatddd[9]*Gammatudd[8];
+	double x49 = x47 + x48;
+	double x50 = Gammatddd[11]*Gammatudd[13];
+	double x51 = Gammatddd[7]*Gammatudd[2];
+	double x52 = Gammatddd[1]*Gammatudd[4];
+	double x53 = Gammatddd[4]*Gammatudd[1];
+	double x54 = x52 + x53;
+	double x55 = Gammatddd[2]*Gammatudd[3];
+	double x56 = Gammatddd[8]*Gammatudd[1];
+	double x57 = Gammatddd[11]*Gammatudd[14];
+	double x58 = Gammatddd[16]*Gammatudd[14];
+	double x59 = Gammatddd[5]*Gammatudd[16] + x58;
+	double x60 = Gammatddd[8]*Gammatudd[2];
+	double x61 = Gammatddd[2]*Gammatudd[4];
+	double x62 = Gammatddd[4]*Gammatudd[2];
+	double x63 = x61 + x62;
+	double x64 = Gammatddd[17]*Gammatudd[14];
+	double x65 = 2*x64;
+	double x66 = Gammatddd[12]*Gammatudd[1];
+	double x67 = Gammatddd[13]*Gammatudd[7];
+	double x68 = Gammatddd[14]*Gammatudd[14];
+	double x69 = Gammatddd[17]*Gammatudd[12] + x68;
+	double x70 = Gammatddd[15]*Gammatudd[7];
+	double x71 = Gammatddd[13]*Gammatudd[1];
+	double x72 = Gammatddd[16]*Gammatudd[7] + x26;
+	double x73 = Gammatddd[11]*Gammatudd[7];
+	double x74 = Gammatddd[15]*Gammatudd[8];
+	double x75 = Gammatddd[13]*Gammatudd[2];
+	double x76 = Gammatddd[5]*Gammatudd[1];
+	double x77 = Gammatddd[14]*Gammatudd[1];
+	double x78 = Gammatddd[17]*Gammatudd[13];
+	double x79 = Gammatddd[11]*Gammatudd[8];
+	double x80 = Gammatddd[16]*Gammatudd[8];
+	double x81 = Gammatddd[14]*Gammatudd[2];
+	double x82 = Gammatddd[2]*Gammatudd[5];
+	double x83 = Gammatddd[5]*Gammatudd[2];
+	double x84 = 2*Gammatddd[8];
+	double x85 = 2*Gammatddd[10];
+	double x86 = 2*Gammatddd[11];
+	double x87 = 2*Gammatddd[6];
+	double x88 = 2*Gammatddd[7];
+	double x89 = Gammatddd[7]*Gammatudd[9];
+	double x90 = Gammatddd[7]*Gammatudd[10];
+	double x91 = Gammatddd[16]*Gammatudd[15];
+	double x92 = Gammatddd[10]*Gammatudd[9];
+	double x93 = Gammatddd[9]*Gammatudd[10];
+	double x94 = Gammatddd[4]*Gammatudd[3];
+	double x95 = Gammatddd[17]*Gammatudd[16];
+	double x96 = 2*x95;
+	double x97 = Gammatddd[14]*Gammatudd[15];
+	double x98 = Gammatddd[8]*Gammatudd[10];
+	double x99 = Gammatddd[14]*Gammatudd[16];
+	double x100 = x78 + x99;
+	double x101 = Gammatddd[13]*Gammatudd[10];
+	double x102 = Gammatddd[12]*Gammatudd[4];
+	double x103 = Gammatddd[16]*Gammatudd[16];
+	double x104 = Gammatddd[17]*Gammatudd[15] + x103;
+	double x105 = Gammatddd[10]*Gammatudd[11];
+	double x106 = Gammatddd[11]*Gammatudd[10];
+	double x107 = Gammatddd[16]*Gammatudd[10];
+	double x108 = Gammatddd[14]*Gammatudd[4];
+	double x109 = Gammatddd[5]*Gammatudd[4];
+	double x110 = 2*Gammatddd[15];
+	double x111 = 2*Gammatddd[12];
+	double x112 = 2*Gammatddd[13];
+	double x113 = Gammatddd[14]*Gammatudd[17];
+	double x114 = Gammatddd[16]*Gammatudd[17];
+	(*W2Rtdd_gg)[0] += x0*(Gammatddd[0]*Gammatudd[0]*x1 + Gammatddd[1]*Gammatudd[1]*x2 + Gammatddd[2]*Gammatudd[2]*x3 + Gammatudd[12]*gtuu[0]*(Gammatddd[12] + x4) + Gammatudd[13]*gtuu[3]*(Gammatddd[13] + x5) + Gammatudd[14]*gtuu[5]*(Gammatddd[14] + x6) + Gammatudd[6]*gtuu[0]*(Gammatddd[6] + x7) + Gammatudd[7]*gtuu[3]*(Gammatddd[7] + x8) + Gammatudd[8]*gtuu[5]*(Gammatddd[8] + x5) + gtuu[1]*(x10 + 2*x9) + gtuu[1]*(2*x10 + x9) + gtuu[1]*(Gammatddd[12]*Gammatudd[13] + Gammatudd[12]*x5) + gtuu[1]*(Gammatddd[6]*Gammatudd[7] + Gammatudd[6]*x8) + gtuu[1]*(Gammatudd[13]*x4 + x11) + gtuu[1]*(Gammatudd[7]*x7 + x12) + gtuu[2]*(x13 + 2*x14) + gtuu[2]*(2*x13 + x14) + gtuu[2]*(Gammatddd[12]*Gammatudd[14] + Gammatudd[12]*x6) + gtuu[2]*(Gammatddd[6]*Gammatudd[8] + Gammatudd[6]*x5) + gtuu[2]*(Gammatudd[14]*x4 + x15) + gtuu[2]*(Gammatudd[8]*x7 + x16) + gtuu[4]*(x19 + 2*x20) + gtuu[4]*(2*x19 + x20) + gtuu[4]*(Gammatudd[13]*x6 + x17) + gtuu[4]*(Gammatudd[14]*x5 + x18) + gtuu[4]*(Gammatudd[7]*x5 + x22) + gtuu[4]*(Gammatudd[8]*x8 + x21));
+	(*W2Rtdd_gg)[1] += x0*(gtuu[0]*(Gammatddd[1]*Gammatudd[7] + 2*x12) + gtuu[0]*(Gammatddd[2]*Gammatudd[13] + Gammatddd[8]*Gammatudd[12] + x11) + gtuu[0]*(Gammatddd[6]*Gammatudd[0] + x10 + x9) + gtuu[1]*(Gammatddd[1]*Gammatudd[9] + x28) + gtuu[1]*(Gammatddd[3]*Gammatudd[7] + x28) + gtuu[1]*(Gammatddd[7]*Gammatudd[0] + Gammatudd[1]*x7) + gtuu[1]*(Gammatddd[0]*Gammatudd[3] + Gammatddd[3]*Gammatudd[0] + Gammatddd[6]*Gammatudd[1]) + gtuu[1]*(Gammatddd[10]*Gammatudd[12] + Gammatddd[13]*Gammatudd[13] + Gammatddd[4]*Gammatudd[13]) + gtuu[1]*(Gammatddd[15]*Gammatudd[12] + Gammatddd[2]*Gammatudd[15] + Gammatddd[8]*Gammatudd[13]) + gtuu[2]*(x29 + x30) + gtuu[2]*(x31 + x33) + gtuu[2]*(x34 + x36) + gtuu[2]*(Gammatddd[4]*Gammatudd[7] + x33) + gtuu[2]*(Gammatddd[8]*Gammatudd[0] + x37) + gtuu[2]*(Gammatddd[11]*Gammatudd[12] + Gammatddd[5]*Gammatudd[13] + x17) + gtuu[3]*(Gammatddd[3]*Gammatudd[9] + x24) + gtuu[3]*(x40 + x41 + x42) + gtuu[3]*(Gammatddd[4]*Gammatudd[15] + x38 + x39) + gtuu[4]*(x43 + x45) + gtuu[4]*(x46 + x49) + gtuu[4]*(x51 + x54) + gtuu[4]*(Gammatddd[4]*Gammatudd[9] + x49) + gtuu[4]*(Gammatddd[15]*Gammatudd[14] + Gammatddd[5]*Gammatudd[15] + x50) + gtuu[4]*(Gammatddd[3]*Gammatudd[2] + x55 + x56) + gtuu[5]*(x25 + 2*x26) + gtuu[5]*(x57 + x59) + gtuu[5]*(x60 + x63));
+	(*W2Rtdd_gg)[2] += x0*(gtuu[0]*(Gammatddd[2]*Gammatudd[14] + 2*x15) + gtuu[0]*(Gammatddd[12]*Gammatudd[0] + x13 + x14) + gtuu[0]*(Gammatddd[13]*Gammatudd[6] + Gammatddd[1]*Gammatudd[8] + x16) + gtuu[1]*(x18 + x36) + gtuu[1]*(x30 + x66) + gtuu[1]*(Gammatddd[13]*Gammatudd[0] + x37) + gtuu[1]*(x31 + x32 + x67) + gtuu[1]*(Gammatddd[15]*Gammatudd[6] + Gammatddd[3]*Gammatudd[8] + x21) + gtuu[1]*(Gammatddd[4]*Gammatudd[14] + x18 + x35) + gtuu[2]*(Gammatddd[14]*Gammatudd[0] + Gammatudd[2]*x4) + gtuu[2]*(Gammatddd[2]*Gammatudd[17] + x69) + gtuu[2]*(Gammatddd[5]*Gammatudd[14] + x69) + gtuu[2]*(Gammatddd[0]*Gammatudd[5] + Gammatddd[12]*Gammatudd[2] + Gammatddd[5]*Gammatudd[0]) + gtuu[2]*(Gammatddd[11]*Gammatudd[6] + Gammatddd[13]*Gammatudd[8] + Gammatddd[1]*Gammatudd[11]) + gtuu[2]*(Gammatddd[16]*Gammatudd[6] + Gammatddd[4]*Gammatudd[8] + Gammatddd[8]*Gammatudd[8]) + gtuu[3]*(x43 + 2*x44) + gtuu[3]*(x54 + x71) + gtuu[3]*(x46 + x47 + x70) + gtuu[4]*(x25 + x72) + gtuu[4]*(x59 + x78) + gtuu[4]*(x63 + x77) + gtuu[4]*(Gammatddd[1]*Gammatudd[5] + x75 + x76) + gtuu[4]*(Gammatddd[3]*Gammatudd[11] + x73 + x74) + gtuu[4]*(Gammatddd[4]*Gammatudd[17] + x58 + x78) + gtuu[5]*(Gammatddd[5]*Gammatudd[17] + x65) + gtuu[5]*(x81 + x82 + x83) + gtuu[5]*(Gammatddd[4]*Gammatudd[11] + x79 + x80));
+	(*W2Rtdd_gg)[3] += x0*(Gammatddd[10]*Gammatudd[10]*x3 + Gammatddd[9]*Gammatudd[9]*x2 + Gammatudd[13]*gtuu[0]*(Gammatddd[13] + x84) + Gammatudd[15]*gtuu[3]*(Gammatddd[15] + x85) + Gammatudd[16]*gtuu[5]*(Gammatddd[16] + x86) + Gammatudd[1]*gtuu[0]*(Gammatddd[1] + x87) + Gammatudd[3]*gtuu[3]*(Gammatddd[3] + x88) + Gammatudd[4]*gtuu[5]*(Gammatddd[4] + x84) + gtuu[1]*(x23 + 2*x89) + gtuu[1]*(x24 + x89) + gtuu[1]*(x40 + 2*x42) + gtuu[1]*(Gammatddd[13]*Gammatudd[15] + 2*x38) + gtuu[1]*(Gammatudd[15]*x84 + x39) + gtuu[1]*(Gammatudd[3]*x87 + x41) + gtuu[2]*(x47 + 2*x90) + gtuu[2]*(2*x47 + x90) + gtuu[2]*(x52 + 2*x56) + gtuu[2]*(Gammatddd[13]*Gammatudd[16] + 2*x50) + gtuu[2]*(Gammatudd[16]*x84 + x44) + gtuu[2]*(Gammatudd[4]*x87 + x53) + gtuu[4]*(x92 + 2*x93) + gtuu[4]*(2*x92 + x93) + gtuu[4]*(Gammatddd[15]*Gammatudd[16] + Gammatudd[15]*x86) + gtuu[4]*(Gammatddd[3]*Gammatudd[4] + Gammatudd[3]*x84) + gtuu[4]*(Gammatudd[16]*x85 + x91) + gtuu[4]*(Gammatudd[4]*x88 + x94) + x1*x27);
+	(*W2Rtdd_gg)[4] += x0*(gtuu[0]*(2*x18 + x34) + gtuu[0]*(x20 + x29 + x66) + gtuu[0]*(x21 + x22 + x67) + gtuu[1]*(x45 + x97) + gtuu[1]*(x51 + x55 + x71) + gtuu[1]*(Gammatddd[12]*Gammatudd[3] + Gammatddd[6]*Gammatudd[4] + x53) + gtuu[1]*(Gammatddd[13]*Gammatudd[9] + x47 + x90) + gtuu[1]*(Gammatddd[8]*Gammatudd[16] + x44 + x97) + gtuu[1]*(Gammatddd[8]*Gammatudd[9] + x48 + x70) + gtuu[2]*(x100 + x57) + gtuu[2]*(x72 + x98) + gtuu[2]*(Gammatddd[8]*Gammatudd[17] + x100) + gtuu[2]*(x60 + x61 + x77) + gtuu[2]*(Gammatddd[6]*Gammatudd[5] + x102 + x76) + gtuu[2]*(Gammatddd[7]*Gammatudd[11] + x101 + x73) + gtuu[3]*(Gammatddd[10]*Gammatudd[16] + 2*x91) + gtuu[3]*(Gammatddd[13]*Gammatudd[3] + Gammatddd[7]*Gammatudd[4] + x94) + gtuu[3]*(Gammatddd[15]*Gammatudd[9] + x92 + x93) + gtuu[4]*(Gammatddd[10]*Gammatudd[17] + x104) + gtuu[4]*(Gammatddd[11]*Gammatudd[16] + x104) + gtuu[4]*(Gammatddd[16]*Gammatudd[9] + Gammatudd[10]*x85) + gtuu[4]*(Gammatddd[11]*Gammatudd[9] + Gammatddd[15]*Gammatudd[10] + Gammatddd[9]*Gammatudd[11]) + gtuu[4]*(Gammatddd[13]*Gammatudd[4] + Gammatddd[5]*Gammatudd[3] + Gammatddd[7]*Gammatudd[5]) + gtuu[4]*(Gammatddd[14]*Gammatudd[3] + Gammatddd[4]*Gammatudd[4] + Gammatddd[8]*Gammatudd[4]) + gtuu[5]*(Gammatddd[11]*Gammatudd[17] + x96) + gtuu[5]*(x105 + x106 + x107) + gtuu[5]*(Gammatddd[8]*Gammatudd[5] + x108 + x109));
+	(*W2Rtdd_gg)[5] += x0*(Gammatddd[17]*Gammatudd[17]*x3 + Gammatudd[10]*gtuu[3]*(Gammatddd[10] + x110) + Gammatudd[11]*gtuu[5]*(Gammatddd[11] + 2*Gammatddd[16]) + Gammatudd[2]*gtuu[0]*(Gammatddd[2] + x111) + Gammatudd[4]*gtuu[3]*(Gammatddd[4] + x112) + Gammatudd[5]*gtuu[5]*(2*Gammatddd[14] + Gammatddd[5]) + Gammatudd[8]*gtuu[0]*(Gammatddd[8] + x112) + gtuu[1]*(2*x101 + x26) + gtuu[1]*(2*x102 + x62) + gtuu[1]*(x58 + 2*x99) + gtuu[1]*(2*x58 + x99) + gtuu[1]*(x61 + 2*x75) + gtuu[1]*(2*x74 + x98) + gtuu[2]*(x113 + x65) + gtuu[2]*(2*x113 + x64) + gtuu[2]*(2*x81 + x82) + gtuu[2]*(Gammatddd[8]*Gammatudd[11] + 2*x80) + gtuu[2]*(Gammatudd[11]*x112 + x79) + gtuu[2]*(Gammatudd[5]*x111 + x83) + gtuu[4]*(x105 + 2*x107) + gtuu[4]*(x114 + x96) + gtuu[4]*(2*x114 + x95) + gtuu[4]*(Gammatddd[4]*Gammatudd[5] + 2*x108) + gtuu[4]*(Gammatudd[11]*x110 + x106) + gtuu[4]*(Gammatudd[5]*x112 + x109) + x1*x68 + x103*x2);
+}
+
+static void KOKKOS_INLINE_FUNCTION
 z4c_get_Ricci_conf(
 	const double gtdd[6],
 	double W,
@@ -366,12 +538,10 @@ z4c_get_chi_rhs(
 	double theta,
 	double Khat,
 	const double dbetau_dx[9],
-	double dW_dx_upwind,
 	double * __restrict__ dW
 )
 {
-	double x0 = (1.0/3.0)*W;
-	*dW = (1.0/3.0)*W*alp*(Khat + 2*theta) + dW_dx_upwind - dbetau_dx[0]*x0 - dbetau_dx[4]*x0 - dbetau_dx[8]*x0;
+	*dW = (1.0/3.0)*W*(alp*(Khat + 2*theta) - dbetau_dx[0] - dbetau_dx[4] - dbetau_dx[8]);
 }
 
 static void KOKKOS_INLINE_FUNCTION
@@ -379,28 +549,23 @@ z4c_get_gtdd_rhs(
 	const double gtdd[6],
 	const double Atdd[6],
 	double alp,
-	const double dgtdd_dx_upwind[6],
 	const double dbetau_dx[9],
 	double (*dgtdd_dt)[6]
 )
 {
-	double x0 = 2*alp;
-	double x1 = 2*gtdd[1];
-	double x2 = 2*gtdd[2];
-	double x3 = (2.0/3.0)*gtdd[0];
-	double x4 = (1.0/3.0)*gtdd[1];
-	double x5 = (2.0/3.0)*dbetau_dx[8];
-	double x6 = (1.0/3.0)*gtdd[2];
-	double x7 = (2.0/3.0)*dbetau_dx[4];
-	double x8 = (2.0/3.0)*dbetau_dx[0];
-	double x9 = 2*gtdd[4];
-	double x10 = (1.0/3.0)*gtdd[4];
-	(*dgtdd_dt)[0] = -Atdd[0]*x0 + (4.0/3.0)*dbetau_dx[0]*gtdd[0] + dbetau_dx[1]*x1 + dbetau_dx[2]*x2 - dbetau_dx[4]*x3 - dbetau_dx[8]*x3 + dgtdd_dx_upwind[0];
-	(*dgtdd_dt)[1] = -Atdd[1]*x0 + dbetau_dx[0]*x4 + dbetau_dx[1]*gtdd[3] + dbetau_dx[2]*gtdd[4] + dbetau_dx[3]*gtdd[0] + dbetau_dx[4]*x4 + dbetau_dx[5]*gtdd[2] + dgtdd_dx_upwind[1] - gtdd[1]*x5;
-	(*dgtdd_dt)[2] = -Atdd[2]*x0 + dbetau_dx[0]*x6 + dbetau_dx[1]*gtdd[4] + dbetau_dx[2]*gtdd[5] + dbetau_dx[6]*gtdd[0] + dbetau_dx[7]*gtdd[1] + dbetau_dx[8]*x6 + dgtdd_dx_upwind[2] - gtdd[2]*x7;
-	(*dgtdd_dt)[3] = -Atdd[3]*x0 + dbetau_dx[3]*x1 + (4.0/3.0)*dbetau_dx[4]*gtdd[3] + dbetau_dx[5]*x9 + dgtdd_dx_upwind[3] - gtdd[3]*x5 - gtdd[3]*x8;
-	(*dgtdd_dt)[4] = -Atdd[4]*x0 + dbetau_dx[3]*gtdd[2] + dbetau_dx[4]*x10 + dbetau_dx[5]*gtdd[5] + dbetau_dx[6]*gtdd[1] + dbetau_dx[7]*gtdd[3] + dbetau_dx[8]*x10 + dgtdd_dx_upwind[4] - gtdd[4]*x8;
-	(*dgtdd_dt)[5] = -Atdd[5]*x0 + dbetau_dx[6]*x2 + dbetau_dx[7]*x9 + (4.0/3.0)*dbetau_dx[8]*gtdd[5] + dgtdd_dx_upwind[5] - gtdd[5]*x7 - gtdd[5]*x8;
+	double x0 = (1.0/3.0)*gtdd[0];
+	double x1 = 2*alp;
+	double x2 = (1.0/3.0)*gtdd[1];
+	double x3 = (1.0/3.0)*gtdd[2];
+	double x4 = (1.0/3.0)*gtdd[3];
+	double x5 = (1.0/3.0)*gtdd[4];
+	double x6 = (1.0/3.0)*gtdd[5];
+	(*dgtdd_dt)[0] = -2*Atdd[0]*alp + (4.0/3.0)*dbetau_dx[0]*gtdd[0] + 2*dbetau_dx[1]*gtdd[1] + 2*dbetau_dx[2]*gtdd[2] - 2*dbetau_dx[4]*x0 - 2*dbetau_dx[8]*x0;
+	(*dgtdd_dt)[1] = -Atdd[1]*x1 + dbetau_dx[0]*x2 + dbetau_dx[1]*gtdd[3] + dbetau_dx[2]*gtdd[4] + dbetau_dx[3]*gtdd[0] + dbetau_dx[4]*x2 + dbetau_dx[5]*gtdd[2] - 2.0/3.0*dbetau_dx[8]*gtdd[1];
+	(*dgtdd_dt)[2] = -Atdd[2]*x1 + dbetau_dx[0]*x3 + dbetau_dx[1]*gtdd[4] + dbetau_dx[2]*gtdd[5] - 2.0/3.0*dbetau_dx[4]*gtdd[2] + dbetau_dx[6]*gtdd[0] + dbetau_dx[7]*gtdd[1] + dbetau_dx[8]*x3;
+	(*dgtdd_dt)[3] = -2*Atdd[3]*alp - 2*dbetau_dx[0]*x4 + 2*dbetau_dx[3]*gtdd[1] + (4.0/3.0)*dbetau_dx[4]*gtdd[3] + 2*dbetau_dx[5]*gtdd[4] - 2*dbetau_dx[8]*x4;
+	(*dgtdd_dt)[4] = -Atdd[4]*x1 - 2.0/3.0*dbetau_dx[0]*gtdd[4] + dbetau_dx[3]*gtdd[2] + dbetau_dx[4]*x5 + dbetau_dx[5]*gtdd[5] + dbetau_dx[6]*gtdd[1] + dbetau_dx[7]*gtdd[3] + dbetau_dx[8]*x5;
+	(*dgtdd_dt)[5] = -2*Atdd[5]*alp - 2*dbetau_dx[0]*x6 - 2*dbetau_dx[4]*x6 + 2*dbetau_dx[6]*gtdd[2] + 2*dbetau_dx[7]*gtdd[4] + (4.0/3.0)*dbetau_dx[8]*gtdd[5];
 }
 
 static void KOKKOS_INLINE_FUNCTION
@@ -414,11 +579,10 @@ z4c_get_Khat_rhs(
 	double kappa2,
 	double Asqr,
 	double DiDialp,
-	double dKhat_dx_upwind,
 	double * __restrict__ dKhat_dt
 )
 {
-	*dKhat_dt = -DiDialp - alp*kappa1*theta*(kappa2 - 1) + (1.0/3.0)*alp*(3*Asqr + ((Ktr)*(Ktr))) + 4*M_PI*alp*(S + rho) + dKhat_dx_upwind;
+	*dKhat_dt = -DiDialp - alp*kappa1*theta*(kappa2 - 1) + (1.0/3.0)*alp*(3*Asqr + ((Ktr)*(Ktr))) + 4*M_PI*alp*(S + rho);
 }
 
 static void KOKKOS_INLINE_FUNCTION
@@ -433,7 +597,6 @@ z4c_get_Gammatilde_rhs(
 	const double Gammatudd[18],
 	const double GammatDu[3],
 	const double dbetau_dx[9],
-	const double dGammatu_dx_upwind[3],
 	const double dKhat_dx[3],
 	const double dW_dx[3],
 	const double dalp_dx[3],
@@ -469,9 +632,9 @@ z4c_get_Gammatilde_rhs(
 	double x24 = kappa1*x4;
 	double x25 = (2.0/3.0)*GammatDu[1];
 	double x26 = (2.0/3.0)*GammatDu[2];
-	(*dGammatu_dt)[0] = -Atuu[0]*x0 - Atuu[0]*x17 - Atuu[1]*x1 - Atuu[1]*x18 - Atuu[2]*x19 - Atuu[2]*x2 - 1.0/3.0*GammatDu[0]*dbetau_dx[0] - GammatDu[1]*dbetau_dx[3] - GammatDu[2]*dbetau_dx[6] + Gammatudd[0]*x5 + Gammatudd[1]*x7 + Gammatudd[2]*x8 + Gammatudd[3]*x9 + Gammatudd[4]*x10 + Gammatudd[5]*x11 + dGammatu_dx_upwind[0] + dbetau_dx[4]*x3 + dbetau_dx[8]*x3 + (4.0/3.0)*ddbetau_dx2[0]*gtuu[0] + (1.0/3.0)*ddbetau_dx2[10]*gtuu[1] + 2*ddbetau_dx2[12]*gtuu[4] + (1.0/3.0)*ddbetau_dx2[13]*gtuu[2] + (1.0/3.0)*ddbetau_dx2[14]*gtuu[1] + ddbetau_dx2[15]*gtuu[5] + (1.0/3.0)*ddbetau_dx2[17]*gtuu[2] + (7.0/3.0)*ddbetau_dx2[3]*gtuu[1] + (1.0/3.0)*ddbetau_dx2[4]*gtuu[0] + (7.0/3.0)*ddbetau_dx2[6]*gtuu[2] + (1.0/3.0)*ddbetau_dx2[8]*gtuu[0] + ddbetau_dx2[9]*gtuu[3] - gtuu[0]*x13 - gtuu[0]*x21 - gtuu[1]*x14 - gtuu[1]*x22 - gtuu[2]*x15 - gtuu[2]*x23 + x24*(GammatDu[0] - Gammatu[0]);
-	(*dGammatu_dt)[1] = -Atuu[1]*x0 - Atuu[1]*x17 - Atuu[3]*x1 - Atuu[3]*x18 - Atuu[4]*x19 - Atuu[4]*x2 - GammatDu[0]*dbetau_dx[1] - 1.0/3.0*GammatDu[1]*dbetau_dx[4] - GammatDu[2]*dbetau_dx[7] + Gammatudd[10]*x10 + Gammatudd[11]*x11 + Gammatudd[6]*x5 + Gammatudd[7]*x7 + Gammatudd[8]*x8 + Gammatudd[9]*x9 + dGammatu_dx_upwind[1] + dbetau_dx[0]*x25 + dbetau_dx[8]*x25 + (1.0/3.0)*ddbetau_dx2[0]*gtuu[1] + (4.0/3.0)*ddbetau_dx2[10]*gtuu[3] + (7.0/3.0)*ddbetau_dx2[13]*gtuu[4] + (1.0/3.0)*ddbetau_dx2[14]*gtuu[3] + ddbetau_dx2[16]*gtuu[5] + (1.0/3.0)*ddbetau_dx2[17]*gtuu[4] + ddbetau_dx2[1]*gtuu[0] + (1.0/3.0)*ddbetau_dx2[3]*gtuu[3] + (7.0/3.0)*ddbetau_dx2[4]*gtuu[1] + (1.0/3.0)*ddbetau_dx2[6]*gtuu[4] + 2*ddbetau_dx2[7]*gtuu[2] + (1.0/3.0)*ddbetau_dx2[8]*gtuu[1] - gtuu[1]*x13 - gtuu[1]*x21 - gtuu[3]*x14 - gtuu[3]*x22 - gtuu[4]*x15 - gtuu[4]*x23 + x24*(GammatDu[1] - Gammatu[1]);
-	(*dGammatu_dt)[2] = -Atuu[2]*x0 - Atuu[2]*x17 - Atuu[4]*x1 - Atuu[4]*x18 - Atuu[5]*x19 - Atuu[5]*x2 - GammatDu[0]*dbetau_dx[2] - GammatDu[1]*dbetau_dx[5] - 1.0/3.0*GammatDu[2]*dbetau_dx[8] + Gammatudd[12]*x5 + Gammatudd[13]*x7 + Gammatudd[14]*x8 + Gammatudd[15]*x9 + Gammatudd[16]*x10 + Gammatudd[17]*x11 + dGammatu_dx_upwind[2] + dbetau_dx[0]*x26 + dbetau_dx[4]*x26 + (1.0/3.0)*ddbetau_dx2[0]*gtuu[2] + (1.0/3.0)*ddbetau_dx2[10]*gtuu[4] + ddbetau_dx2[11]*gtuu[3] + (1.0/3.0)*ddbetau_dx2[13]*gtuu[5] + (7.0/3.0)*ddbetau_dx2[14]*gtuu[4] + (4.0/3.0)*ddbetau_dx2[17]*gtuu[5] + ddbetau_dx2[2]*gtuu[0] + (1.0/3.0)*ddbetau_dx2[3]*gtuu[4] + (1.0/3.0)*ddbetau_dx2[4]*gtuu[2] + 2*ddbetau_dx2[5]*gtuu[1] + (1.0/3.0)*ddbetau_dx2[6]*gtuu[5] + (7.0/3.0)*ddbetau_dx2[8]*gtuu[2] - gtuu[2]*x13 - gtuu[2]*x21 - gtuu[4]*x14 - gtuu[4]*x22 - gtuu[5]*x15 - gtuu[5]*x23 + x24*(GammatDu[2] - Gammatu[2]);
+	(*dGammatu_dt)[0] = -Atuu[0]*x0 - Atuu[0]*x17 - Atuu[1]*x1 - Atuu[1]*x18 - Atuu[2]*x19 - Atuu[2]*x2 - 1.0/3.0*GammatDu[0]*dbetau_dx[0] - GammatDu[1]*dbetau_dx[3] - GammatDu[2]*dbetau_dx[6] + Gammatudd[0]*x5 + Gammatudd[1]*x7 + Gammatudd[2]*x8 + Gammatudd[3]*x9 + Gammatudd[4]*x10 + Gammatudd[5]*x11 + dbetau_dx[4]*x3 + dbetau_dx[8]*x3 + (4.0/3.0)*ddbetau_dx2[0]*gtuu[0] + (1.0/3.0)*ddbetau_dx2[10]*gtuu[1] + 2*ddbetau_dx2[12]*gtuu[4] + (1.0/3.0)*ddbetau_dx2[13]*gtuu[2] + (1.0/3.0)*ddbetau_dx2[14]*gtuu[1] + ddbetau_dx2[15]*gtuu[5] + (1.0/3.0)*ddbetau_dx2[17]*gtuu[2] + (7.0/3.0)*ddbetau_dx2[3]*gtuu[1] + (1.0/3.0)*ddbetau_dx2[4]*gtuu[0] + (7.0/3.0)*ddbetau_dx2[6]*gtuu[2] + (1.0/3.0)*ddbetau_dx2[8]*gtuu[0] + ddbetau_dx2[9]*gtuu[3] - gtuu[0]*x13 - gtuu[0]*x21 - gtuu[1]*x14 - gtuu[1]*x22 - gtuu[2]*x15 - gtuu[2]*x23 + x24*(GammatDu[0] - Gammatu[0]);
+	(*dGammatu_dt)[1] = -Atuu[1]*x0 - Atuu[1]*x17 - Atuu[3]*x1 - Atuu[3]*x18 - Atuu[4]*x19 - Atuu[4]*x2 - GammatDu[0]*dbetau_dx[1] - 1.0/3.0*GammatDu[1]*dbetau_dx[4] - GammatDu[2]*dbetau_dx[7] + Gammatudd[10]*x10 + Gammatudd[11]*x11 + Gammatudd[6]*x5 + Gammatudd[7]*x7 + Gammatudd[8]*x8 + Gammatudd[9]*x9 + dbetau_dx[0]*x25 + dbetau_dx[8]*x25 + (1.0/3.0)*ddbetau_dx2[0]*gtuu[1] + (4.0/3.0)*ddbetau_dx2[10]*gtuu[3] + (7.0/3.0)*ddbetau_dx2[13]*gtuu[4] + (1.0/3.0)*ddbetau_dx2[14]*gtuu[3] + ddbetau_dx2[16]*gtuu[5] + (1.0/3.0)*ddbetau_dx2[17]*gtuu[4] + ddbetau_dx2[1]*gtuu[0] + (1.0/3.0)*ddbetau_dx2[3]*gtuu[3] + (7.0/3.0)*ddbetau_dx2[4]*gtuu[1] + (1.0/3.0)*ddbetau_dx2[6]*gtuu[4] + 2*ddbetau_dx2[7]*gtuu[2] + (1.0/3.0)*ddbetau_dx2[8]*gtuu[1] - gtuu[1]*x13 - gtuu[1]*x21 - gtuu[3]*x14 - gtuu[3]*x22 - gtuu[4]*x15 - gtuu[4]*x23 + x24*(GammatDu[1] - Gammatu[1]);
+	(*dGammatu_dt)[2] = -Atuu[2]*x0 - Atuu[2]*x17 - Atuu[4]*x1 - Atuu[4]*x18 - Atuu[5]*x19 - Atuu[5]*x2 - GammatDu[0]*dbetau_dx[2] - GammatDu[1]*dbetau_dx[5] - 1.0/3.0*GammatDu[2]*dbetau_dx[8] + Gammatudd[12]*x5 + Gammatudd[13]*x7 + Gammatudd[14]*x8 + Gammatudd[15]*x9 + Gammatudd[16]*x10 + Gammatudd[17]*x11 + dbetau_dx[0]*x26 + dbetau_dx[4]*x26 + (1.0/3.0)*ddbetau_dx2[0]*gtuu[2] + (1.0/3.0)*ddbetau_dx2[10]*gtuu[4] + ddbetau_dx2[11]*gtuu[3] + (1.0/3.0)*ddbetau_dx2[13]*gtuu[5] + (7.0/3.0)*ddbetau_dx2[14]*gtuu[4] + (4.0/3.0)*ddbetau_dx2[17]*gtuu[5] + ddbetau_dx2[2]*gtuu[0] + (1.0/3.0)*ddbetau_dx2[3]*gtuu[4] + (1.0/3.0)*ddbetau_dx2[4]*gtuu[2] + 2*ddbetau_dx2[5]*gtuu[1] + (1.0/3.0)*ddbetau_dx2[6]*gtuu[5] + (7.0/3.0)*ddbetau_dx2[8]*gtuu[2] - gtuu[2]*x13 - gtuu[2]*x21 - gtuu[4]*x14 - gtuu[4]*x22 - gtuu[5]*x15 - gtuu[5]*x23 + x24*(GammatDu[2] - Gammatu[2]);
 }
 
 static void KOKKOS_INLINE_FUNCTION
@@ -485,11 +648,10 @@ z4c_get_theta_rhs(
 	double theta_damp_fact,
 	double Asqr,
 	double Rtrace,
-	double dtheta_dx_upwind,
 	double * __restrict__ dtheta_dt
 )
 {
-	*dtheta_dt = -1.0/6.0*alp*theta_damp_fact*(3*Asqr - 3*Rtrace + 6*kappa1*theta*(kappa2 + 2) + 48*M_PI*rho - 2*((Khat + 2*theta)*(Khat + 2*theta))) + dtheta_dx_upwind;
+	*dtheta_dt = -alp*theta_damp_fact*((1.0/2.0)*Asqr - 1.0/2.0*Rtrace + kappa1*theta*(kappa2 + 2) + 8*M_PI*rho - 1.0/3.0*((Khat + 2*theta)*(Khat + 2*theta)));
 }
 
 static void KOKKOS_INLINE_FUNCTION
@@ -506,7 +668,6 @@ z4c_get_Atdd_rhs(
 	double DiDialp,
 	const double W2Rdd[6],
 	double Rtrace,
-	const double dAtdd_dx_upwind[6],
 	const double dbetau_dx[9],
 	double (*dAtdd_dt)[6]
 )
@@ -537,35 +698,33 @@ z4c_get_Atdd_rhs(
 	double x23 = alp*(Atdd[3]*gtuu[3] + x22 + x4);
 	double x24 = alp*(Atdd[1]*gtuu[2] + Atdd[3]*gtuu[4] + Atdd[4]*gtuu[5]);
 	double x25 = (1.0/3.0)*Atdd[4];
-	(*dAtdd_dt)[0] = Atdd[0]*Ktr*alp + (4.0/3.0)*Atdd[0]*dbetau_dx[0] - 2*Atdd[0]*x6 + 2*Atdd[1]*dbetau_dx[1] + 2*Atdd[2]*dbetau_dx[2] - W2DiDjalp[0] - alp*(Sij[0]*x2 - W2Rdd[0]) + dAtdd_dx_upwind[0] - dbetau_dx[4]*x0 - dbetau_dx[8]*x0 + (1.0/3.0)*gtdd[0]*x3 - x10*x9 - x7*x8;
-	(*dAtdd_dt)[1] = Atdd[0]*dbetau_dx[3] - Atdd[1]*x12 + Atdd[1]*x13 + Atdd[2]*dbetau_dx[5] + Atdd[3]*dbetau_dx[1] + Atdd[4]*dbetau_dx[2] - W2DiDjalp[1] - alp*(Sij[1]*x2 - W2Rdd[1]) + dAtdd_dx_upwind[1] + dbetau_dx[0]*x11 + dbetau_dx[4]*x11 + gtdd[1]*x14 - x10*x16 - x15*x8 - x6*x7;
-	(*dAtdd_dt)[2] = Atdd[0]*dbetau_dx[6] + Atdd[1]*dbetau_dx[7] + Atdd[2]*x13 - Atdd[2]*x18 + Atdd[4]*dbetau_dx[1] + Atdd[5]*dbetau_dx[2] - W2DiDjalp[2] - alp*(Sij[2]*x2 - W2Rdd[2]) + dAtdd_dx_upwind[2] + dbetau_dx[0]*x17 + dbetau_dx[8]*x17 + gtdd[2]*x14 - x10*x19 - x16*x8 - x6*x9;
-	(*dAtdd_dt)[3] = 2*Atdd[1]*dbetau_dx[3] + Atdd[3]*Ktr*alp + (4.0/3.0)*Atdd[3]*dbetau_dx[4] - Atdd[3]*x12 - Atdd[3]*x20 + 2*Atdd[4]*dbetau_dx[5] - W2DiDjalp[3] - alp*(Sij[3]*x2 - W2Rdd[3]) + dAtdd_dx_upwind[3] + (1.0/3.0)*gtdd[3]*x3 - x15*x23 - x16*x24 - x21*x7;
-	(*dAtdd_dt)[4] = Atdd[1]*dbetau_dx[6] + Atdd[2]*dbetau_dx[3] + Atdd[3]*dbetau_dx[7] + Atdd[4]*x13 - Atdd[4]*x20 + Atdd[5]*dbetau_dx[5] - W2DiDjalp[4] - alp*(Sij[4]*x2 - W2Rdd[4]) + dAtdd_dx_upwind[4] + dbetau_dx[4]*x25 + dbetau_dx[8]*x25 + gtdd[4]*x14 - x16*x23 - x19*x24 - x21*x9;
-	(*dAtdd_dt)[5] = 2*Atdd[2]*dbetau_dx[6] + 2*Atdd[4]*dbetau_dx[7] + Atdd[5]*Ktr*alp + (4.0/3.0)*Atdd[5]*dbetau_dx[8] - Atdd[5]*x18 - Atdd[5]*x20 - W2DiDjalp[5] - alp*x16*(Atdd[2]*gtuu[1] + Atdd[4]*gtuu[3] + Atdd[5]*gtuu[4]) - alp*x19*(Atdd[5]*gtuu[5] + x22 + x5) - alp*x9*(Atdd[2]*gtuu[0] + Atdd[4]*gtuu[1] + Atdd[5]*gtuu[2]) - alp*(Sij[5]*x2 - W2Rdd[5]) + dAtdd_dx_upwind[5] + (1.0/3.0)*gtdd[5]*x3;
+	(*dAtdd_dt)[0] = Atdd[0]*Ktr*alp + (4.0/3.0)*Atdd[0]*dbetau_dx[0] - 2*Atdd[0]*x6 + 2*Atdd[1]*dbetau_dx[1] + 2*Atdd[2]*dbetau_dx[2] - W2DiDjalp[0] - alp*(Sij[0]*x2 - W2Rdd[0]) - dbetau_dx[4]*x0 - dbetau_dx[8]*x0 + (1.0/3.0)*gtdd[0]*x3 - x10*x9 - x7*x8;
+	(*dAtdd_dt)[1] = Atdd[0]*dbetau_dx[3] - Atdd[1]*x12 + Atdd[1]*x13 + Atdd[2]*dbetau_dx[5] + Atdd[3]*dbetau_dx[1] + Atdd[4]*dbetau_dx[2] - W2DiDjalp[1] - alp*(Sij[1]*x2 - W2Rdd[1]) + dbetau_dx[0]*x11 + dbetau_dx[4]*x11 + gtdd[1]*x14 - x10*x16 - x15*x8 - x6*x7;
+	(*dAtdd_dt)[2] = Atdd[0]*dbetau_dx[6] + Atdd[1]*dbetau_dx[7] + Atdd[2]*x13 - Atdd[2]*x18 + Atdd[4]*dbetau_dx[1] + Atdd[5]*dbetau_dx[2] - W2DiDjalp[2] - alp*(Sij[2]*x2 - W2Rdd[2]) + dbetau_dx[0]*x17 + dbetau_dx[8]*x17 + gtdd[2]*x14 - x10*x19 - x16*x8 - x6*x9;
+	(*dAtdd_dt)[3] = 2*Atdd[1]*dbetau_dx[3] + Atdd[3]*Ktr*alp + (4.0/3.0)*Atdd[3]*dbetau_dx[4] - Atdd[3]*x12 - Atdd[3]*x20 + 2*Atdd[4]*dbetau_dx[5] - W2DiDjalp[3] - alp*(Sij[3]*x2 - W2Rdd[3]) + (1.0/3.0)*gtdd[3]*x3 - x15*x23 - x16*x24 - x21*x7;
+	(*dAtdd_dt)[4] = Atdd[1]*dbetau_dx[6] + Atdd[2]*dbetau_dx[3] + Atdd[3]*dbetau_dx[7] + Atdd[4]*x13 - Atdd[4]*x20 + Atdd[5]*dbetau_dx[5] - W2DiDjalp[4] - alp*(Sij[4]*x2 - W2Rdd[4]) + dbetau_dx[4]*x25 + dbetau_dx[8]*x25 + gtdd[4]*x14 - x16*x23 - x19*x24 - x21*x9;
+	(*dAtdd_dt)[5] = 2*Atdd[2]*dbetau_dx[6] + 2*Atdd[4]*dbetau_dx[7] + Atdd[5]*Ktr*alp + (4.0/3.0)*Atdd[5]*dbetau_dx[8] - Atdd[5]*x18 - Atdd[5]*x20 - W2DiDjalp[5] - alp*x16*(Atdd[2]*gtuu[1] + Atdd[4]*gtuu[3] + Atdd[5]*gtuu[4]) - alp*x19*(Atdd[5]*gtuu[5] + x22 + x5) - alp*x9*(Atdd[2]*gtuu[0] + Atdd[4]*gtuu[1] + Atdd[5]*gtuu[2]) - alp*(Sij[5]*x2 - W2Rdd[5]) + (1.0/3.0)*gtdd[5]*x3;
 }
 
 static void KOKKOS_INLINE_FUNCTION
 z4c_get_alpha_rhs(
 	double alp,
 	double Khat,
-	double dalp_dx_upwind,
 	double * __restrict__ dalpha_dt
 )
 {
-	*dalpha_dt = -2*Khat*alp + dalp_dx_upwind;
+	*dalpha_dt = -2*Khat*alp;
 }
 
 static void KOKKOS_INLINE_FUNCTION
 z4c_get_beta_rhs(
 	const double Bdriver[3],
-	const double dbetau_dx_upwind[3],
 	double (*dbeta_dt)[3]
 )
 {
-	(*dbeta_dt)[0] = (3.0/4.0)*Bdriver[0] + dbetau_dx_upwind[0];
-	(*dbeta_dt)[1] = (3.0/4.0)*Bdriver[1] + dbetau_dx_upwind[1];
-	(*dbeta_dt)[2] = (3.0/4.0)*Bdriver[2] + dbetau_dx_upwind[2];
+	(*dbeta_dt)[0] = (3.0/4.0)*Bdriver[0];
+	(*dbeta_dt)[1] = (3.0/4.0)*Bdriver[1];
+	(*dbeta_dt)[2] = (3.0/4.0)*Bdriver[2];
 }
 
 static void KOKKOS_INLINE_FUNCTION
@@ -573,14 +732,12 @@ z4c_get_Bdriver_rhs(
 	const double Bdriver[3],
 	double eta,
 	const double dGammatu_dt[3],
-	const double dBdriver_dx_upwind[3],
-	const double dGammatu_dx_upwind[3],
 	double (*dBd_dt)[3]
 )
 {
-	(*dBd_dt)[0] = -Bdriver[0]*eta + dBdriver_dx_upwind[0] + dGammatu_dt[0] - dGammatu_dx_upwind[0];
-	(*dBd_dt)[1] = -Bdriver[1]*eta + dBdriver_dx_upwind[1] + dGammatu_dt[1] - dGammatu_dx_upwind[1];
-	(*dBd_dt)[2] = -Bdriver[2]*eta + dBdriver_dx_upwind[2] + dGammatu_dt[2] - dGammatu_dx_upwind[2];
+	(*dBd_dt)[0] = -Bdriver[0]*eta + dGammatu_dt[0];
+	(*dBd_dt)[1] = -Bdriver[1]*eta + dGammatu_dt[1];
+	(*dBd_dt)[2] = -Bdriver[2]*eta + dGammatu_dt[2];
 }
 
 static void KOKKOS_INLINE_FUNCTION

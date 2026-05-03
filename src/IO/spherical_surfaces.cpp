@@ -55,24 +55,16 @@ make_surface(
     std::string const& sampling
 ) 
 {
-    if ( sampling == "healpix" ) {
-        if ( tracking == "none" ) {
-            return std::make_unique<spherical_surface_t<healpix_sampler_t,no_tracking_policy_t>>(
-                spherical_surface_t<healpix_sampler_t,no_tracking_policy_t>(name,r,c,res)
-            ); 
-        } else {
-            ERROR("Invalid tracking requested for spherical surface") ; 
-        }
-    } else if ( sampling == "uniform" ) {
+    if ( sampling == "uniform" ) {
         if ( tracking == "none") {
             return std::make_unique<spherical_surface_t<uniform_sampler_t,no_tracking_policy_t>>(
                 spherical_surface_t<uniform_sampler_t,no_tracking_policy_t>(name,r,c,res)
-            ); 
+            );
         } else {
             ERROR("Invalid tracking requested for spherical surface") ;
         }
     } else {
-        ERROR("Invalid sampling requested for spherical surface") ; 
+        ERROR("Invalid sampling requested for spherical surface") ;
     }
 }
 

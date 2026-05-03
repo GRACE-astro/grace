@@ -68,13 +68,14 @@ void output_diagnostics() {
     bh_diagnostics bh_diag{};
     bh_diag.compute_and_write() ;  
     #ifdef GRACE_ENABLE_Z4C_METRIC
-    auto state   = variable_list::get().getstate() ; 
-    auto sstate  = variable_list::get().getstaggeredstate() ; 
-    auto aux     = variable_list::get().getaux() ; 
-    auto idx     = variable_list::get().getinvspacings() ;  
-    auto coords  = coordinate_system::get().get_device_coord_system() ; 
-    // compute psi4 
-    z4c_system_t z4c_eq_system(state,aux,sstate) ; 
+    auto state   = variable_list::get().getstate() ;
+    auto sstate  = variable_list::get().getstaggeredstate() ;
+    auto aux     = variable_list::get().getaux() ;
+    auto idx     = variable_list::get().getinvspacings() ;
+    auto curv_scratch = variable_list::get().getz4ccurvscratch() ;
+    auto coords  = coordinate_system::get().get_device_coord_system() ;
+    // compute psi4
+    z4c_system_t z4c_eq_system(state,aux,sstate,curv_scratch) ;
     MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
         policy({VEC(ngz-1,ngz-1,ngz-1),0},{VEC(nx+ngz+1,ny+ngz+1,nz+ngz+1),nq}) ;
     parallel_for(GRACE_EXECUTION_TAG("EVOL","compute_psi4"), policy 

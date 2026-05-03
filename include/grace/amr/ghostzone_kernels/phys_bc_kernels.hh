@@ -164,6 +164,31 @@ struct sommerfeld_bc_t
  */
 using outflow_bc_t = extrap_bc_t<0> ;
 
+// Work tags for the precomputed-bounds, (face x var)-parallel FACE_EXT launch
+// and the follow-up Z4c algebraic-constraint enforcement pass.
+struct phys_bc_face_ext_md_tag    {} ;
+struct phys_bc_z4c_constr_tag     {} ;
+
+// Classical (non-fused) MDRange work tags.  One per `elem_kind`; `bc_kind`
+// is a compile-time template param on `phys_bc_op` but does not change the
+// shape of the iteration space — only the bounds, which are precomputed on
+// the host.  Shapes:
+//   phys_bc_md_face_tag      Rank<4>(i, j, iv, iq)  — 2 parallel, 1 serial ghost
+//   phys_bc_md_edge_tag      Rank<3>(i, iv, iq)     — 1 parallel, 2 serial ghost
+//   phys_bc_md_corner_tag    Rank<2>(iv, iq)        — 0 parallel, 3 serial ghost
+// The per-element `iq` axis lives on the slow end of the policy so launch
+// geometry can tile the (parallel, iv) axes freely.
+struct phys_bc_md_face_tag        {} ;
+struct phys_bc_md_edge_tag        {} ;
+struct phys_bc_md_corner_tag      {} ;
+
+// Z4c algebraic-constraint follow-up variants: same shape minus the `iv`
+// axis.  Launched only when `stag == STAG_CENTER` under
+// GRACE_ENABLE_Z4C_METRIC; for other staggerings we never touch them.
+struct phys_bc_md_face_z4c_tag    {} ;
+struct phys_bc_md_edge_z4c_tag    {} ;
+struct phys_bc_md_corner_z4c_tag  {} ;
+
 KOKKOS_INLINE_FUNCTION 
 static void get_somm_props(int iv, double *v, double *f0) {
     #ifdef GRACE_ENABLE_Z4C_METRIC
@@ -182,7 +207,7 @@ static void get_somm_props(int iv, double *v, double *f0) {
     #endif 
 } 
 
-template< element_kind_t elem_kind, element_kind_t bc_kind, typename view_t >
+template< element_kind_t elem_kind, element_kind_t bc_kind, typename view_t, bool extended = false >
 struct phys_bc_op {
 
     readonly_view_t<std::size_t> qid   ;
@@ -190,12 +215,29 @@ struct phys_bc_op {
     readonly_twod_view_t<int8_t,3> dir ;
     readonly_twod_view_t<double,3> var_refl_fact ;
 
-    readonly_view_t<bc_t> var_bcs      ; 
+    readonly_view_t<bc_t> var_bcs      ;
 
     readonly_twod_view_t<int,3> exloop       ;
     readonly_twod_view_t<int,3> offloop      ;
-    
-    view_t data, data_p ; 
+
+    // Guard mask for the fused FACE_EXT kernel.  Bit layout per quad:
+    //   0..3 : adjacent type=FACE edges (f2e ordering: A-lo, A-hi, B-lo, B-hi)
+    //   4..7 : adjacent type=FACE corners (f2c ordering: AloBlo, AhiBlo, AloBhi, AhiBhi)
+    // Unused (empty view) when `extended == false`.
+    readonly_view_t<uint8_t> guard_mask ;
+
+    // Precomputed per-face geometry, populated by the task factory at setup
+    // time. Used by `phys_bc_face_ext_md_tag` and `phys_bc_z4c_constr_tag`
+    // operator() variants to avoid redundant per-thread `compute_bounds`
+    // calls. Empty (extent(0)==0) for legacy TeamPolicy launches that still
+    // call `compute_bounds` inline.
+    readonly_twod_view_t<int,3> bnd_lmin    ;
+    readonly_twod_view_t<int,3> bnd_idir    ;
+    readonly_twod_view_t<int,3> bnd_extents ;
+    readonly_twod_view_t<int,3> bnd_pdim    ;
+    readonly_twod_view_t<int,3> bnd_npdim   ;
+
+    view_t data, data_p ;
 
     outflow_bc_t outflow_kernel ;
     extrap_bc_t<3> extrap_kernel ; 
@@ -237,92 +279,22 @@ struct phys_bc_op {
 
     phys_bc_op(
         view_t _data, view_t _data_p, scalar_array_t<GRACE_NSPACEDIM> _dx, device_coordinate_system _coords,
-        Kokkos::View<size_t*> _qid, 
-        Kokkos::View<uint8_t*> _eid, 
-        Kokkos::View<int8_t*[3]> _dir, 
+        Kokkos::View<size_t*> _qid,
+        Kokkos::View<uint8_t*> _eid,
+        Kokkos::View<int8_t*[3]> _dir,
         Kokkos::View<int*[3]> _ext,
-        Kokkos::View<int*[3]> _off_l, 
-        Kokkos::View<double*[3]> _var_rfact,  
-        Kokkos::View<bc_t*> _var_bcs, 
-         VEC(size_t _nx, size_t _ny, size_t _nz), size_t _ngz, size_t _nv, bool _is_cbuf, var_staggering_t _stag, bool _rx, bool _ry, bool _rz
-    ) : qid(_qid),  eid(_eid), dir(_dir), var_refl_fact(_var_rfact), var_bcs(_var_bcs), exloop(_ext), offloop(_off_l), dx(_dx), coords(_coords),
+        Kokkos::View<int*[3]> _off_l,
+        Kokkos::View<double*[3]> _var_rfact,
+        Kokkos::View<bc_t*> _var_bcs,
+         VEC(size_t _nx, size_t _ny, size_t _nz), size_t _ngz, size_t _nv, bool _is_cbuf, var_staggering_t _stag, bool _rx, bool _ry, bool _rz,
+        Kokkos::View<uint8_t*> _guard_mask = Kokkos::View<uint8_t*>{}
+    ) : qid(_qid),  eid(_eid), dir(_dir), var_refl_fact(_var_rfact), var_bcs(_var_bcs), exloop(_ext), offloop(_off_l),
+        guard_mask(_guard_mask), dx(_dx), coords(_coords),
         data(_data), data_p(_data_p),
         nx(_nx), ny(_ny), nz(_nz), ngz(_ngz), nv(_nv), is_cbuf(_is_cbuf), stag(_stag), rx(_rx), ry(_ry), rz(_rz)
     {
-        outflow_kernel = outflow_bc_t{} ; extrap_kernel = extrap_bc_t<3>{} ; sommerfeld_kernel = sommerfeld_bc_t{} ; reflect_kernel = reflect_bc_t{} ; 
+        outflow_kernel = outflow_bc_t{} ; extrap_kernel = extrap_bc_t<3>{} ; sommerfeld_kernel = sommerfeld_bc_t{} ; reflect_kernel = reflect_bc_t{} ;
     }
-
-    KOKKOS_INLINE_FUNCTION 
-    void compute_zero_dir(int& lmin, int& lmax, int& idir, int& extent, uint8_t dir_idx, uint8_t eid) const {
-        idir = +1;
-        size_t _ncells[3] = {nx,ny,nz} ; 
-        size_t const n = _ncells[dir_idx] ; 
-        if constexpr (elem_kind == element_kind_t::CORNER) 
-        {
-            lmin = ((eid>>dir_idx) & 1) ? n + ngz : 0 ; 
-
-            lmax = lmin + ngz;
-            extent = ngz ; 
-        } else if constexpr ((elem_kind == element_kind_t::EDGE) && (bc_kind == element_kind_t::FACE)) { 
-            // supercalifragilistichespiralidoso 
-            if(eid/4 == dir_idx) { 
-                // along-edge -> full sweep
-                lmin = ngz; lmax = n + ngz; idir = +1;
-                extent = n ; 
-            } else {
-                // perpendicular -> ghost only
-                if(eid < 4) {          // X-axis edges
-                    lmin = ((eid>>((dir_idx+1)%2))&1) ? n + ngz : 0;
-                } else if(eid < 8) {   // Y-axis edges
-                    lmin = ((eid>>(dir_idx/2))&1) ? n + ngz : 0;
-                } else {               // Z-axis edges
-                    lmin = ((eid>>dir_idx)&1) ? n + ngz : 0;
-                }
-                lmax = lmin + ngz;
-                extent = ngz ; 
-            }
-
-        } else {
-            lmin = ngz; lmax = n + ngz ;
-            extent = n ; 
-        }
-    }
-    
-    KOKKOS_INLINE_FUNCTION 
-    void compute_bounds_impl(int8_t dir, int& lmin, int& lmax, int& idir, int& extent, uint8_t idx, uint8_t eid) const
-    {
-        size_t _ncells[3] = {nx,ny,nz} ; 
-        if (dir < 0) {
-            lmin = ngz - 1; lmax = -1; idir = -1; extent = ngz ; 
-        } else if (dir > 0) {
-            lmin = _ncells[idx] + ngz; lmax = _ncells[idx] + 2 * ngz; idir = +1;
-            extent = ngz ; 
-        } else {
-            // anche se ti sembra che abbia un suono spaventoso 
-            compute_zero_dir(lmin,lmax,idir,extent,idx,eid) ;  
-        }
-    };
-
-    KOKKOS_INLINE_FUNCTION 
-    void compute_bounds(
-        const int8_t dir[3], int lmin[3], 
-        int lmax[3], int idir[3], 
-        int ext[3], int pdim[3], int npdim[3],
-        uint8_t eid) const
-    {
-        int npc{0}, pc{0} ; 
-        #pragma unroll 
-        for( int ii=0; ii<3; ++ii) {
-            compute_bounds_impl(dir[ii],lmin[ii],lmax[ii],idir[ii],ext[ii],ii,eid) ; 
-            if ( dir[ii] != 0 ) {
-                // dir nonzero -> ghostzone direction
-                npdim[npc++] = ii ;
-            } else {
-                // dir zero -> we can parallelize 
-                pdim[pc++] = ii ; 
-            }
-        }
-    };
 
     #ifdef GRACE_ENABLE_Z4C_METRIC
     KOKKOS_INLINE_FUNCTION 
@@ -475,101 +447,372 @@ struct phys_bc_op {
             }
         }
     }
-    template< typename team_handle_t >
+    // FACE_EXT-only: returns true if the (ijk[pdim[0]], ijk[pdim[1]]) cell
+    // is in an adjacent edge/corner region that the guard mask says we should
+    // skip. Returns false for interior-of-face cells (no skip) and for cells
+    // whose corresponding guard bit is set (apply BC).
     KOKKOS_INLINE_FUNCTION
-    void operator() (
-        team_handle_t const& team
-    ) const 
+    bool guard_skip(size_t iq, int const ijk[3], int const pdim[3]) const
     {
-        using namespace Kokkos ; 
-        auto const iq = team.league_rank() ; 
-
-        auto _eid = eid(iq) ; 
-        auto _qid = qid(iq)  ; 
-          
-        
-        int8_t _dir[] = {dir(iq,0), dir(iq,1), dir(iq,2)} ; 
-        // se lo dici forte avrà un successo strepitoso 
-        int lmin[3], lmax[3], idir[3], extents[3];
-        int pdim[3], npdim[3] ; 
-        compute_bounds(_dir, lmin, lmax, idir, extents, pdim, npdim, _eid);
-
-        // this is an ugly solution to the 
-        // case where we are filling cbuf gzs
-        // in the edge of a quadrant outside 
-        // a face of the grid 
-        #pragma unroll
-        for( int ii=0; ii<3; ++ii) {
-            extents[ii] += exloop(iq,ii) ; 
-            lmin[ii] += offloop(iq,ii) ; 
-        }
-
-        // idea here is: 
-        // depending on BC kind we have some number of loops 
-        // which cannot be parallelized
-        // anything in faces: 2 dirs parallelizable 
-        // anything in edges: 1 
-        // corner: all serial 
-        if constexpr (bc_kind == element_kind_t::FACE) {
-            TeamThreadMDRange<Rank<2>, team_handle_t> 
-                range(team, extents[pdim[0]], extents[pdim[1]]) ; 
-            parallel_for(
-                range,
-                [=,this] ( int i, int j ) {
-                    int ijk[3] ; 
-                    ijk[pdim[0]] = lmin[pdim[0]] + idir[pdim[0]] * i ; 
-                    ijk[pdim[1]] = lmin[pdim[1]] + idir[pdim[1]] * j ; 
-                    for( int k=0; k<extents[npdim[0]]; ++k) {
-                        ijk[npdim[0]] = lmin[npdim[0]]+ idir[npdim[0]] * k ;
-                        for( int iv=0; iv<nv; ++iv) {
-                            apply_bc_impl(iv,ijk,_dir,_qid) ; 
-                        }
-                        #ifdef GRACE_ENABLE_Z4C_METRIC
-                        if (stag==var_staggering_t::STAG_CENTER) impose_algebraic_constraintz_z4c(ijk,_qid) ; 
-                        #endif 
-                    }
-                } 
-            ) ; 
-
-        } else if constexpr ( bc_kind == element_kind_t::EDGE ) {
-            parallel_for(
-                TeamThreadRange(team,extents[pdim[0]]),
-                [=,this] ( int i ) {
-                    int ijk[3] ; 
-                    ijk[pdim[0]] = lmin[pdim[0]] + idir[pdim[0]] * i ; 
-                    for( int j=0; j<extents[npdim[0]]; ++j)
-                    for( int k=0; k<extents[npdim[1]]; ++k) {
-                        ijk[npdim[0]] = lmin[npdim[0]]+ idir[npdim[0]] * j ;
-                        ijk[npdim[1]] = lmin[npdim[1]]+ idir[npdim[1]] * k ; 
-                        for( int iv=0; iv<nv; ++iv) {
-                            apply_bc_impl(iv,ijk,_dir,_qid) ; 
-                        }
-                        #ifdef GRACE_ENABLE_Z4C_METRIC
-                        if (stag==var_staggering_t::STAG_CENTER) impose_algebraic_constraintz_z4c(ijk,_qid) ; 
-                        #endif 
-                    }
-                } 
-            ) ;
+        if constexpr (!extended || elem_kind != element_kind_t::FACE) {
+            return false;
         } else {
-            // loop not unrollable 
-            for (int kg = lmin[2]; kg != lmax[2]; kg += idir[2])
-            for (int jg = lmin[1]; jg != lmax[1]; jg += idir[1])
-            for (int ig = lmin[0]; ig != lmax[0]; ig += idir[0]) {
-                int ijk[3] = {ig,jg,kg} ; 
-                for( int iv=0; iv<nv; ++iv) {
-                    apply_bc_impl(iv,ijk,_dir,_qid) ; 
-                }
-                #ifdef GRACE_ENABLE_Z4C_METRIC
-                if (stag==var_staggering_t::STAG_CENTER) impose_algebraic_constraintz_z4c(ijk,_qid) ; 
-                #endif 
+            uint8_t const mask = guard_mask(iq);
+            size_t const _ncells[3] = {nx, ny, nz};
+            size_t const nA = _ncells[pdim[0]];
+            size_t const nB = _ncells[pdim[1]];
+            int const pA = ijk[pdim[0]];
+            int const pB = ijk[pdim[1]];
+            int const clsA = (pA < (int)ngz) ? 0 : ((pA >= (int)(nA + ngz)) ? 2 : 1);
+            int const clsB = (pB < (int)ngz) ? 0 : ((pB >= (int)(nB + ngz)) ? 2 : 1);
+            if (clsA == 1 && clsB == 1) return false;
+            int bit;
+            if (clsA == 1) {
+                bit = (clsB == 0) ? 2 : 3;
+            } else if (clsB == 1) {
+                bit = (clsA == 0) ? 0 : 1;
+            } else {
+                int const aHi = (clsA == 2) ? 1 : 0;
+                int const bHi = (clsB == 2) ? 1 : 0;
+                bit = 4 + (bHi << 1) + aHi;
             }
-        }       
-        
+            return !((mask >> bit) & 1);
+        }
     }
 
-    
+    // FACE_EXT MDRange operator. Iteration space is (i, j, iv, iq) where
+    // i,j are the two parallel in-face axes bounded by `max_ext_par` (max
+    // across all faces — ragged faces predicate out-of-bounds). The swept
+    // ghost-depth axis (`ngz`) is an inner serial loop, which avoids pinning
+    // one wavefront per face and lets the driver tile (i, j, iv, iq) freely.
+    //
+    // Z4c algebraic constraint enforcement is *not* run here — it requires
+    // all six metric components written first. Use phys_bc_z4c_constr_tag
+    // as a follow-up launch when stag == STAG_CENTER.
+    KOKKOS_INLINE_FUNCTION
+    void operator() (
+        phys_bc_face_ext_md_tag,
+        int i, int j, int iv, int iq
+    ) const
+    {
+        if constexpr (!(extended
+                        && elem_kind == element_kind_t::FACE
+                        && bc_kind   == element_kind_t::FACE)) {
+            return ;
+        } else {
+            int const pdim0  = bnd_pdim(iq, 0) ;
+            int const pdim1  = bnd_pdim(iq, 1) ;
+            int const npdim0 = bnd_npdim(iq, 0) ;
 
-} ; 
+            int const e_p0 = bnd_extents(iq, pdim0) ;
+            int const e_p1 = bnd_extents(iq, pdim1) ;
+            if (i >= e_p0 || j >= e_p1) return ;
+
+            int ijk[3] ;
+            ijk[pdim0] = bnd_lmin(iq, pdim0) + bnd_idir(iq, pdim0) * i ;
+            ijk[pdim1] = bnd_lmin(iq, pdim1) + bnd_idir(iq, pdim1) * j ;
+
+            int const pdim_l[3] = {pdim0, pdim1, npdim0} ;
+            if (guard_skip(iq, ijk, pdim_l)) return ;
+
+            int8_t const _dir[3] = {dir(iq,0), dir(iq,1), dir(iq,2)} ;
+            size_t const _qid = qid(iq) ;
+
+            int const lm_n0 = bnd_lmin(iq, npdim0) ;
+            int const id_n0 = bnd_idir(iq, npdim0) ;
+            int const e_n0  = bnd_extents(iq, npdim0) ;
+
+            for (int k = 0; k < e_n0; ++k) {
+                ijk[npdim0] = lm_n0 + id_n0 * k ;
+                apply_bc_impl(iv, ijk, _dir, _qid) ;
+            }
+        }
+    }
+
+    // Z4c algebraic-constraint follow-up pass. Rank<3>(i, j, iq) with the
+    // swept axis serial, calls `impose_algebraic_constraintz_z4c` once per
+    // (i,j,k). Only meaningful for STAG_CENTER under GRACE_ENABLE_Z4C_METRIC;
+    // the task factory only launches this in that case.
+    KOKKOS_INLINE_FUNCTION
+    void operator() (
+        phys_bc_z4c_constr_tag,
+        int i, int j, int iq
+    ) const
+    {
+        #ifdef GRACE_ENABLE_Z4C_METRIC
+        if constexpr (!(extended
+                        && elem_kind == element_kind_t::FACE
+                        && bc_kind   == element_kind_t::FACE)) {
+            return ;
+        } else {
+            int const pdim0  = bnd_pdim(iq, 0) ;
+            int const pdim1  = bnd_pdim(iq, 1) ;
+            int const npdim0 = bnd_npdim(iq, 0) ;
+
+            int const e_p0 = bnd_extents(iq, pdim0) ;
+            int const e_p1 = bnd_extents(iq, pdim1) ;
+            if (i >= e_p0 || j >= e_p1) return ;
+
+            int ijk[3] ;
+            ijk[pdim0] = bnd_lmin(iq, pdim0) + bnd_idir(iq, pdim0) * i ;
+            ijk[pdim1] = bnd_lmin(iq, pdim1) + bnd_idir(iq, pdim1) * j ;
+
+            int const pdim_l[3] = {pdim0, pdim1, npdim0} ;
+            if (guard_skip(iq, ijk, pdim_l)) return ;
+
+            size_t const _qid = qid(iq) ;
+
+            int const lm_n0 = bnd_lmin(iq, npdim0) ;
+            int const id_n0 = bnd_idir(iq, npdim0) ;
+            int const e_n0  = bnd_extents(iq, npdim0) ;
+
+            for (int k = 0; k < e_n0; ++k) {
+                ijk[npdim0] = lm_n0 + id_n0 * k ;
+                impose_algebraic_constraintz_z4c(ijk, _qid) ;
+            }
+        }
+        #endif
+    }
+
+    // ------------------------------------------------------------------
+    // Classical MDRange operators.  Bounds (lmin/idir/extents/pdim/npdim)
+    // are precomputed on the host and stored in bnd_* Views — kernel just
+    // reads them.  Each operator early-outs on elem_kind mismatch so the
+    // tag chooses the shape unambiguously at dispatch time.
+    //
+    // Ragged extent handling: we pass an upper bound `max_ext_par` on the
+    // policy end for each parallel axis; elements with shorter extent
+    // predicate-out the tail.  The swept ghost-depth axis (or axes, for
+    // EDGE / CORNER) is serial inside the kernel so tiles are never
+    // fragmented across per-element boundaries.
+    //
+    // Z4c algebraic-constraint enforcement is *not* run in the BC
+    // operators — it requires all six metric components written first.
+    // The _z4c_tag variants do that pass as a follow-up launch over the
+    // same (precomputed-bounds) indices.
+    // ------------------------------------------------------------------
+
+    // FACE classical: (i, j, iv, iq), 2 parallel axes + 1 serial ghost axis.
+    // Dispatched on `bc_kind == FACE` (not elem_kind) — covers elem_kind
+    // FACE, EDGE, and CORNER when combined with a bc_kind=FACE region.
+    KOKKOS_INLINE_FUNCTION
+    void operator() (
+        phys_bc_md_face_tag,
+        int i, int j, int iv, int iq
+    ) const
+    {
+        if constexpr (extended || bc_kind != element_kind_t::FACE) {
+            return ;
+        } else {
+            int const pdim0  = bnd_pdim(iq, 0) ;
+            int const pdim1  = bnd_pdim(iq, 1) ;
+            int const npdim0 = bnd_npdim(iq, 0) ;
+
+            int const e_p0 = bnd_extents(iq, pdim0) ;
+            int const e_p1 = bnd_extents(iq, pdim1) ;
+            if (i >= e_p0 || j >= e_p1) return ;
+
+            int ijk[3] ;
+            ijk[pdim0] = bnd_lmin(iq, pdim0) + bnd_idir(iq, pdim0) * i ;
+            ijk[pdim1] = bnd_lmin(iq, pdim1) + bnd_idir(iq, pdim1) * j ;
+
+            int8_t const _dir[3] = {dir(iq,0), dir(iq,1), dir(iq,2)} ;
+            size_t const _qid = qid(iq) ;
+
+            int const lm_n0 = bnd_lmin(iq, npdim0) ;
+            int const id_n0 = bnd_idir(iq, npdim0) ;
+            int const e_n0  = bnd_extents(iq, npdim0) ;
+
+            for (int k = 0; k < e_n0; ++k) {
+                ijk[npdim0] = lm_n0 + id_n0 * k ;
+                apply_bc_impl(iv, ijk, _dir, _qid) ;
+            }
+        }
+    }
+
+    // EDGE classical: (i, iv, iq), 1 parallel axis + 2 serial ghost axes.
+    // Dispatched on `bc_kind == EDGE` — covers elem_kind EDGE and CORNER
+    // when combined with a bc_kind=EDGE region.
+    KOKKOS_INLINE_FUNCTION
+    void operator() (
+        phys_bc_md_edge_tag,
+        int i, int iv, int iq
+    ) const
+    {
+        if constexpr (extended || bc_kind != element_kind_t::EDGE) {
+            return ;
+        } else {
+            int const pdim0  = bnd_pdim(iq, 0) ;
+            int const npdim0 = bnd_npdim(iq, 0) ;
+            int const npdim1 = bnd_npdim(iq, 1) ;
+
+            int const e_p0 = bnd_extents(iq, pdim0) ;
+            if (i >= e_p0) return ;
+
+            int ijk[3] ;
+            ijk[pdim0] = bnd_lmin(iq, pdim0) + bnd_idir(iq, pdim0) * i ;
+
+            int8_t const _dir[3] = {dir(iq,0), dir(iq,1), dir(iq,2)} ;
+            size_t const _qid = qid(iq) ;
+
+            int const lm_n0 = bnd_lmin(iq, npdim0) ;
+            int const id_n0 = bnd_idir(iq, npdim0) ;
+            int const e_n0  = bnd_extents(iq, npdim0) ;
+            int const lm_n1 = bnd_lmin(iq, npdim1) ;
+            int const id_n1 = bnd_idir(iq, npdim1) ;
+            int const e_n1  = bnd_extents(iq, npdim1) ;
+
+            for (int jj = 0; jj < e_n0; ++jj) {
+                ijk[npdim0] = lm_n0 + id_n0 * jj ;
+                for (int kk = 0; kk < e_n1; ++kk) {
+                    ijk[npdim1] = lm_n1 + id_n1 * kk ;
+                    apply_bc_impl(iv, ijk, _dir, _qid) ;
+                }
+            }
+        }
+    }
+
+    // CORNER classical: (iv, iq), 0 parallel + 3 serial ghost axes.
+    // Dispatched on `bc_kind == CORNER` — only elem_kind=CORNER reaches here.
+    KOKKOS_INLINE_FUNCTION
+    void operator() (
+        phys_bc_md_corner_tag,
+        int iv, int iq
+    ) const
+    {
+        if constexpr (extended || bc_kind != element_kind_t::CORNER) {
+            return ;
+        } else {
+            int8_t const _dir[3] = {dir(iq,0), dir(iq,1), dir(iq,2)} ;
+            size_t const _qid = qid(iq) ;
+
+            int const lm0 = bnd_lmin(iq, 0), id0 = bnd_idir(iq, 0), e0 = bnd_extents(iq, 0) ;
+            int const lm1 = bnd_lmin(iq, 1), id1 = bnd_idir(iq, 1), e1 = bnd_extents(iq, 1) ;
+            int const lm2 = bnd_lmin(iq, 2), id2 = bnd_idir(iq, 2), e2 = bnd_extents(iq, 2) ;
+
+            int ijk[3] ;
+            for (int ci = 0; ci < e0; ++ci) {
+                ijk[0] = lm0 + id0 * ci ;
+                for (int cj = 0; cj < e1; ++cj) {
+                    ijk[1] = lm1 + id1 * cj ;
+                    for (int ck = 0; ck < e2; ++ck) {
+                        ijk[2] = lm2 + id2 * ck ;
+                        apply_bc_impl(iv, ijk, _dir, _qid) ;
+                    }
+                }
+            }
+        }
+    }
+
+    // Z4c follow-up variants — same geometry minus `iv`, call
+    // `impose_algebraic_constraintz_z4c` once per (ijk).
+
+    KOKKOS_INLINE_FUNCTION
+    void operator() (
+        phys_bc_md_face_z4c_tag,
+        int i, int j, int iq
+    ) const
+    {
+        #ifdef GRACE_ENABLE_Z4C_METRIC
+        if constexpr (extended || bc_kind != element_kind_t::FACE) {
+            return ;
+        } else {
+            int const pdim0  = bnd_pdim(iq, 0) ;
+            int const pdim1  = bnd_pdim(iq, 1) ;
+            int const npdim0 = bnd_npdim(iq, 0) ;
+
+            int const e_p0 = bnd_extents(iq, pdim0) ;
+            int const e_p1 = bnd_extents(iq, pdim1) ;
+            if (i >= e_p0 || j >= e_p1) return ;
+
+            int ijk[3] ;
+            ijk[pdim0] = bnd_lmin(iq, pdim0) + bnd_idir(iq, pdim0) * i ;
+            ijk[pdim1] = bnd_lmin(iq, pdim1) + bnd_idir(iq, pdim1) * j ;
+
+            size_t const _qid = qid(iq) ;
+            int const lm_n0 = bnd_lmin(iq, npdim0) ;
+            int const id_n0 = bnd_idir(iq, npdim0) ;
+            int const e_n0  = bnd_extents(iq, npdim0) ;
+
+            for (int k = 0; k < e_n0; ++k) {
+                ijk[npdim0] = lm_n0 + id_n0 * k ;
+                impose_algebraic_constraintz_z4c(ijk, _qid) ;
+            }
+        }
+        #endif
+    }
+
+    KOKKOS_INLINE_FUNCTION
+    void operator() (
+        phys_bc_md_edge_z4c_tag,
+        int i, int iq
+    ) const
+    {
+        #ifdef GRACE_ENABLE_Z4C_METRIC
+        if constexpr (extended || bc_kind != element_kind_t::EDGE) {
+            return ;
+        } else {
+            int const pdim0  = bnd_pdim(iq, 0) ;
+            int const npdim0 = bnd_npdim(iq, 0) ;
+            int const npdim1 = bnd_npdim(iq, 1) ;
+
+            int const e_p0 = bnd_extents(iq, pdim0) ;
+            if (i >= e_p0) return ;
+
+            int ijk[3] ;
+            ijk[pdim0] = bnd_lmin(iq, pdim0) + bnd_idir(iq, pdim0) * i ;
+
+            size_t const _qid = qid(iq) ;
+            int const lm_n0 = bnd_lmin(iq, npdim0) ;
+            int const id_n0 = bnd_idir(iq, npdim0) ;
+            int const e_n0  = bnd_extents(iq, npdim0) ;
+            int const lm_n1 = bnd_lmin(iq, npdim1) ;
+            int const id_n1 = bnd_idir(iq, npdim1) ;
+            int const e_n1  = bnd_extents(iq, npdim1) ;
+
+            for (int jj = 0; jj < e_n0; ++jj) {
+                ijk[npdim0] = lm_n0 + id_n0 * jj ;
+                for (int kk = 0; kk < e_n1; ++kk) {
+                    ijk[npdim1] = lm_n1 + id_n1 * kk ;
+                    impose_algebraic_constraintz_z4c(ijk, _qid) ;
+                }
+            }
+        }
+        #endif
+    }
+
+    KOKKOS_INLINE_FUNCTION
+    void operator() (
+        phys_bc_md_corner_z4c_tag,
+        int iq
+    ) const
+    {
+        #ifdef GRACE_ENABLE_Z4C_METRIC
+        if constexpr (extended || bc_kind != element_kind_t::CORNER) {
+            return ;
+        } else {
+            size_t const _qid = qid(iq) ;
+
+            int const lm0 = bnd_lmin(iq, 0), id0 = bnd_idir(iq, 0), e0 = bnd_extents(iq, 0) ;
+            int const lm1 = bnd_lmin(iq, 1), id1 = bnd_idir(iq, 1), e1 = bnd_extents(iq, 1) ;
+            int const lm2 = bnd_lmin(iq, 2), id2 = bnd_idir(iq, 2), e2 = bnd_extents(iq, 2) ;
+
+            int ijk[3] ;
+            for (int ci = 0; ci < e0; ++ci) {
+                ijk[0] = lm0 + id0 * ci ;
+                for (int cj = 0; cj < e1; ++cj) {
+                    ijk[1] = lm1 + id1 * cj ;
+                    for (int ck = 0; ck < e2; ++ck) {
+                        ijk[2] = lm2 + id2 * ck ;
+                        impose_algebraic_constraintz_z4c(ijk, _qid) ;
+                    }
+                }
+            }
+        }
+        #endif
+    }
+
+} ;
 
 }} /* namespace grace::amr */
 // supercalifragilistichespiralidoso! 

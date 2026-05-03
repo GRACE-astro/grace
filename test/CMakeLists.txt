@@ -91,6 +91,10 @@ add_kokkos_test(interpolator_test test_interpolators.cpp)
 
 add_standalone_test(integrator_test test_integration.cpp)
 
+add_standalone_test(hermite_polynomial_test test_hermite_polynomial.cpp)
+
+add_standalone_test(hermite_interp_test test_hermite_interp.cpp)
+
 add_executable( errors_test test_errors.cc ) 
 target_include_directories(errors_test PRIVATE "${HEADER_DIR}")
 target_compile_options(errors_test PRIVATE -g)

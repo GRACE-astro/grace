@@ -103,10 +103,37 @@ eos:
       description: >
         Format of 3D table 
     cold_table_filename:
-      type: string 
+      type: string
       default: "blah.grace"
       description: >
         Cold slice table file name
+    force_mu:
+      type: bool
+      default: true
+      description: >
+        If true (default), interpret the table's rho axis using the atomic
+        mass unit (m_u = 931.494 MeV/c^2) for the nb <-> rho conversion,
+        matching the FUKA / LORENE / Margherita convention used by virtually
+        all GR-MHD initial-data codes. The cold EOS table must have been
+        generated with the same convention (use force_mu=True in GRACEpy).
+        Set to false ONLY for pure CompOSE-strict thermodynamics work where
+        no FUKA-format initial data is involved; importing FUKA initial data
+        with force_mu=false produces a ~1% baryonic mass error and a
+        corresponding ~1 rad GW phase drift over a typical BNS inspiral.
+    sanitize_axes:
+      type: bool
+      default: true
+      description: >
+        If true (default), regenerate the interior points of the log(nb),
+        log(T), and Y_e axes uniformly between their stored endpoints after
+        ingest. This removes FP32->FP64 quantization jitter from tables that
+        were written with single-precision axes, which would otherwise make
+        the axis spacing non-uniform at the bit level and bias the table's
+        (uniform-spacing) index-lookup arithmetic. Requires the axis to be
+        uniform in its canonical transform space (log for nb and T, linear
+        for Y_e) -- this matches the CompOSE convention. A warning is
+        emitted if the original spacing deviates from uniform by more than
+        a small relative tolerance.
 
   eps_maximum:
     type: double 

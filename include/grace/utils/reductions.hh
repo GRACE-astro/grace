@@ -29,7 +29,23 @@
 
 #include <Kokkos_Core.hpp>
 
+#include <grace/config/config_parser.hh>
+
 namespace grace {
+
+//! Multiplier for a scalar volume/surface integral computed on a
+//! reflection-symmetric subdomain, so that the reported value is the
+//! full-domain physical integral. Only correct for integrands that are
+//! invariant under each active reflection axis (masses, energies, fluxes
+//! through z-symmetric surfaces, etc.). For parity-odd integrands the
+//! physical value is zero by symmetry and this helper should not be used.
+inline int scalar_symmetry_multiplier() {
+    int f = 1;
+    if (get_param<bool>("amr","reflection_symmetries","x")) f *= 2;
+    if (get_param<bool>("amr","reflection_symmetries","y")) f *= 2;
+    if (get_param<bool>("amr","reflection_symmetries","z")) f *= 2;
+    return f;
+}
 
 template< typename T, int N >
 struct array_sum_t {

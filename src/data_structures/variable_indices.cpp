@@ -153,10 +153,6 @@ static var_amr_interp_t get_interp_type(std::string const& interp_string)
     }
 }
 
-static var_staggering_t get_staggering(std::array<bool,3> s) {
-    return static_cast<var_staggering_t>(static_cast<uint8_t>(s[0]) + (static_cast<uint8_t>(s[1])<<1) + (static_cast<uint8_t>(s[2])<<2)) ; 
-}
-
 } /* namespace grace::variables::detail */
 
 static void register_evolved_scalar(
@@ -280,32 +276,6 @@ static void register_aux_vector(
         props.staggering = var_staggering_t::STAG_CENTER;
 
         detail::_auxprops[cname] = props ; 
-    }        
-} ;
-
-static void register_aux_tensor(
-    std::array<int,6> const& idxs,
-    std::string const& name) 
-{
-    int cmp=0;
-    for ( int ic=0; ic<3; ++ic) {
-        for( int jc=ic; jc<3; ++jc) {
-            auto idx = idxs[cmp] ; 
-            std::string const cname = name  + "[" + std::to_string(ic) + "," + std::to_string(jc) + "]"; 
-            detail::_auxnames[idx]         = cname  ;
-            variable_properties_t<GRACE_NSPACEDIM> props ; 
-            props.name = name ;
-            props.is_evolved = false ; 
-            props.is_vector = false ;
-            props.is_tensor = true ; 
-            props.comp_num = cmp ; 
-            props.index = idx ;
-            props.staggering = var_staggering_t::STAG_CENTER;
-
-            detail::_auxprops[cname] = props ; 
-
-            cmp++ ; 
-        }   
     }        
 } ;
 

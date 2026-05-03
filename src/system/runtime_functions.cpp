@@ -96,17 +96,23 @@ double get_timestep() {
 
 bool check_termination_condition()
 {
-    auto& runtime = grace::runtime::get() ; 
-    auto term_cnd = runtime.termination_condition() ; 
+    auto& runtime = grace::runtime::get() ;
+    if (runtime.user_termination_requested()) return true ;
+    auto term_cnd = runtime.termination_condition() ;
     switch (term_cnd) {
-        case terminate::ITERATION: 
-        return runtime.iteration() >= runtime.max_iteration() ; 
+        case terminate::ITERATION:
+        return runtime.iteration() >= runtime.max_iteration() ;
         case terminate::TIME:
-        return runtime.time() > runtime.max_time() ; 
+        return runtime.time() > runtime.max_time() ;
         case terminate::WALLTIME:
-        return runtime.total_elapsed()/3600 > runtime.max_walltime() ; 
+        return runtime.total_elapsed()/3600 > runtime.max_walltime() ;
         default:
-        ERROR("Unrecognized termination condition.") ; 
+        ERROR("Unrecognized termination condition.") ;
     }
+}
+
+void request_termination()
+{
+    grace::runtime::get().request_termination() ;
 }
 } /* namespace */ 

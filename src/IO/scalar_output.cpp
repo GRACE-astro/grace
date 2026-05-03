@@ -128,52 +128,73 @@ void compute_reductions() {
                                , sc_MPI_MAX) ; 
     }
 
-    /* Then: compute norm2 reductions */ 
-    auto const norm2_vars = grace_runtime.norm2_reduction_vars() ; 
-    auto const norm2_aux  = grace_runtime.norm2_reduction_aux()  ; 
+    /* Then: compute norm2 reductions */
+    auto const norm2_vars = grace_runtime.norm2_reduction_vars() ;
+    auto const norm2_aux  = grace_runtime.norm2_reduction_aux()  ;
+
+    // Volume-weighted L2 norm: ||v||_2 = sqrt( Σ v_i^2 dV_i / Σ dV_i ).
+    // Matches Einstein Toolkit's CarpetReduce norm2 convention (weight =
+    // cell_volume / coarse_cell_volume; see CarpetReduce/src/reduce.cc
+    // norm2 struct).  p4est stores only leaves so there is no quadrant
+    // overlap to mask — cell volumes sum to the full physical volume.
+    double global_volume{0.} ;
+    if ( !norm2_vars.empty() || !norm2_aux.empty() ) {
+        double local_volume{0.} ;
+        int64_t const cells_per_quad = nx * ny * nz ;
+        parallel_reduce( GRACE_EXECUTION_TAG("IO","norm2_total_volume")
+                       , Kokkos::RangePolicy<default_execution_space>(0, nq)
+                       , KOKKOS_LAMBDA(int q, double& lres)
+        {
+            lres += static_cast<double>(cells_per_quad)
+                  * dx(0,q) * dx(1,q) * dx(2,q) ;
+        }, Sum<double>(local_volume)) ;
+        parallel::mpi_allreduce(&local_volume, &global_volume, 1, sc_MPI_SUM) ;
+    }
 
     for( auto const& vname: norm2_vars ) {
-        GRACE_TRACE("Performing norm2 reduction of variable {}", vname) ; 
-        auto const vidx = get_variable_index(vname, false) ; 
+        GRACE_TRACE("Performing norm2 reduction of variable {}", vname) ;
+        auto const vidx = get_variable_index(vname, false) ;
         auto policy =
-            MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
-        auto const u = subview(state, VEC(ALL(),ALL(),ALL()), vidx, ALL()) ; 
-        double res{0.}; 
-        parallel_reduce( GRACE_EXECUTION_TAG("IO","norm2_reduction_vars") 
-                       , policy 
+            MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ;
+        auto const u = subview(state, VEC(ALL(),ALL(),ALL()), vidx, ALL()) ;
+        double res{0.};
+        parallel_reduce( GRACE_EXECUTION_TAG("IO","norm2_reduction_vars")
+                       , policy
                        , KOKKOS_LAMBDA(VEC(int i, int j, int k), int q, double& lres)
         {
-            lres += SQR(u(VEC(i,j,k),q)) ; 
-        }, Sum<double>(res)) ; 
-        
+            double const cvol = dx(0,q) * dx(1,q) * dx(2,q) ;
+            lres += SQR(u(VEC(i,j,k),q)) * cvol ;
+        }, Sum<double>(res)) ;
+
         parallel::mpi_allreduce( &res
                                , &detail::_norm2_reduction_vars_results[vname]
                                , 1
-                               , sc_MPI_SUM) ; 
-        
-        detail::_norm2_reduction_vars_results[vname] = std::sqrt(detail::_norm2_reduction_vars_results[vname]/global_ncells) ; 
-        GRACE_TRACE("norm {}", detail::_norm2_reduction_vars_results[vname]) ; 
-    } 
+                               , sc_MPI_SUM) ;
+
+        detail::_norm2_reduction_vars_results[vname] = std::sqrt(detail::_norm2_reduction_vars_results[vname]/global_volume) ;
+        GRACE_TRACE("norm {}", detail::_norm2_reduction_vars_results[vname]) ;
+    }
     for( auto const& vname: norm2_aux ) {
-        auto const vidx = get_variable_index(vname, true) ; 
-        GRACE_TRACE("Performing norm2 reduction of variable {} index {}", vname, vidx) ; 
+        auto const vidx = get_variable_index(vname, true) ;
+        GRACE_TRACE("Performing norm2 reduction of variable {} index {}", vname, vidx) ;
         auto policy =
-            MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
-        auto const u = subview(aux, VEC(ALL(),ALL(),ALL()), vidx, ALL()) ; 
-        double res{0.}; 
-        parallel_reduce( GRACE_EXECUTION_TAG("IO","norm2_reduction_aux") 
-                       , policy 
+            MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ;
+        auto const u = subview(aux, VEC(ALL(),ALL(),ALL()), vidx, ALL()) ;
+        double res{0.};
+        parallel_reduce( GRACE_EXECUTION_TAG("IO","norm2_reduction_aux")
+                       , policy
                        , KOKKOS_LAMBDA(VEC(int i, int j, int k), int q, double& lres)
         {
-            lres += SQR(u(VEC(i,j,k),q)) ; 
-        }, Sum<double>(res)) ; 
-        
+            double const cvol = dx(0,q) * dx(1,q) * dx(2,q) ;
+            lres += SQR(u(VEC(i,j,k),q)) * cvol ;
+        }, Sum<double>(res)) ;
+
         parallel::mpi_allreduce( &res
                                , &detail::_norm2_reduction_aux_results[vname]
                                , 1
-                               , sc_MPI_SUM) ; 
-        detail::_norm2_reduction_aux_results[vname] = std::sqrt(detail::_norm2_reduction_aux_results[vname]/global_ncells) ; 
-        GRACE_TRACE("norm {}", std::sqrt(detail::_norm2_reduction_aux_results[vname])) ; 
+                               , sc_MPI_SUM) ;
+        detail::_norm2_reduction_aux_results[vname] = std::sqrt(detail::_norm2_reduction_aux_results[vname]/global_volume) ;
+        GRACE_TRACE("norm {}", detail::_norm2_reduction_aux_results[vname]) ;
     }
     /* Then: compute integral reductions */ 
     auto const integral_vars = grace_runtime.integral_reduction_vars() ; 
@@ -235,12 +256,10 @@ void write_scalar_output() {
 
     std::filesystem::path bdir = grace_runtime.scalar_io_basepath() ; 
 
-    size_t const iter = grace_runtime.iteration() ; 
-    double const time = grace_runtime.time()      ; 
+    size_t const iter = grace_runtime.iteration() ;
+    double const time = grace_runtime.time()      ;
 
-    static constexpr size_t width = 20 ;
-
-    auto const out_minmax_vars = grace_runtime.scalar_output_minmax_vars() ; 
+    auto const out_minmax_vars = grace_runtime.scalar_output_minmax_vars() ;
     auto const out_minmax_aux  = grace_runtime.scalar_output_minmax_aux()  ; 
     for( auto const& vname: out_minmax_vars ) {
         std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_min.dat" ;

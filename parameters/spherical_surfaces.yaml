@@ -53,7 +53,7 @@ spherical_surfaces:
           Z coordinate of sphere center 
       sampling_policy:
         type: keyword
-        allowed: ["uniform","healpix"]
+        allowed: ["uniform"]
         default: "uniform"
         description: >
           Policy for sphere discretization 

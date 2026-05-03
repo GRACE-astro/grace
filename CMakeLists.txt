@@ -1,6 +1,6 @@
 
 cmake_minimum_required(VERSION 3.22 FATAL_ERROR)
-cmake_policy(SET CMP0144 NEW)
+#cmake_policy(SET CMP0144 NEW)
 
 project(GRACE VERSION 0.5 LANGUAGES CXX C)
 
@@ -91,6 +91,52 @@ option(GRACE_ENABLE_CABANA "Include Cabana support for particle functionality" O
 if( GRACE_ENABLE_CABANA )
     message(STATUS "Cabana support enabled")
     find_package(Cabana REQUIRED)
+endif()
+
+# Select a per-architecture performance-tuning header.  The chosen file is
+# included into grace_config.h and defines kernel LaunchBounds / tile macros.
+# Each source file keeps `#ifndef GRACE_* / #define ... default / #endif`
+# fallbacks, so if a tuning header does not set a macro (or the generic
+# header is chosen) the source-level default applies.  LaunchBounds is a
+# no-op on CPU backends, so headers are safe to include unconditionally.
+#
+# Selection order:
+#   1. User-provided -DGRACE_PERF_TUNING=<name> — short name matching a
+#      subdirectory of performance_tuning/ (e.g. Mi300A, A100).  Useful when
+#      Kokkos_ARCH_* doesn't propagate out of an installed Kokkos into the
+#      parent CMake (common with find_package(Kokkos)).
+#   2. Auto-detect from Kokkos_ARCH_* cache variables.
+#   3. Fall through to generic (no arch detected).
+set(GRACE_PERF_TUNING "" CACHE STRING
+    "Select performance-tuning header by name (Mi300A|Mi250X|A100|H100|generic). Leave empty to auto-detect from Kokkos_ARCH_*.")
+
+if(GRACE_PERF_TUNING)
+    set(_grace_tuning_candidate "${CMAKE_SOURCE_DIR}/performance_tuning/${GRACE_PERF_TUNING}/tuning.h")
+    if(GRACE_PERF_TUNING STREQUAL "generic")
+        set(_grace_tuning_candidate "${CMAKE_SOURCE_DIR}/performance_tuning/generic.h")
+    endif()
+    if(NOT EXISTS "${_grace_tuning_candidate}")
+        message(FATAL_ERROR
+            "GRACE_PERF_TUNING=${GRACE_PERF_TUNING} but no header at ${_grace_tuning_candidate}. "
+            "Available: Mi300A, Mi250X, A100, H100, generic.")
+    endif()
+    set(GRACE_PERF_TUNING_HEADER "${_grace_tuning_candidate}")
+    message(STATUS "Perf-tuning header: ${GRACE_PERF_TUNING} (user-selected)")
+elseif(Kokkos_ARCH_AMD_GFX942)
+    set(GRACE_PERF_TUNING_HEADER "${CMAKE_SOURCE_DIR}/performance_tuning/Mi300A/tuning.h")
+    message(STATUS "Perf-tuning header: Mi300A (gfx942)")
+elseif(Kokkos_ARCH_AMD_GFX90A)
+    set(GRACE_PERF_TUNING_HEADER "${CMAKE_SOURCE_DIR}/performance_tuning/Mi250X/tuning.h")
+    message(STATUS "Perf-tuning header: Mi250X (gfx90a)")
+elseif(Kokkos_ARCH_AMPERE80)
+    set(GRACE_PERF_TUNING_HEADER "${CMAKE_SOURCE_DIR}/performance_tuning/A100/tuning.h")
+    message(STATUS "Perf-tuning header: A100 (sm_80)")
+elseif(Kokkos_ARCH_HOPPER90)
+    set(GRACE_PERF_TUNING_HEADER "${CMAKE_SOURCE_DIR}/performance_tuning/H100/tuning.h")
+    message(STATUS "Perf-tuning header: H100 (sm_90)")
+else()
+    set(GRACE_PERF_TUNING_HEADER "${CMAKE_SOURCE_DIR}/performance_tuning/generic.h")
+    message(STATUS "Perf-tuning header: generic (no arch detected — override with -DGRACE_PERF_TUNING=<name>)")
 endif()
 
 configure_file("${CMAKE_SOURCE_DIR}/include/grace/grace_config.h.in" grace_config.h)

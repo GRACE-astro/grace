@@ -1,0 +1,40 @@
+nan_check:
+  type: schema
+  description: >
+    Periodic sanity check that scans evolved variables (cell-centered state,
+    auxiliary, and staggered) for NaN values, with a configurable action when
+    any are found.
+
+  enabled:
+    type: bool
+    default: false
+    description: >
+      Master switch. When false, no scans are performed.
+
+  check_before_first_step:
+    type: bool
+    default: true
+    description: >
+      Run a scan once before the evolution loop begins, after initial data
+      has been set and before the first timestep. Useful for catching bad
+      initial data.
+
+  check_every:
+    type: int
+    range: "[0,*)"
+    default: 0
+    description: >
+      Iteration interval between scans during the evolution loop. 0 disables
+      periodic in-loop scans (the before-first-step scan is still controlled
+      by `check_before_first_step`).
+
+  action:
+    type: keyword
+    allowed: ["warn","terminate","abort"]
+    default: "abort"
+    description: >
+      What to do when NaNs are detected. "warn" prints a warning and
+      continues. "terminate" requests a clean termination (the loop exits
+      after the current iteration, output and checkpointing run normally).
+      "abort" calls ERROR(), which throws and aborts the run with a
+      backtrace.

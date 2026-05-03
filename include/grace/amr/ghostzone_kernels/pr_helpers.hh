@@ -83,42 +83,57 @@ struct lagrange_prolong_op {
 		Kokkos::View<double*, grace::default_space> _coeffs
 	) : coeffs(_coeffs) {} 
 
-    template<typename view_t> 
+    template<typename view_t>
     double KOKKOS_INLINE_FUNCTION
-    operator() (view_t u, int i, int j, int k, int bi, int bj, int bk) const 
+    operator() (view_t u, int i, int j, int k, int bi, int bj, int bk) const
     {
+        constexpr int N = order + 1 ;
 
-
-        // for bi == 0 i.e. cell at x_c - dx/4 
+        // for bi == 0 i.e. cell at x_c - dx/4
         // we need to pick i-2 i-1 i i+1
-        // whereas for bi==1 i-1 i i+1 i+2 
-        int ci,cj,ck ; 
+        // whereas for bi==1 i-1 i i+1 i+2
+        int ci,cj,ck ;
         if constexpr(order==3){
-            ci = bi - 2 ; 
+            ci = bi - 2 ;
             cj = bj - 2 ;
-            ck = bk - 2 ; 
+            ck = bk - 2 ;
         } else if constexpr(order==4) {
             ci=cj=ck=-2;
         }
-        
 
-        size_t oi = (order+1)*bi ; 
-        size_t oj = (order+1)*bj ; 
-        size_t ok = (order+1)*bk ; 
+        const size_t oi = N*bi ;
+        const size_t oj = N*bj ;
+        const size_t ok = N*bk ;
 
-        int N = order+1 ; 
-        double res = 0 ; 
-        #pragma unroll 16
-        for (int dd = 0; dd < (order+1)*(order+1)*(order+1); ++dd) {
-            int di = dd % N;
-            int dj = (dd / N) % N;
-            int dk = dd / (N * N);
-
-            double coeff = coeffs(oi+di) * coeffs(oj+dj) * coeffs(ok+dk) ; 
-
-            res += coeff * u(i+di+ci,j+dj+cj,k+dk+ck) ; 
+        // Hoist the three 1D coefficient slices into registers; the original
+        // form re-loaded every coeff N^2 times and did N^3 triple products.
+        double cx[N], cy[N], cz[N] ;
+        #pragma unroll
+        for (int d = 0; d < N; ++d) {
+            cx[d] = coeffs(oi+d) ;
+            cy[d] = coeffs(oj+d) ;
+            cz[d] = coeffs(ok+d) ;
         }
-        return res ; 
+
+        // Tensor-product factorisation: sum_{di,dj,dk} cx[di] cy[dj] cz[dk] u
+        // is evaluated as three nested 1D contractions (N^3 + N^2 + N fmas
+        // instead of 2 N^3 muls + N^3 fmas in the flat form).
+        double res = 0 ;
+        #pragma unroll
+        for (int dk = 0; dk < N; ++dk) {
+            double sk = 0 ;
+            #pragma unroll
+            for (int dj = 0; dj < N; ++dj) {
+                double sj = 0 ;
+                #pragma unroll
+                for (int di = 0; di < N; ++di) {
+                    sj += cx[di] * u(i+di+ci, j+dj+cj, k+dk+ck) ;
+                }
+                sk += cy[dj] * sj ;
+            }
+            res += cz[dk] * sk ;
+        }
+        return res ;
     }
 
 } ; 
