@@ -835,7 +835,7 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE nu_rates_all_out compute_all_species_weakh
         rates.kappa_s[s] = tbl.kappa_s[s];
     }
 
-    std::array<double, NUMSPECIES> g_nu{{1,1,4}};
+    std::array<double, NUMSPECIES> g_nu{{1,1,0,0,4}};
     #ifdef M1_NU_FIVESPECIES
     g_nu = {{1,1,1,1,2}};
     #endif

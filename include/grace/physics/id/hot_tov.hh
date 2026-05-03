@@ -173,8 +173,7 @@
             id.eps   = _eos.eps_cold__rho(id.rho, err) ; 
             // and the rest 
             // in case this is a const entropy slice 
-            //id.temp = _eos.temp_cold__rho(id.rho, err) ; 
-            id.temp = 20.0 ; 
+            id.temp = _eos.temp_cold__rho(id.rho, err) ; 
             // in case this is a const temp slice 
             id.entropy = _eos.entropy_cold__rho(id.rho, err) ; 
             // perturb 
