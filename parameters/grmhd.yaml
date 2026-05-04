@@ -12,7 +12,7 @@ grmhd:
 
   id_type: 
     type: keyword 
-    allowed: ["minkowski_vacuum", "shocktube", "magnetic_rotor", "bondi_flow", "orszag_tang_vortex", "fmtorus", "tov","hot-tov", "blastwave", "gas_cloud","puncture","lorene_bns", "two_punctures", "fuka"]
+    allowed: ["minkowski_vacuum", "shocktube", "magnetic_rotor", "bondi_flow", "orszag_tang_vortex", "fmtorus", "tov", "blastwave", "gas_cloud","puncture","lorene_bns", "two_punctures", "fuka"]
     default: "minkowski_vacuum"
     description: > 
       Initial data type 

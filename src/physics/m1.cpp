@@ -167,11 +167,35 @@ static void set_m1_initial_data_impl(
             metric_array_t metric ; 
             FILL_METRIC_ARRAY(metric,state,q,i,j,k) ; 
             // set id 
-            state(VEC(i,j,k),ERAD1_,q)  = metric.sqrtg() * id.erad ; 
-            state(VEC(i,j,k),NRAD1_,q)  = metric.sqrtg() * id.nrad ; 
-            state(VEC(i,j,k),FRADX1_,q) = metric.sqrtg() * id.fradx ; 
-            state(VEC(i,j,k),FRADY1_,q) = metric.sqrtg() * id.frady ; 
-            state(VEC(i,j,k),FRADZ1_,q) = metric.sqrtg() * id.fradz ; 
+            state(VEC(i,j,k),ERAD1_,q)  = metric.sqrtg() * id.erad1 ; 
+            state(VEC(i,j,k),NRAD1_,q)  = metric.sqrtg() * id.nrad1 ; 
+            state(VEC(i,j,k),FRADX1_,q) = metric.sqrtg() * id.fradx1 ; 
+            state(VEC(i,j,k),FRADY1_,q) = metric.sqrtg() * id.frady1 ; 
+            state(VEC(i,j,k),FRADZ1_,q) = metric.sqrtg() * id.fradz1 ; 
+            #ifdef M1_NU_THREESPECIES
+            state(VEC(i,j,k),ERAD2_,q)  = metric.sqrtg() * id.erad2 ; 
+            state(VEC(i,j,k),NRAD2_,q)  = metric.sqrtg() * id.nrad2 ; 
+            state(VEC(i,j,k),FRADX2_,q) = metric.sqrtg() * id.fradx2 ; 
+            state(VEC(i,j,k),FRADY2_,q) = metric.sqrtg() * id.frady2 ; 
+            state(VEC(i,j,k),FRADZ2_,q) = metric.sqrtg() * id.fradz2 ; 
+            state(VEC(i,j,k),ERAD3_,q)  = metric.sqrtg() * id.erad3 ; 
+            state(VEC(i,j,k),NRAD3_,q)  = metric.sqrtg() * id.nrad3 ; 
+            state(VEC(i,j,k),FRADX3_,q) = metric.sqrtg() * id.fradx3 ; 
+            state(VEC(i,j,k),FRADY3_,q) = metric.sqrtg() * id.frady3 ; 
+            state(VEC(i,j,k),FRADZ3_,q) = metric.sqrtg() * id.fradz3 ; 
+            #endif
+            #ifdef M1_NU_FIVESPECIES
+            state(VEC(i,j,k),ERAD4_,q)  = metric.sqrtg() * id.erad4 ; 
+            state(VEC(i,j,k),NRAD4_,q)  = metric.sqrtg() * id.nrad4 ; 
+            state(VEC(i,j,k),FRADX4_,q) = metric.sqrtg() * id.fradx4 ; 
+            state(VEC(i,j,k),FRADY4_,q) = metric.sqrtg() * id.frady4 ; 
+            state(VEC(i,j,k),FRADZ4_,q) = metric.sqrtg() * id.fradz4 ; 
+            state(VEC(i,j,k),ERAD4_,q)  = metric.sqrtg() * id.erad5 ; 
+            state(VEC(i,j,k),NRAD4_,q)  = metric.sqrtg() * id.nrad5 ; 
+            state(VEC(i,j,k),FRADX4_,q) = metric.sqrtg() * id.fradx5 ; 
+            state(VEC(i,j,k),FRADY4_,q) = metric.sqrtg() * id.frady5 ; 
+            state(VEC(i,j,k),FRADZ4_,q) = metric.sqrtg() * id.fradz5 ; 
+            #endif
         }
     ) ; 
 }

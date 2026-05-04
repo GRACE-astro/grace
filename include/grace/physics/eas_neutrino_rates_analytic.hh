@@ -86,7 +86,7 @@ namespace nu_constants {
 constexpr double pi        = 3.1415926535897932384626433832795;
 constexpr double clight     = 2.99792458e10;      // cm/s
 constexpr double sigma_0   = 1.76e-44;           // cm^2
-constexpr double alpha    = 1.25;               // axial coupling g_A (FIL naming)
+constexpr double alpha    = 1.23;               // axial coupling g_A (FIL naming)
 constexpr double hc_mevcm  = 1.23984172e-10;     // MeV*cm
 constexpr double me_mev    = 0.510998910;        // MeV
 constexpr double mev_to_erg= 1.60217733e-6;      // erg/MeV
@@ -97,7 +97,7 @@ constexpr double Msun_cgs = 1.988475e33; // g
 constexpr double G_cgs = 6.67430e-8; // g
 constexpr double Msun_to_cm = G_cgs * Msun_cgs / (clight*clight); // g
 constexpr double Msun_to_s = Msun_to_cm / clight;
-constexpr double Msun_to_erg = Msun_cgs*clight*clight; // g
+constexpr double Msun_to_erg = Msun_cgs*clight*clight; // erg
 constexpr double eV_to_erg = 1.602176634e-12;                 // erg/eV
 constexpr double eV_to_g   = eV_to_erg / (clight * clight);   // g/eV
 constexpr double MeV_to_g  = eV_to_g * 1e6;                   // g/MeV
@@ -503,16 +503,34 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE fugacity_state make_fugacity_state(
     if (!(::isfinite(F.Zbar) && F.Zbar > 0.0)) F.Zbar = 1.0;
 
     using namespace grace::physical_constants;
-    F.nb = safe_pos(F.rho_cgs) * nu_constants::avogadro / nu_constants::mnuc_cgs;
+    F.nb = safe_pos(F.rho_cgs) * nu_constants::avogadro ;// nu_constants::mnuc_cgs;
+
+    // ---- DEBUG ----
+    if(rho_code > 1.23857e-03 ) {
+        Kokkos::printf("=== make_fugacity_state CENTER DEBUG ===\n");
+        Kokkos::printf("  rho_code = %e\n", rho_code);
+        Kokkos::printf("  rho_cgs  = %e\n", F.rho_cgs);
+        Kokkos::printf("  temp_mev = %e\n", F.temp_mev);
+        Kokkos::printf("  ye       = %e\n", ye);
+        Kokkos::printf("  mu_e     = %e\n", F.mu_e);
+        Kokkos::printf("  mu_p     = %e\n", F.mu_p);
+        Kokkos::printf("  mu_n     = %e\n", F.mu_n);
+        Kokkos::printf("  Xn       = %e\n", F.Xn);
+        Kokkos::printf("  Xp       = %e\n", F.Xp);
+        Kokkos::printf("  nb       = %e\n", F.nb);
+    }
+    // ---- end of first debug block, put the rest AFTER eta_np/eta_pn are computed ----
 
     const double mu_hat = F.mu_n - F.mu_p - Qnp;
     const double mu_nue = F.mu_e + F.mu_p - F.mu_n - Qnp;
     const double mu_nuebar = -mu_nue;
 
     // Muonic species: for muonic EOS. Default: mu=0.
+    #ifdef M1_NU_THREESPECIES
     const double mu_numu = 0.0;
     const double mu_numubar = -mu_numu;
     const double mu_nux = 0.0;
+    #endif
 
     const double T = safe_pos(F.temp_mev);
     F.eta_e   = F.mu_e / T;
@@ -535,6 +553,19 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE fugacity_state make_fugacity_state(
     }
     if (!::isfinite(F.eta_np) || !(F.eta_np > 0.0)) F.eta_np = 0.0;
     if (!::isfinite(F.eta_pn) || !(F.eta_pn > 0.0)) F.eta_pn = 0.0;
+
+    // ---- DEBUG ----
+    if(rho_code > 1.23857e-03 ) {
+        Kokkos::printf("  eta_hat  = %e\n", F.eta_hat);
+        Kokkos::printf("  eta_e    = %e\n", F.eta_e);
+        Kokkos::printf("  eta_nu[NUE]    = %e\n", F.eta_nu[NUE]);
+        Kokkos::printf("  eta_nu[NUEBAR] = %e\n", F.eta_nu[NUEBAR]);
+        Kokkos::printf("  eta_np   = %e  (drives NUE emission)\n", F.eta_np);
+        Kokkos::printf("  eta_pn   = %e  (drives NUEBAR emission)\n", F.eta_pn);
+        Kokkos::printf("========================================\n");
+    }
+    // ---- end DEBUG ----
+
 
     // ---------------------------------------------------------------------------
     // Optical-depth based suppression of neutrino fugacities (Foucart/Bollig trick):
@@ -949,6 +980,15 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE nu_rates_all_out compute_all_species(
     if (pair_annihilation) add_pair_process_emission(F, rates);
     if (plasmon_decay)     add_plasmon_decay_emission(F, rates);
     if (bremsstrahlung)    add_brems_emission(F, rates);
+
+    if (rho_code > 1.23857e-03) {
+        Kokkos::printf("Q[NUE]=%e R[NUE]=%e Q/R=%e MeV\n",
+            rates.Q[NUE], rates.R[NUE], rates.Q[NUE]/rates.R[NUE]);
+        Kokkos::printf("Q[NUEBAR]=%e R[NUEBAR]=%e Q/R=%e MeV\n",
+            rates.Q[NUEBAR], rates.R[NUEBAR], rates.Q[NUEBAR]/rates.R[NUEBAR]);
+        Kokkos::printf("Q[NUX]=%e R[NUX]=%e Q/R=%e MeV\n",
+            rates.Q[NUX], rates.R[NUX], rates.Q[NUX]/rates.R[NUX]);
+    }
 
     std::array<double, NUMSPECIES> g_nu{{1,1,0,0,4}};
 #ifdef M1_NU_FIVESPECIES

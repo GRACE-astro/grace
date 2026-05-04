@@ -44,7 +44,15 @@
 namespace grace {
 
 struct m1_id_t {
-    double erad, nrad, fradx, frady, fradz ; //! lower indices
+    double erad1, nrad1, fradx1, frady1, fradz1 ; //! lower indices
+    #ifdef M1_NU_THREESPECIES
+    double erad2, nrad2, fradx2, frady2, fradz2 ;
+    double erad3, nrad3, fradx3, frady3, fradz3 ;
+    #endif
+    #ifdef M1_NU_FIVESPECIES
+    double erad4, nrad4, fradx4, frady4, fradz4 ;
+    double erad5, nrad5, fradx5, frady5, fradz5 ;
+    #endif
 } ; 
 
 struct zero_m1_id_t {
@@ -75,13 +83,45 @@ struct zero_m1_id_t {
         bool excise = excision.excise_by_radius ? rtp[0] <= excision.r_ex : false ; /*we don't have alp here*/
         
         if ( excise ) {
-            id.erad = excision.E_ex ; 
-            id.nrad = excision.E_ex / excision.eps_ex ; 
+            id.erad1 = excision.E_ex ; 
+            id.nrad1 = excision.E_ex / excision.eps_ex ; 
+            #ifdef M1_NU_THREESPECIES
+            id.erad2 = excision.E_ex ; 
+            id.nrad2 = excision.E_ex / excision.eps_ex ; 
+            id.erad3 = excision.E_ex ; 
+            id.nrad3 = excision.E_ex / excision.eps_ex ; 
+            #endif
+            #ifdef M1_NU_FIVESPECIES
+            id.erad4 = excision.E_ex ; 
+            id.nrad4 = excision.E_ex / excision.eps_ex ; 
+            id.erad5 = excision.E_ex ; 
+            id.nrad5 = excision.E_ex / excision.eps_ex ; 
+            #endif
         } else {
-            id.erad = E_atmo ;
-            id.nrad = E_atmo / eps_atmo ; 
+            id.erad1 = E_atmo ;
+            id.nrad1 = E_atmo / eps_atmo ; 
+            #ifdef M1_NU_THREESPECIES
+            id.erad2 = E_atmo ;
+            id.nrad2 = E_atmo / eps_atmo ; 
+            id.erad3 = E_atmo ;
+            id.nrad3 = E_atmo / eps_atmo ; 
+            #endif
+            #ifdef M1_NU_FIVESPECIES
+            id.erad4 = E_atmo ;
+            id.nrad4 = E_atmo / eps_atmo ; 
+            id.erad5 = E_atmo ;
+            id.nrad5 = E_atmo / eps_atmo ; 
+            #endif
         }
-        id.fradx = id.frady = id.fradz = 0. ; 
+        id.fradx1 = id.frady1 = id.fradz1 = 0. ; 
+        #ifdef M1_NU_THREESPECIES
+        id.fradx2 = id.frady2 = id.fradz2 = 0. ; 
+        id.fradx3 = id.frady3 = id.fradz3 = 0. ; 
+        #endif
+        #ifdef M1_NU_FIVESPECIES
+        id.fradx4 = id.frady4 = id.fradz4 = 0. ; 
+        id.fradx5 = id.frady5 = id.fradz5 = 0. ; 
+        #endif
         return id ; 
     }
 
@@ -161,13 +201,13 @@ struct straight_beam_m1_id_t {
             pcoords(VEC(i,j,k),2,q)
         }; 
         
-        id.erad = atmo.E_fl ;
-        id.fradx = id.frady = id.fradz = 0. ; 
+        id.erad1 = atmo.E_fl ;
+        id.fradx1 = id.frady1 = id.fradz1 = 0. ; 
 
         if ( xyz[0] <= -0.25 and 
             xyz[1] < 0.0625 and xyz[1] > - 0.0625 and 
             xyz[2] < 0.0625 and xyz[2] > - 0.0625) {
-            id.erad = id.fradx = 1.0 ; 
+            id.erad1 = id.fradx1 = 1.0 ; 
         }
 
         return id ; 
@@ -200,13 +240,13 @@ struct scattering_diffusion_m1_id_t {
         }; 
         double r2 = SQR(xyz[0])+SQR(xyz[1])+SQR(xyz[2]);
         double r = sqrt(r2) ; 
-        id.erad = Kokkos::pow(ks/t0,3./2.) * Kokkos::exp(-3*ks*r2/(4.*t0)) ; 
+        id.erad1 = Kokkos::pow(ks/t0,3./2.) * Kokkos::exp(-3*ks*r2/(4.*t0)) ; 
 
-        double Hr = r/(2.*t0) * id.erad ; 
+        double Hr = r/(2.*t0) * id.erad1 ; 
 
-        id.fradx = xyz[0]/r * Hr ; 
-        id.frady = xyz[1]/r * Hr ; 
-        id.fradz = xyz[2]/r * Hr ; 
+        id.fradx1 = xyz[0]/r * Hr ; 
+        id.frady1 = xyz[1]/r * Hr ; 
+        id.fradz1 = xyz[2]/r * Hr ; 
 
         return id ; 
     }
@@ -238,13 +278,13 @@ struct moving_scattering_diffusion_m1_id_t {
             pcoords(VEC(i,j,k),2,q)
         }; 
 
-        id.erad = Kokkos::exp(-9.0*SQR(xyz[0])) ; 
+        id.erad1 = Kokkos::exp(-9.0*SQR(xyz[0])) ; 
 
         double const W2 = 1./(1-SQR(v0)) ; 
-        double J = 3.*id.erad  / (4.*W2-1.); 
+        double J = 3.*id.erad1  / (4.*W2-1.); 
 
-        id.fradx = 4./3. * J * W2 * v0 ; 
-        id.frady = id.fradz = 0. ;  
+        id.fradx1 = 4./3. * J * W2 * v0 ; 
+        id.frady1 = id.fradz1 = 0. ;  
 
         return id ; 
     }
@@ -280,13 +320,13 @@ struct emitting_sphere_m1_id_t {
         double r = sqrt(r2) ; 
 
         if ( r < 1. ) {
-            id.erad = 1. ; 
-            id.fradx=id.frady=id.fradz = 0 ; 
+            id.erad1 = 1. ; 
+            id.fradx1=id.frady1=id.fradz1 = 0 ; 
         } else {
-            id.erad = 1/r2 ;
-            id.fradx = 0.5/r2 * xyz[0]/r ; 
-            id.frady = 0.5/r2 * xyz[1]/r ; 
-            id.fradz = 0.5/r2 * xyz[2]/r ; 
+            id.erad1 = 1/r2 ;
+            id.fradx1 = 0.5/r2 * xyz[0]/r ; 
+            id.frady1 = 0.5/r2 * xyz[1]/r ; 
+            id.fradz1 = 0.5/r2 * xyz[2]/r ; 
         }
 
         return id ; 
@@ -318,26 +358,26 @@ struct curved_beam_m1_id_t {
             pcoords(VEC(i,j,k),2,q)
         }; 
         
-        id.erad = atmo.E_fl ; id.nrad = atmo.E_fl / atmo.eps_fl ; 
-        id.fradx = id.frady = id.fradz = 0. ;  
+        id.erad1 = atmo.E_fl ; id.nrad1 = atmo.E_fl / atmo.eps_fl ; 
+        id.fradx1 = id.frady1 = id.fradz1 = 0. ;  
 
         if ( xyz[0] <= 0.015625 and 
             xyz[1] < 0.25 and xyz[1] > - 0.25 and 
             xyz[2] <= 3.5 and xyz[2] >= 3.0 ) {
-            id.erad = 1.0 ; 
+            id.erad1 = 1.0 ; 
             // F_i F^i = E * E  
             metric_array_t metric ; 
             FILL_METRIC_ARRAY(metric,this->state,q,i,j,k) ; 
-            double FY = metric.beta(1) * id.erad / metric.alp() ; 
-            double FZ = metric.beta(2) * id.erad / metric.alp() ; 
+            double FY = metric.beta(1) * id.erad1 / metric.alp() ; 
+            double FZ = metric.beta(2) * id.erad1 / metric.alp() ; 
 
             double const a = metric.gamma(0) ; 
             double const b = 2 * FY * metric.gamma(1) + 2 * FZ * metric.gamma(2) ; 
-            double const c = - 0.9999 * SQR(id.erad) + SQR(FY) * metric.gamma(3) + SQR(FZ) * metric.gamma(5) + 2. * FY * FZ * metric.gamma(4) ; 
+            double const c = - 0.9999 * SQR(id.erad1) + SQR(FY) * metric.gamma(3) + SQR(FZ) * metric.gamma(5) + 2. * FY * FZ * metric.gamma(4) ; 
 
             double const FX = (-b + sqrt(SQR(b)-4.*a*c))/(2.*a) ; 
             auto Fd = metric.lower({FX,FY,FZ}) ; 
-            id.fradx = Fd[0] ; id.frady = Fd[1] ; id.fradz = Fd[2] ; 
+            id.fradx1 = Fd[0] ; id.frady1 = Fd[1] ; id.fradz1 = Fd[2] ; 
         }
 
         return id ; 

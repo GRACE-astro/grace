@@ -223,7 +223,7 @@ struct photon_eas_op {
         aux(i,j,k,ETAN1_,q)    = eta_cgs / T * SQR(Msun_to_cm)*Msun_to_cm * Msun_to_s * SQR(mass_scale) * SQR(mass_scale) / Msun_to_erg ; 
         aux(i,j,k,KAPPAAN1_,q) = eta_cgs / T / BBn * Msun_to_cm * mass_scale ; 
         // Scattering 
-        aux(i,j,k,KAPPAS_,q) = 0;//rho/me_cgs * sigma_T * Msun_to_cm * mass_scale; 
+        aux(i,j,k,KAPPAS1_,q) = 0;//rho/me_cgs * sigma_T * Msun_to_cm * mass_scale; 
         #endif 
     }
 
@@ -341,7 +341,8 @@ struct neutrinos_eas_op
         tau_policy_analytic_density tau_ana{};
         nu_rates_all_out all{};
     
-        if (use_weakhub && weakhub.valid) {
+        //if (use_weakhub && weakhub.valid) {
+        if (false) {
             switch (tau_kind) {
             case TAU_LOCAL_SPHERICAL:
             all = compute_all_species_weakhub(weakhub, rho, T, Ye, Ymu, mass_scale, plasmon_decay, bremsstrahlung, pair_annihilation, xyz, spherical_tau, apply_temp_correction);

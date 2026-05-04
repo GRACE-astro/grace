@@ -60,7 +60,6 @@
 #include <grace/physics/id/kelvin_helmholtz.hh>
 #include <grace/physics/id/cloud.hh>
 #include <grace/physics/id/tov.hh>
-#include <grace/physics/id/hot_tov.hh>
 #include <grace/physics/id/magnetic_rotor.hh>
 #include <grace/physics/id/orszag_tang_vortex.hh>
 #include <grace/physics/id/bondi_accretion.hh>
@@ -441,19 +440,6 @@ void set_grmhd_initial_data() {
         atmo_params_t atmo_params = get_atmo_params() ;
 
         set_grmhd_initial_data_impl<eos_t,tov_id_t<eos_t>>(atmo_params,rho_c,p_floor,dr,pert_amp) ;
-    } else if ( id_type == "hot-tov") { 
-        
-        auto const rho_c = get_param<double>("grmhd", "tov", "rho_c") ; 
-        auto const p_floor = get_param<double>("grmhd", "tov", "press_floor") ; 
-        auto const dr = get_param<double>("grmhd", "tov", "dr") ; 
-        auto const pert_amp = get_param<double>("grmhd", "tov", "pert_amp") ;
-
-        atmo_params_t atmo_params = get_atmo_params() ;
-
-        m1_excision_params_t m1_excision_params = get_m1_excision_params() ;
-        m1_atmo_params_t m1_atmo_params = get_m1_atmo_params() ;
-
-        set_grmhd_initial_data_impl<eos_t,hot_tov_id_t<eos_t>>(atmo_params,rho_c,p_floor,dr,pert_amp, m1_atmo_params, m1_excision_params) ;
     } else if( id_type == "magnetic_rotor" ) {
         auto pars = get_param<YAML::Node>("grmhd","magnetic_rotor") ; 
         auto const rho_in  = pars["rho_in"].as<double>() ; 
