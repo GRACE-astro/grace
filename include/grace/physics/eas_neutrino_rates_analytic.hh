@@ -494,6 +494,8 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE fugacity_state make_fugacity_state(
         F.Xa, F.Xh, F.Xn, F.Xp,
         F.Abar, F.Zbar,
         T_eos, rho_eos, ye_eos, err);
+    // TODO MUONS: when leptonic eos call here to get eta_mu
+    // FIL: eta[NUMU] = eta[MUON] + eta[PROTON] - eta[NEUTRON] - Qnp;
 
     F.Xa = (F.Xa > 0.0 ? F.Xa : 0.0);
     F.Xh = (F.Xh > 0.0 ? F.Xh : 0.0);
@@ -525,12 +527,16 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE fugacity_state make_fugacity_state(
     const double mu_nue = F.mu_e + F.mu_p - F.mu_n - Qnp;
     const double mu_nuebar = -mu_nue;
 
-    // Muonic species: for muonic EOS. Default: mu=0.
-    #ifdef M1_NU_THREESPECIES
-    const double mu_numu = 0.0;
-    const double mu_numubar = -mu_numu;
-    const double mu_nux = 0.0;
-    #endif
+    // Muonic species: default heavy-lepton neutrinos have zero equilibrium
+    // chemical potential.  A genuine 5-species muonic-EOS path must replace
+    // mu_numu by
+    //     mu_mu + mu_p - mu_n - Qnp
+    // and mu_numubar by -mu_numu.  The current GRACE EOS call above does not
+    // return mu_mu, so the analytic 5-species mode is non-muonic unless that
+    // EOS interface is extended.
+    double mu_numu = 0.0;
+    double mu_numubar = 0.0;
+    double mu_nux = 0.0;
 
     const double T = safe_pos(F.temp_mev);
     F.eta_e   = F.mu_e / T;
@@ -560,8 +566,8 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE fugacity_state make_fugacity_state(
         Kokkos::printf("  eta_e    = %e\n", F.eta_e);
         Kokkos::printf("  eta_nu[NUE]    = %e\n", F.eta_nu[NUE]);
         Kokkos::printf("  eta_nu[NUEBAR] = %e\n", F.eta_nu[NUEBAR]);
-        Kokkos::printf("  eta_np   = %e  (drives NUE emission)\n", F.eta_np);
-        Kokkos::printf("  eta_pn   = %e  (drives NUEBAR emission)\n", F.eta_pn);
+        Kokkos::printf("  eta_pn   = %e  (proton phase-space factor; drives NUE emission)\n", F.eta_pn);
+        Kokkos::printf("  eta_np   = %e  (neutron phase-space factor; drives NUEBAR emission)\n", F.eta_np);
         Kokkos::printf("========================================\n");
     }
     // ---- end DEBUG ----
@@ -672,10 +678,12 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void add_charged_current_emission(const fu
     if (!(block_factor_anue > 0.0)) block_factor_anue = 1.0;
 
     // Ruffert+ (B1-2) and (B15)
+    // e- + p -> n + nue      : use eta_pn (proton availability)
+    // e+ + n -> p + nuebar   : use eta_np (neutron availability)
     const double Re = beta * F.eta_pn * ipow<5>(F.temp_mev) * fermi::FD<4>::get(F.eta_e)  / block_factor_nue;
-    const double Ra = beta * F.eta_pn * ipow<5>(F.temp_mev) * fermi::FD<4>::get(-F.eta_e) / block_factor_anue;
+    const double Ra = beta * F.eta_np * ipow<5>(F.temp_mev) * fermi::FD<4>::get(-F.eta_e) / block_factor_anue;
     const double Qe = beta * F.eta_pn * ipow<6>(F.temp_mev) * fermi::FD<5>::get(F.eta_e)  / block_factor_nue;
-    const double Qa = beta * F.eta_pn * ipow<6>(F.temp_mev) * fermi::FD<5>::get(-F.eta_e) / block_factor_anue;
+    const double Qa = beta * F.eta_np * ipow<6>(F.temp_mev) * fermi::FD<5>::get(-F.eta_e) / block_factor_anue;
 
     if (Re > 0.0 && ::isfinite(Re)) out.R[NUE]    += Re;
     if (Ra > 0.0 && ::isfinite(Ra)) out.R[NUEBAR] += Ra;
@@ -972,14 +980,25 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE nu_rates_all_out compute_all_species(
     fugacity_state F = make_fugacity_state(eos, rho_code, temp_code, ye, ymu, mass_scale, xyz_code, tau_policy);
 
     rates_accum rates;
+
+    // Charged-current beta processes are handled explicitly:
+    //   emissivities from Ruffert/Rosswog formulae,
+    //   absorption opacities from the inverse charged-current reactions.
+    // Do not overwrite these opacities by Kirchhoff below.
     if (beta_decay) {
         add_charged_current_emission(F, rates);
         add_charged_current_absorption_opacity(F, rates);
     }
+
+    // Scattering is independent of thermal emissivity.
     add_scattering_opacity(F, rates);
-    if (pair_annihilation) add_pair_process_emission(F, rates);
-    if (plasmon_decay)     add_plasmon_decay_emission(F, rates);
-    if (bremsstrahlung)    add_brems_emission(F, rates);
+
+    // Thermal pair/plasmon/bremsstrahlung channels provide emissivities.
+    // Their inverse absorption opacities are added through Kirchhoff, like in FIL.
+    rates_accum thermal_rates;
+    if (pair_annihilation) add_pair_process_emission(F, thermal_rates);
+    if (plasmon_decay)     add_plasmon_decay_emission(F, thermal_rates);
+    if (bremsstrahlung)    add_brems_emission(F, thermal_rates);
 
     if (rho_code > 1.23857e-03) {
         Kokkos::printf("Q[NUE]=%e R[NUE]=%e Q/R=%e MeV\n",
@@ -994,7 +1013,19 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE nu_rates_all_out compute_all_species(
 #ifdef M1_NU_FIVESPECIES
     g_nu = {{1,1,1,1,2}};
 #endif
-    apply_kirchhoff(F, g_nu, rates);
+
+    std::array<double, NUMSPECIES> kappa_a_thermal{{0,0,0,0,0}};
+    std::array<double, NUMSPECIES> kappa_n_thermal{{0,0,0,0,0}};
+    add_kirchhoff_absorption_opacity_from_QR(
+        F, g_nu, thermal_rates.Q, thermal_rates.R,
+        kappa_a_thermal, kappa_n_thermal);
+
+    for (int s = 0; s < NUMSPECIES; ++s) {
+        rates.Q[s]       += thermal_rates.Q[s];
+        rates.R[s]       += thermal_rates.R[s];
+        rates.kappa_a[s] += kappa_a_thermal[s];
+        rates.kappa_n[s] += kappa_n_thermal[s];
+    }
 
     // Tau post-estimate (optional; now not stored)
     // TODO implement proper tau path integral handeling here
