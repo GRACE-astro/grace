@@ -186,7 +186,8 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE double code_time_to_s(double mass_scale) {
 GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE double rho_code_to_cgs(double rho_code, double mass_scale) {
     using namespace grace::physical_constants;
     const double L = code_length_to_cm(mass_scale);
-    return rho_code * nu_constants::Msun_cgs / (L * L * L);
+    //return rho_code * nu_constants::Msun_cgs / (L * L * L);
+    return rho_code / nu_constants::RHOGF;
 }
 
 // Temperature conversion, ok already in MeV
@@ -786,6 +787,7 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void add_plasmon_decay_emission(const fuga
 
     const double R_gamma = ipow<2>(Cv) * gamma_const / (block[NUE] * block[NUEBAR]);
     const double Q_gamma = F.temp_mev * 0.5 * (2.0 + gamma * gamma / (1.0 + gamma));
+    // TODO check if plasmon adds to nue, nuebar
     if (::isfinite(R_gamma) && (R_gamma > 0.0)) {
         out.R[NUE] += R_gamma;
         out.R[NUEBAR] += R_gamma;
@@ -865,6 +867,30 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void add_kirchhoff_absorption_opacity_from
         const double kn = R_in[s] * invBn;
         kappa_a_add[s] = finite_pos(ka) ? ka : 0.0;
         kappa_n_add[s] = finite_pos(kn) ? kn : 0.0;
+    }
+}
+
+GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE
+void add_kirchhoff_emission_from_absorption_opacity(
+    const fugacity_state& F,
+    const std::array<double, NUMSPECIES>& g_nu,
+    const std::array<double, NUMSPECIES>& kappa_a_in,
+    const std::array<double, NUMSPECIES>& kappa_n_in,
+    std::array<double, NUMSPECIES>& Q_add,
+    std::array<double, NUMSPECIES>& R_add)
+{
+    for (int s = 0; s < NUMSPECIES; ++s) {
+        if (!(g_nu[s] > 0.0)) {
+            Q_add[s] = 0.0;
+            R_add[s] = 0.0;
+            continue;
+        }
+        const double Ber_eq = black_body_energy(g_nu[s], F.temp_mev, F.eta_nu[s]);
+        const double Bn_eq  = black_body_number(g_nu[s], F.temp_mev, F.eta_nu[s]);
+        const double Q = kappa_a_in[s] * Ber_eq;
+        const double R = kappa_n_in[s] * Bn_eq;
+        Q_add[s] = finite_pos(Q) ? Q : 0.0;
+        R_add[s] = finite_pos(R) ? R : 0.0;
     }
 }
 
@@ -1017,9 +1043,37 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE nu_rates_all_out compute_all_species(
     //   emissivities from Ruffert/Rosswog formulae,
     //   absorption opacities from the inverse charged-current reactions.
     // Do not overwrite these opacities by Kirchhoff below.
+   // if (beta_decay) {
+    //    add_charged_current_emission(F, rates);
+    //    add_charged_current_absorption_opacity(F, rates);
+    //}
+
+    // TEST
+    // COMPUTE BETA EMISSION FROM KIRCHHOFF AND OPACITIES
+
     if (beta_decay) {
-        add_charged_current_emission(F, rates);
+        // First compute charged-current absorption opacities:
+        //   ν_e  + n -> p + e-
+        //   ν̄_e + p -> n + e+
         add_charged_current_absorption_opacity(F, rates);
+        // Then compute beta emissivities from Kirchhoff:
+        //   Q = kappa_a * B_E
+        //   R = kappa_n * B_N
+        std::array<double, NUMSPECIES> g_nu{{1,1,0,0,4}};
+        #ifdef M1_NU_FIVESPECIES
+            g_nu = {{1,1,1,1,2}};
+        #endif
+    
+        std::array<double, NUMSPECIES> Q_beta{{0,0,0,0,0}};
+        std::array<double, NUMSPECIES> R_beta{{0,0,0,0,0}};
+    
+        add_kirchhoff_emission_from_absorption_opacity(
+            F, g_nu, rates.kappa_a, rates.kappa_n, Q_beta, R_beta);   
+
+        rates.Q[NUE]    += Q_beta[NUE];
+        rates.R[NUE]    += R_beta[NUE];  
+        rates.Q[NUEBAR] += Q_beta[NUEBAR];
+        rates.R[NUEBAR] += R_beta[NUEBAR];
     }
 
     // Scattering is independent of thermal emissivity.
