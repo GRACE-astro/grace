@@ -303,6 +303,10 @@ struct m1_closure_t {
             W, E, vD.data(), eas[KAL], eas[KSL], eas[ETAL],
             vdotF, metric.alp(), J, HD.data(), &(dE), &(dF)
         ) ; 
+        S[0] = dE ; 
+        S[1] = dF[0] ; 
+        S[2] = dF[1] ; 
+        S[3] = dF[2] ; 
     }
 
     void GRACE_HOST_DEVICE 

@@ -131,8 +131,17 @@ void find_stable_timestep_impl() {
         #if !defined(GRACE_ENABLE_Z4C_METRIC) && !defined(GRACE_ENABLE_BSSN_METRIC)
         double cmax = GET_CMAX; 
         #ifdef GRACE_ENABLE_M1 
-        cmax = fmax(cmax,m1_eq_system(eigenspeed_kernel_t{}, VEC(i,j,k),q)) ; 
-        #endif 
+        double m1_cmax = m1_eq_system.template compute_max_eigenspeed<0>(VEC(i,j,k), q);
+        #ifdef M1_NU_THREESPECIES
+        m1_cmax = fmax(m1_cmax, m1_eq_system.template compute_max_eigenspeed<1>(VEC(i,j,k), q));
+        m1_cmax = fmax(m1_cmax, m1_eq_system.template compute_max_eigenspeed<2>(VEC(i,j,k), q));
+        #endif
+        #ifdef M1_NU_FIVESPECIES
+        m1_cmax = fmax(m1_cmax, m1_eq_system.template compute_max_eigenspeed<3>(VEC(i,j,k), q));
+        m1_cmax = fmax(m1_cmax, m1_eq_system.template compute_max_eigenspeed<4>(VEC(i,j,k), q));
+        #endif
+        cmax = fmax(cmax, m1_cmax);
+        #endif
         #else 
         double cmax = 1 ; 
         #endif 
