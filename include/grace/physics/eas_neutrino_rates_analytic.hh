@@ -751,21 +751,36 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void add_pair_process_emission(const fugac
         //out.Q[NUEBAR] += R_pair * eps_fraction;
     }
 
-    const double R_pair_x = (1.0/9.0) * pair_const * (ipow<2>(Cv - Ca) + ipow<2>(Cv + Ca - 2.0)) /
+    const double pair_heavy_coupling =
+        ipow<2>(Cv - Ca) + ipow<2>(Cv + Ca - 2.0);
+
+    #ifdef M1_NU_FIVESPECIES
+    // In 5-species mode:
+    //   NUMU    = nu_mu
+    //   NUMUBAR = anti-nu_mu
+    //   NUX     = nu_tau + anti-nu_tau
+    // Therefore NUX carries only two heavy-lepton species, not all four.
+    const double R_pair_x = (1.0/18.0) * pair_const * pair_heavy_coupling /
                           (block[NUX] * block[NUX]);
+    #else
+    // In 3-species mode NUX represents all four heavy-lepton species.
+    const double R_pair_x = (1.0/9.0) * pair_const * pair_heavy_coupling /
+                          (block[NUX] * block[NUX]);
+    #endif
+
     if (::isfinite(R_pair_x) && (R_pair_x > 0.0)) {
         out.R[NUX] += R_pair_x;
         out.Q[NUX] += R_pair_x * eps_fraction;
     }
 
     #ifdef M1_NU_FIVESPECIES
-    const double R_pair_numu = (1.0/36.0) * pair_const * (ipow<2>(Cv - Ca) + ipow<2>(Cv + Ca - 2.0)) /
+    const double R_pair_numu = (1.0/36.0) * pair_const * pair_heavy_coupling /
                              (block[NUMU] * block[NUMUBAR]);
     if (::isfinite(R_pair_numu) && (R_pair_numu > 0.0)) {
-    out.R[NUMU] += R_pair_numu;
-    out.R[NUMUBAR] += R_pair_numu;
-    out.Q[NUMU] += R_pair_numu * eps_fraction;
-    out.Q[NUMUBAR] += R_pair_numu * eps_fraction;
+        out.R[NUMU]    += R_pair_numu;
+        out.R[NUMUBAR] += R_pair_numu;
+        out.Q[NUMU]    += R_pair_numu * eps_fraction;
+        out.Q[NUMUBAR] += R_pair_numu * eps_fraction;
     }
     #endif
 }
@@ -795,19 +810,29 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void add_plasmon_decay_emission(const fuga
         out.Q[NUEBAR] += Q_gamma * R_gamma;
     }
 
-    const double R_gamma_x = 4.0 * ipow<2>(Cv - 1.0) * gamma_const / (block[NUX] * block[NUX]);
+    #ifdef M1_NU_FIVESPECIES
+    // In 5-species mode NUX is only tau + anti-tau, so use degeneracy 2.
+    const double R_gamma_x = 2.0 * ipow<2>(Cv - 1.0) * gamma_const /
+                           (block[NUX] * block[NUX]);
+    #else
+    // In 3-species mode NUX represents all four heavy-lepton species.
+    const double R_gamma_x = 4.0 * ipow<2>(Cv - 1.0) * gamma_const /
+                           (block[NUX] * block[NUX]);
+    #endif
+
     if (::isfinite(R_gamma_x) && (R_gamma_x > 0.0)) {
         out.R[NUX] += R_gamma_x;
         out.Q[NUX] += Q_gamma * R_gamma_x;
     }
 
     #ifdef M1_NU_FIVESPECIES
-    const double R_gamma_numu = ipow<2>(Cv - 1.0) * gamma_const / (block[NUMU] * block[NUMUBAR]);
+    const double R_gamma_numu = ipow<2>(Cv - 1.0) * gamma_const /
+                              (block[NUMU] * block[NUMUBAR]);
     if (::isfinite(R_gamma_numu) && (R_gamma_numu > 0.0)) {
-    out.R[NUMU] += R_gamma_numu;
-    out.R[NUMUBAR] += R_gamma_numu;
-    out.Q[NUMU] += Q_gamma * R_gamma_numu;
-    out.Q[NUMUBAR] += Q_gamma * R_gamma_numu;
+        out.R[NUMU]    += R_gamma_numu;
+        out.R[NUMUBAR] += R_gamma_numu;
+        out.Q[NUMU]    += Q_gamma * R_gamma_numu;
+        out.Q[NUMUBAR] += Q_gamma * R_gamma_numu;
     }
     #endif
 }
@@ -819,13 +844,21 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void add_brems_emission(const fugacity_sta
         0.231 * (2.0778e2 * erg_to_mev) * factorY * ipow<2>(F.rho_cgs) * ipow<4>(F.temp_mev) * Kokkos::sqrt(safe_pos(F.temp_mev));
     const double Q_brems = R_brems * F.temp_mev / 0.231 * 0.504;
     if (::isfinite(R_brems) && (R_brems > 0.0) && ::isfinite(Q_brems) && (Q_brems > 0.0)) {
-        out.R[NUX] += R_brems;
-        out.Q[NUX] += Q_brems;
         #ifdef M1_NU_FIVESPECIES
-        out.R[NUMU] += R_brems;
-        out.Q[NUMU] += Q_brems;
+        // In 5-species mode:
+        //   NUMU    = one heavy species
+        //   NUMUBAR = one heavy species
+        //   NUX     = tau + anti-tau, i.e. two heavy species
+        out.R[NUMU]    += R_brems;
+        out.Q[NUMU]    += Q_brems;
         out.R[NUMUBAR] += R_brems;
         out.Q[NUMUBAR] += Q_brems;
+        out.R[NUX]     += 2.0 * R_brems;
+        out.Q[NUX]     += 2.0 * Q_brems;
+        #else
+        // In 3-species mode NUX represents all four heavy-lepton species.
+        out.R[NUX] += 4.0 * R_brems;
+        out.Q[NUX] += 4.0 * Q_brems;
         #endif
   }
 }
