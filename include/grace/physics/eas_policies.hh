@@ -161,6 +161,30 @@ struct test_eas_op {
             
             break ; 
         }
+        #ifdef M1_NU_THREESPECIES
+        aux(i,j,k,KAPPAA2_,q) = aux(i,j,k,KAPPAA1_,q);
+        aux(i,j,k,KAPPAAN2_,q) = aux(i,j,k,KAPPAA1_,q); 
+        aux(i,j,k,KAPPAS2_,q) = aux(i,j,k,KAPPAS1_,q);
+        aux(i,j,k,ETA2_,q) = aux(i,j,k,ETA1_,q); 
+        aux(i,j,k,ETAN2_,q) = aux(i,j,k,ETAN1_,q);
+        aux(i,j,k,KAPPAA3_,q) = aux(i,j,k,KAPPAA1_,q);
+        aux(i,j,k,KAPPAAN3_,q) = aux(i,j,k,KAPPAA1_,q); 
+        aux(i,j,k,KAPPAS3_,q) = aux(i,j,k,KAPPAS1_,q);
+        aux(i,j,k,ETA3_,q) = aux(i,j,k,ETA1_,q); 
+        aux(i,j,k,ETAN3_,q) = aux(i,j,k,ETAN1_,q);
+        #endif
+        #ifdef M1_NU_FIVESPECIES
+        aux(i,j,k,KAPPAA4_,q) = aux(i,j,k,KAPPAA1_,q);
+        aux(i,j,k,KAPPAAN4_,q) = aux(i,j,k,KAPPAA1_,q); 
+        aux(i,j,k,KAPPAS4_,q) = aux(i,j,k,KAPPAS1_,q);
+        aux(i,j,k,ETA4_,q) = aux(i,j,k,ETA1_,q); 
+        aux(i,j,k,ETAN4_,q) = aux(i,j,k,ETAN1_,q);
+        aux(i,j,k,KAPPAA5_,q) = aux(i,j,k,KAPPAA1_,q);
+        aux(i,j,k,KAPPAAN5_,q) = aux(i,j,k,KAPPAA1_,q); 
+        aux(i,j,k,KAPPAS5_,q) = aux(i,j,k,KAPPAS1_,q);
+        aux(i,j,k,ETA5_,q) = aux(i,j,k,ETA1_,q); 
+        aux(i,j,k,ETAN5_,q) = aux(i,j,k,ETAN1_,q);
+        #endif
     }
 
     var_array_t aux ; 
@@ -367,18 +391,16 @@ struct neutrinos_eas_op
             break;
             }
         }
-
-        #ifdef M1_NU_THREESPECIES
-        { const nu_rates_out r = all.out[NUE];    aux(i,j,k,ETA1_,q)=r.eta_E; aux(i,j,k,KAPPAA1_,q)=r.kappa_a; aux(i,j,k,KAPPAS1_,q)=r.kappa_s; aux(i,j,k,ETAN1_,q)=r.eta_N; aux(i,j,k,KAPPAAN1_,q)=r.kappa_n; }
-        { const nu_rates_out r = all.out[NUEBAR]; aux(i,j,k,ETA2_,q)=r.eta_E; aux(i,j,k,KAPPAA2_,q)=r.kappa_a; aux(i,j,k,KAPPAS2_,q)=r.kappa_s; aux(i,j,k,ETAN2_,q)=r.eta_N; aux(i,j,k,KAPPAAN2_,q)=r.kappa_n; }
-        { const nu_rates_out r = all.out[NUX];    aux(i,j,k,ETA3_,q)=r.eta_E; aux(i,j,k,KAPPAA3_,q)=r.kappa_a; aux(i,j,k,KAPPAS3_,q)=r.kappa_s; aux(i,j,k,ETAN3_,q)=r.eta_N; aux(i,j,k,KAPPAAN3_,q)=r.kappa_n; }
-        #endif
         #ifdef M1_NU_FIVESPECIES
         { const nu_rates_out r = all.out[NUE];     aux(i,j,k,ETA1_,q)=r.eta_E; aux(i,j,k,KAPPAA1_,q)=r.kappa_a; aux(i,j,k,KAPPAS1_,q)=r.kappa_s; aux(i,j,k,ETAN1_,q)=r.eta_N; aux(i,j,k,KAPPAAN1_,q)=r.kappa_n; }
         { const nu_rates_out r = all.out[NUEBAR];  aux(i,j,k,ETA2_,q)=r.eta_E; aux(i,j,k,KAPPAA2_,q)=r.kappa_a; aux(i,j,k,KAPPAS2_,q)=r.kappa_s; aux(i,j,k,ETAN2_,q)=r.eta_N; aux(i,j,k,KAPPAAN2_,q)=r.kappa_n; }
         { const nu_rates_out r = all.out[NUMU];    aux(i,j,k,ETA3_,q)=r.eta_E; aux(i,j,k,KAPPAA3_,q)=r.kappa_a; aux(i,j,k,KAPPAS3_,q)=r.kappa_s; aux(i,j,k,ETAN3_,q)=r.eta_N; aux(i,j,k,KAPPAAN3_,q)=r.kappa_n; }
         { const nu_rates_out r = all.out[NUMUBAR]; aux(i,j,k,ETA4_,q)=r.eta_E; aux(i,j,k,KAPPAA4_,q)=r.kappa_a; aux(i,j,k,KAPPAS4_,q)=r.kappa_s; aux(i,j,k,ETAN4_,q)=r.eta_N; aux(i,j,k,KAPPAAN4_,q)=r.kappa_n; }
         { const nu_rates_out r = all.out[NUX];     aux(i,j,k,ETA5_,q)=r.eta_E; aux(i,j,k,KAPPAA5_,q)=r.kappa_a; aux(i,j,k,KAPPAS5_,q)=r.kappa_s; aux(i,j,k,ETAN5_,q)=r.eta_N; aux(i,j,k,KAPPAAN5_,q)=r.kappa_n; }
+        #elif defined(M1_NU_THREESPECIES)
+        { const nu_rates_out r = all.out[NUE];    aux(i,j,k,ETA1_,q)=r.eta_E; aux(i,j,k,KAPPAA1_,q)=r.kappa_a; aux(i,j,k,KAPPAS1_,q)=r.kappa_s; aux(i,j,k,ETAN1_,q)=r.eta_N; aux(i,j,k,KAPPAAN1_,q)=r.kappa_n; }
+        { const nu_rates_out r = all.out[NUEBAR]; aux(i,j,k,ETA2_,q)=r.eta_E; aux(i,j,k,KAPPAA2_,q)=r.kappa_a; aux(i,j,k,KAPPAS2_,q)=r.kappa_s; aux(i,j,k,ETAN2_,q)=r.eta_N; aux(i,j,k,KAPPAAN2_,q)=r.kappa_n; }
+        { const nu_rates_out r = all.out[NUX];    aux(i,j,k,ETA3_,q)=r.eta_E; aux(i,j,k,KAPPAA3_,q)=r.kappa_a; aux(i,j,k,KAPPAS3_,q)=r.kappa_s; aux(i,j,k,ETAN3_,q)=r.eta_N; aux(i,j,k,KAPPAAN3_,q)=r.kappa_n; }
         #endif
     }
 

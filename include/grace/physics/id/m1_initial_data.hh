@@ -210,6 +210,23 @@ struct straight_beam_m1_id_t {
             id.erad1 = id.fradx1 = 1.0 ; 
         }
 
+        #ifdef M1_NU_THREESPECIES
+            id.erad2 = id.erad1 ;
+            id.nrad2 = id.nrad1 ;
+            id.fradx2 = id.fradx1 ; id.frady2 = id.frady1 ; id.fradz2 = id.fradz1 ;
+            id.erad3 = id.erad1 ;
+            id.nrad3 = id.nrad1 ;
+            id.fradx3 = id.fradx1 ; id.frady3 = id.frady1 ; id.fradz3 = id.fradz1 ;
+            #endif
+            #ifdef M1_NU_FIVESPECIES
+            id.erad4 = id.erad1 ;
+            id.nrad4 = id.nrad1 ;
+            id.fradx4 = id.fradx1 ; id.frady4 = id.frady1 ; id.fradz4 = id.fradz1 ;
+            id.erad5 = id.erad1 ;
+            id.nrad5 = id.nrad1 ;
+            id.fradx5 = id.fradx1 ; id.frady5 = id.frady1 ; id.fradz5 = id.fradz1 ;
+        #endif
+
         return id ; 
     }
 
@@ -248,6 +265,23 @@ struct scattering_diffusion_m1_id_t {
         id.frady1 = xyz[1]/r * Hr ; 
         id.fradz1 = xyz[2]/r * Hr ; 
 
+        #ifdef M1_NU_THREESPECIES
+            id.erad2 = id.erad1 ;
+            id.nrad2 = id.nrad1 ;
+            id.fradx2 = id.fradx1 ; id.frady2 = id.frady1 ; id.fradz2 = id.fradz1 ;
+            id.erad3 = id.erad1 ;
+            id.nrad3 = id.nrad1 ;
+            id.fradx3 = id.fradx1 ; id.frady3 = id.frady1 ; id.fradz3 = id.fradz1 ;
+        #endif
+        #ifdef M1_NU_FIVESPECIES
+            id.erad4 = id.erad1 ;
+            id.nrad4 = id.nrad1 ;
+            id.fradx4 = id.fradx1 ; id.frady4 = id.frady1 ; id.fradz4 = id.fradz1 ;
+            id.erad5 = id.erad1 ;
+            id.nrad5 = id.nrad1 ;
+            id.fradx5 = id.fradx1 ; id.frady5 = id.frady1 ; id.fradz5 = id.fradz1 ;
+        #endif
+
         return id ; 
     }
 
@@ -285,6 +319,23 @@ struct moving_scattering_diffusion_m1_id_t {
 
         id.fradx1 = 4./3. * J * W2 * v0 ; 
         id.frady1 = id.fradz1 = 0. ;  
+
+        #ifdef M1_NU_THREESPECIES
+            id.erad2 = id.erad1 ;
+            id.nrad2 = id.nrad1 ;
+            id.fradx2 = id.fradx1 ; id.frady2 = id.frady1 ; id.fradz2 = id.fradz1 ;
+            id.erad3 = id.erad1 ;
+            id.nrad3 = id.nrad1 ;
+            id.fradx3 = id.fradx1 ; id.frady3 = id.frady1 ; id.fradz3 = id.fradz1 ;
+        #endif
+        #ifdef M1_NU_FIVESPECIES
+            id.erad4 = id.erad1 ;
+            id.nrad4 = id.nrad1 ;
+            id.fradx4 = id.fradx1 ; id.frady4 = id.frady1 ; id.fradz4 = id.fradz1 ;
+            id.erad5 = id.erad1 ;
+            id.nrad5 = id.nrad1 ;
+            id.fradx5 = id.fradx1 ; id.frady5 = id.frady1 ; id.fradz5 = id.fradz1 ;
+        #endif
 
         return id ; 
     }
@@ -329,6 +380,23 @@ struct emitting_sphere_m1_id_t {
             id.fradz1 = 0.5/r2 * xyz[2]/r ; 
         }
 
+        #ifdef M1_NU_THREESPECIES
+            id.erad2 = id.erad1 ;
+            id.nrad2 = id.nrad1 ;
+            id.fradx2 = id.fradx1 ; id.frady2 = id.frady1 ; id.fradz2 = id.fradz1 ;
+            id.erad3 = id.erad1 ;
+            id.nrad3 = id.nrad1 ;
+            id.fradx3 = id.fradx1 ; id.frady3 = id.frady1 ; id.fradz3 = id.fradz1 ;
+            #endif
+            #ifdef M1_NU_FIVESPECIES
+            id.erad4 = id.erad1 ;
+            id.nrad4 = id.nrad1 ;
+            id.fradx4 = id.fradx1 ; id.frady4 = id.frady1 ; id.fradz4 = id.fradz1 ;
+            id.erad5 = id.erad1 ;
+            id.nrad5 = id.nrad1 ;
+            id.fradx5 = id.fradx1 ; id.frady5 = id.frady1 ; id.fradz5 = id.fradz1 ;
+        #endif
+            
         return id ; 
     }
 
@@ -379,6 +447,23 @@ struct curved_beam_m1_id_t {
             auto Fd = metric.lower({FX,FY,FZ}) ; 
             id.fradx1 = Fd[0] ; id.frady1 = Fd[1] ; id.fradz1 = Fd[2] ; 
         }
+
+        #ifdef M1_NU_THREESPECIES
+            id.erad2 = id.erad1 ;
+            id.nrad2 = id.nrad1 ;
+            id.fradx2 = id.fradx1 ; id.frady2 = id.frady1 ; id.fradz2 = id.fradz1 ;
+            id.erad3 = id.erad1 ;
+            id.nrad3 = id.nrad1 ;
+            id.fradx3 = id.fradx1 ; id.frady3 = id.frady1 ; id.fradz3 = id.fradz1 ;
+            #endif
+            #ifdef M1_NU_FIVESPECIES
+            id.erad4 = id.erad1 ;
+            id.nrad4 = id.nrad1 ;
+            id.fradx4 = id.fradx1 ; id.frady4 = id.frady1 ; id.fradz4 = id.fradz1 ;
+            id.erad5 = id.erad1 ;
+            id.nrad5 = id.nrad1 ;
+            id.fradx5 = id.fradx1 ; id.frady5 = id.frady1 ; id.fradz5 = id.fradz1 ;
+        #endif
 
         return id ; 
     }

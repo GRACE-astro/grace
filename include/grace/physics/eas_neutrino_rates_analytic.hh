@@ -106,6 +106,15 @@ constexpr double mp_cgs    = mp_MeV * MeV_to_g;               // g
 constexpr double mnuc_cgs  = mp_cgs;                          // nucleon mass (approx)
 constexpr double avogadro = 6.02214076e23; // 1/mol
 
+// LENGTHGF: cm -> CU  (1 cm = LENGTHGF CU)
+constexpr double LENGTHGF = 6.77269222552442e-6;   // cm to CU
+// TIMEGF: s -> CU
+constexpr double TIMEGF   = 2.03040204956746e5;    // s to CU
+// RHOGF: g/cm^3 -> CU
+constexpr double RHOGF    = 1.61887093132742e-18;  // g/cm^3 to CU
+// EPSGF: erg/g -> CU  (= 1/c^2)
+constexpr double EPSGF    = 1.11265005605362e-21;  // erg/g to CU
+
 
 // Neutron-proton mass difference (MeV)
 constexpr double Qnp = 1.29333236;
@@ -189,26 +198,48 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE double temp_code_to_mev(double temp_code) 
 }
 
 // Q [MeV cm^-3 s^-1] -> code energy emissivity
-GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE double Q_mev_to_code(double Q_mev, double mass_scale) {
-    using namespace grace::physical_constants;
-    const double L = code_length_to_cm(mass_scale);
-    const double t = code_time_to_s(mass_scale);
-    const double Q_erg = Q_mev * nu_constants::mev_to_erg;
-    return Q_erg * (L * L * L) * t / nu_constants::Msun_to_erg;
+//GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE double Q_mev_to_code(double Q_mev, double mass_scale) {
+//    using namespace grace::physical_constants;
+//    const double L = code_length_to_cm(mass_scale);
+//    const double t = code_time_to_s(mass_scale);
+//    const double Q_erg = Q_mev * nu_constants::mev_to_erg;
+//    return Q_erg * (L * L * L) * t / nu_constants::Msun_to_erg;
+//}
+//
+//// R [cm^-3 s^-1] -> code number emissivity
+//GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE double R_to_code(double R_cgs, double mass_scale) {
+//    const double L = code_length_to_cm(mass_scale);
+//    const double t = code_time_to_s(mass_scale);
+//    return R_cgs * (L * L * L) * t * (nu_constants::mnuc_cgs / nu_constants::Msun_cgs); // KEN added * (mnuc_cgs / Msun_cgs)
+//}
+//
+//// kappa [cm^-1] -> code [1/code_length]
+//GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE double kappa_to_code(double kappa_cgs, double mass_scale) {
+//    const double L = code_length_to_cm(mass_scale);
+//    return kappa_cgs * L;
+//}
+
+// Q [MeV cm^-3 s^-1] -> code units
+// Matches Margherita: Q_cactus = Q * mev_to_erg * RHOGF * EPSGF / TIMEGF
+GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE double Q_mev_to_code(double Q_mev, double /*mass_scale*/) {
+    using namespace nu_constants;
+    return Q_mev * mev_to_erg * RHOGF * EPSGF / TIMEGF;
 }
 
-// R [cm^-3 s^-1] -> code number emissivity
-GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE double R_to_code(double R_cgs, double mass_scale) {
-    const double L = code_length_to_cm(mass_scale);
-    const double t = code_time_to_s(mass_scale);
-    return R_cgs * (L * L * L) * t;
+// R [cm^-3 s^-1] -> code units
+// Matches Margherita: R_cactus = R * mnuc_cgs * RHOGF / TIMEGF
+GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE double R_to_code(double R_cgs, double /*mass_scale*/) {
+    using namespace nu_constants;
+    return R_cgs * mnuc_cgs * RHOGF / TIMEGF;
 }
 
-// kappa [cm^-1] -> code [1/code_length]
-GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE double kappa_to_code(double kappa_cgs, double mass_scale) {
-    const double L = code_length_to_cm(mass_scale);
-    return kappa_cgs * L;
+// kappa [cm^-1] -> code units [1/code_length]
+// Matches Margherita: kappa_cactus = kappa / LENGTHGF
+GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE double kappa_to_code(double kappa_cgs, double /*mass_scale*/) {
+    using namespace nu_constants;
+    return kappa_cgs / LENGTHGF;
 }
+
 
 // -----------------------------------------------------------------------------
 // Fermi-Dirac integrals: Takahashi+ (1978) fits 
@@ -508,7 +539,7 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE fugacity_state make_fugacity_state(
     F.nb = safe_pos(F.rho_cgs) * nu_constants::avogadro ;// nu_constants::mnuc_cgs;
 
     // ---- DEBUG ----
-    if(rho_code > 1.23857e-03 ) {
+    if(rho_code > 1.23857e-03 && false ) {
         Kokkos::printf("=== make_fugacity_state CENTER DEBUG ===\n");
         Kokkos::printf("  rho_code = %e\n", rho_code);
         Kokkos::printf("  rho_cgs  = %e\n", F.rho_cgs);
@@ -561,7 +592,7 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE fugacity_state make_fugacity_state(
     if (!::isfinite(F.eta_pn) || !(F.eta_pn > 0.0)) F.eta_pn = 0.0;
 
     // ---- DEBUG ----
-    if(rho_code > 1.23857e-03 ) {
+    if(rho_code > 1.23857e-03 && false) {
         Kokkos::printf("  eta_hat  = %e\n", F.eta_hat);
         Kokkos::printf("  eta_e    = %e\n", F.eta_e);
         Kokkos::printf("  eta_nu[NUE]    = %e\n", F.eta_nu[NUE]);
@@ -711,11 +742,12 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void add_pair_process_emission(const fugac
 
     const double R_pair = pair_const * (ipow<2>(Cv - Ca) + ipow<2>(Cv + Ca)) /
                         (36.0 * block[NUE] * block[NUEBAR]);
+    //KEN
     if (::isfinite(R_pair) && (R_pair > 0.0)) {
-        out.R[NUE] += R_pair;
-        out.R[NUEBAR] += R_pair;
-        out.Q[NUE] += R_pair * eps_fraction;
-        out.Q[NUEBAR] += R_pair * eps_fraction;
+        //out.R[NUE] += R_pair;
+        //out.R[NUEBAR] += R_pair;
+        //out.Q[NUE] += R_pair * eps_fraction;
+        //out.Q[NUEBAR] += R_pair * eps_fraction;
     }
 
     const double R_pair_x = (1.0/9.0) * pair_const * (ipow<2>(Cv - Ca) + ipow<2>(Cv + Ca - 2.0)) /
@@ -1000,14 +1032,6 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE nu_rates_all_out compute_all_species(
     if (plasmon_decay)     add_plasmon_decay_emission(F, thermal_rates);
     if (bremsstrahlung)    add_brems_emission(F, thermal_rates);
 
-    if (rho_code > 1.23857e-03) {
-        Kokkos::printf("Q[NUE]=%e R[NUE]=%e Q/R=%e MeV\n",
-            rates.Q[NUE], rates.R[NUE], rates.Q[NUE]/rates.R[NUE]);
-        Kokkos::printf("Q[NUEBAR]=%e R[NUEBAR]=%e Q/R=%e MeV\n",
-            rates.Q[NUEBAR], rates.R[NUEBAR], rates.Q[NUEBAR]/rates.R[NUEBAR]);
-        Kokkos::printf("Q[NUX]=%e R[NUX]=%e Q/R=%e MeV\n",
-            rates.Q[NUX], rates.R[NUX], rates.Q[NUX]/rates.R[NUX]);
-    }
 
     std::array<double, NUMSPECIES> g_nu{{1,1,0,0,4}};
 #ifdef M1_NU_FIVESPECIES

@@ -109,6 +109,7 @@ solve_tov(
         pressl(0) = _pressC_loc ; 
         nul(0)   = 0.0 ; 
         risol(0) = 0.0 ; 
+        rl(0)    = 0.0 ;
             
         size_t npt=1;
         for( int ii=0; ii<N_POINTS-1; ++ii) {
@@ -137,17 +138,17 @@ solve_tov(
                 state[jj] = y[jj] + (dr/6.0) * (k1[jj] + 2*k2[jj] + 2*k3[jj] + k4[jj]) ; 
             }
 
-            if ( ( state[1] <= press_floor) or (state[1] <= 0)) 
-            {
-                npt = ii+1; 
-                break ; 
-            } 
-
             massl(ii+1)  = state[0]  ; 
             pressl(ii+1) = state[1]  ;
             nul(ii+1)    = state[2]  ;
             rl(ii+1)     = rr        ; 
             risol(ii+1)  = state[3]  ;
+
+            if ( ( state[1] <= press_floor) or (state[1] <= 0)) 
+            {
+                npt = ii+2;  // npt-1 is this (out-of-bounds) point, npt-2 is last good one
+                break ; 
+            } 
         }
         // find M and R at the edge:
         auto const _linterp = [] (double x, double x0, double x1, double y0, double y1) {
@@ -219,6 +220,8 @@ solve_tov(
         r_iso = Kokkos::View<double *, grace::default_space>("r_iso", N_POINTS) ;
 
         GRACE_INFO("In TOV setup.") ; 
+        eos_err_t err;
+        press_floor = eos.press_cold__rho(atmo_params.rho_fl, err);
         solve_tov(eos,rhoC,press_floor,dr,mass,r,press,nu,r_iso,tov_params);
         Kokkos::fence() ; 
         GRACE_INFO("TOV solver done.") ; 
