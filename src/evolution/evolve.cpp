@@ -1456,6 +1456,12 @@ void advance_implicit_substep( double const t, double const dt, double const dtf
                 q, VEC(i,j,k), _idx, new_state, dt, dtfact
             );
             #endif 
+            
+            #ifdef M1_NU_THREESPECIES
+            m1_eq_system.add_backreaction<eos_t>(
+                q, VEC(i,j,k), _idx, new_state
+            );
+            #endif
         }
     ) ; 
     #endif

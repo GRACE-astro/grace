@@ -190,11 +190,11 @@ static void set_m1_initial_data_impl(
             state(VEC(i,j,k),FRADX4_,q) = metric.sqrtg() * id.fradx4 ; 
             state(VEC(i,j,k),FRADY4_,q) = metric.sqrtg() * id.frady4 ; 
             state(VEC(i,j,k),FRADZ4_,q) = metric.sqrtg() * id.fradz4 ; 
-            state(VEC(i,j,k),ERAD4_,q)  = metric.sqrtg() * id.erad5 ; 
-            state(VEC(i,j,k),NRAD4_,q)  = metric.sqrtg() * id.nrad5 ; 
-            state(VEC(i,j,k),FRADX4_,q) = metric.sqrtg() * id.fradx5 ; 
-            state(VEC(i,j,k),FRADY4_,q) = metric.sqrtg() * id.frady5 ; 
-            state(VEC(i,j,k),FRADZ4_,q) = metric.sqrtg() * id.fradz5 ; 
+            state(VEC(i,j,k),ERAD5_,q)  = metric.sqrtg() * id.erad5 ; 
+            state(VEC(i,j,k),NRAD5_,q)  = metric.sqrtg() * id.nrad5 ; 
+            state(VEC(i,j,k),FRADX5_,q) = metric.sqrtg() * id.fradx5 ; 
+            state(VEC(i,j,k),FRADY5_,q) = metric.sqrtg() * id.frady5 ; 
+            state(VEC(i,j,k),FRADZ5_,q) = metric.sqrtg() * id.fradz5 ; 
             #endif
         }
     ) ; 

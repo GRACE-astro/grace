@@ -374,7 +374,9 @@ struct m1_closure_t {
         W = sqrt(W2) ; 
         vU[0]/=W ; vU[1]/=W; vU[2]/=W ; 
 
-        vdotF = fmax(FD[0] * vU[0] + FD[1] * vU[1] + FD[2] * vU[2], f_floor) ; 
+        // KEN removed the clamp. It can be negative and zero
+        // vdotF = fmax(FD[0] * vU[0] + FD[1] * vU[1] + FD[2] * vU[2], f_floor) ; 
+        vdotF = FD[0] * vU[0] + FD[1] * vU[1] + FD[2] * vU[2] ; 
 
         vD = metric.lower(vU) ; 
         v2 = metric.square_vec(vU) ; 

@@ -105,6 +105,41 @@ struct slope_limited_reconstructor_t
         uL = u(VEC(im,jm,km)) + 0.5 * limiter(slopeL,slopeR) ; 
     }
 } ;
+
+struct godunov_reconstructor_t  
+{
+    /**
+     * @brief Compute reconstruction of state 
+     *        at the left and right of interface.
+     * 
+     * @tparam ViewT Variable view type.
+     * @param u Variable view.
+     * @param uL Left state.
+     * @param uR Right state.
+     * @param idir Direction of reconstruction.
+     * 
+     */
+    template< typename ViewT >
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    operator() (
+          ViewT& u 
+        , VEC( int const i
+             , int const j 
+             , int const k)
+        , double& uL
+        , double& uR 
+        , int8_t idir )
+    {
+        int const im  = i - utils::delta(0,idir)   ; 
+        int const jm  = j - utils::delta(1,idir)   ; 
+        #ifdef GRACE_3D 
+        int const km  = k - utils::delta(2,idir)   ; 
+        #endif 
+
+        uR = u(VEC(i,j,k)); 
+        uL = u(VEC(im,jm,km)) ; 
+    }
+} ;
  
 }
 #endif /* GRACE_UTILS_RECONSTRUCTION_HH */

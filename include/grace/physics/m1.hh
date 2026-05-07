@@ -494,16 +494,16 @@ struct m1_equations_system_t
         state_new(i,j,k,FRADY1_+ispec*GRACE_N_M1_VARS,q) = metric.sqrtg() * U[2] ; 
         state_new(i,j,k,FRADZ1_+ispec*GRACE_N_M1_VARS,q) = metric.sqrtg() * U[3] ; 
         /**************************************************************************************************/
-        #ifndef GRACE_FREEZE_HYDRO
-        double const dE = this->_state(VEC(i,j,k),ERAD1_+ispec*GRACE_N_M1_VARS,q) - state_new(VEC(i,j,k),ERAD1_+ispec*GRACE_N_M1_VARS,q) ; 
-        state_new(VEC(i,j,k),TAU_,q) += dE ; 
-        double const dSx = this->_state(VEC(i,j,k),FRADX1_+ispec*GRACE_N_M1_VARS,q) - state_new(VEC(i,j,k),FRADX1_+ispec*GRACE_N_M1_VARS,q) ;
-        state_new(VEC(i,j,k),SX_,q) += dSx ; 
-        double const dSy = this->_state(VEC(i,j,k),FRADY1_+ispec*GRACE_N_M1_VARS,q) - state_new(VEC(i,j,k),FRADY1_+ispec*GRACE_N_M1_VARS,q) ;
-        state_new(VEC(i,j,k),SY_,q) += dSy ; 
-        double const dSz = this->_state(VEC(i,j,k),FRADZ1_+ispec*GRACE_N_M1_VARS,q) - state_new(VEC(i,j,k),FRADZ1_+ispec*GRACE_N_M1_VARS,q) ; 
-        state_new(VEC(i,j,k),SZ_,q) += dSz ; 
-        #endif
+        //#ifndef GRACE_FREEZE_HYDRO
+        //double const dE = this->_state(VEC(i,j,k),ERAD1_+ispec*GRACE_N_M1_VARS,q) - state_new(VEC(i,j,k),ERAD1_+ispec*GRACE_N_M1_VARS,q) ; 
+        //state_new(VEC(i,j,k),TAU_,q) += dE ; 
+        //double const dSx = this->_state(VEC(i,j,k),FRADX1_+ispec*GRACE_N_M1_VARS,q) - state_new(VEC(i,j,k),FRADX1_+ispec*GRACE_N_M1_VARS,q) ;
+        //state_new(VEC(i,j,k),SX_,q) += dSx ; 
+        //double const dSy = this->_state(VEC(i,j,k),FRADY1_+ispec*GRACE_N_M1_VARS,q) - state_new(VEC(i,j,k),FRADY1_+ispec*GRACE_N_M1_VARS,q) ;
+        //state_new(VEC(i,j,k),SY_,q) += dSy ; 
+        //double const dSz = this->_state(VEC(i,j,k),FRADZ1_+ispec*GRACE_N_M1_VARS,q) - state_new(VEC(i,j,k),FRADZ1_+ispec*GRACE_N_M1_VARS,q) ; 
+        //state_new(VEC(i,j,k),SZ_,q) += dSz ; 
+        //#endif
         /**************************************************************************************************/
         // Number source is linear
         // we need to update the closure on the starred state 
@@ -518,24 +518,122 @@ struct m1_equations_system_t
         state_new(VEC(i,j,k),NRAD1_+ispec*GRACE_N_M1_VARS,q)  = metric.sqrtg() * N ; 
         /**************************************************************************************************/
         // if needed add dN to ye here! 
+        //#ifdef M1_NU_THREESPECIES
+        //if constexpr ( ispec == 0 || ispec == 1) {
+        //dN = this->_state(VEC(i,j,k),NRAD1_+ispec*GRACE_N_M1_VARS,q) - state_new(VEC(i,j,k),NRAD1_+ispec*GRACE_N_M1_VARS,q) ; 
+        //state_new(VEC(i,j,k),YESTAR_,q) += ye_coupling_sign[ispec] * dN ; 
+        //}
+        //#endif 
+        ////KEN may have done a mistake, or at least not nice code
+        //#ifdef M1_NU_FIVESPECIES
+        //if constexpr ( ispec == 2 || ispec == 3) {
+        //dN = this->_state(VEC(i,j,k),NRAD1_+ispec*GRACE_N_M1_VARS,q) - state_new(VEC(i,j,k),NRAD1_+ispec*GRACE_N_M1_VARS,q) ; 
+        //state_new(VEC(i,j,k),YMUSTAR_,q) += ye_coupling_sign[ispec] * dN ; 
+        //}
+        //#endif 
+        //#if 0
+        //if ( i == 4 and j == 4 and k == 4 ) {
+        //    printf("E_old %.16g E_new %.16g eta %.16g kappa %.16g \n", prims[ERADL], U[0], eas[ETAL], eas[KAL]) ; 
+        //}
+        //#endif 
+    }
+
+    template< typename eos_t >
+    void KOKKOS_INLINE_FUNCTION 
+    add_backreaction( const int q 
+                         , VEC( const int i 
+                         ,      const int j 
+                         ,      const int k)
+                         , grace::scalar_array_t<GRACE_NSPACEDIM> const idx
+                         , grace::var_array_t const state_new ) const 
+    {
+        using namespace grace  ;
+        using namespace Kokkos ;
+        /**************************************************************************************************/
+        /* Read in the metric                                                                             */
+        metric_array_t metric ; 
+        FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k)) ;
+
+        eos_t eos;
+
+        #if defined(M1_NU_FIVESPECIES)
+        constexpr int n_species = 5;
+        #elif defined(M1_NU_THREESPECIES)
+        constexpr int n_species = 3;
+        #endif
+
+        #ifndef GRACE_FREEZE_HYDRO
+            // ── Accumulate dE and dS over all species ────────────────────────────
+            double dE = 0., dSx = 0., dSy = 0., dSz = 0. ;
+            #pragma unroll
+            for( int ispec = 0; ispec < n_species; ++ispec ) {
+                dE  += this->_state(VEC(i,j,k),ERAD1_ +ispec*GRACE_N_M1_VARS,q) - state_new(VEC(i,j,k),ERAD1_ +ispec*GRACE_N_M1_VARS,q) ;
+                dSx += this->_state(VEC(i,j,k),FRADX1_+ispec*GRACE_N_M1_VARS,q) - state_new(VEC(i,j,k),FRADX1_+ispec*GRACE_N_M1_VARS,q) ;
+                dSy += this->_state(VEC(i,j,k),FRADY1_+ispec*GRACE_N_M1_VARS,q) - state_new(VEC(i,j,k),FRADY1_+ispec*GRACE_N_M1_VARS,q) ;
+                dSz += this->_state(VEC(i,j,k),FRADZ1_+ispec*GRACE_N_M1_VARS,q) - state_new(VEC(i,j,k),FRADZ1_+ispec*GRACE_N_M1_VARS,q) ;
+            }
+        
+            // ── Energy positivity check ──────────────────────────────────────────
+            bool const energy_good = ( state_new(VEC(i,j,k),TAU_,q) + dE > 0. ) ;
+        
+            if ( energy_good ) {
+                state_new(VEC(i,j,k),TAU_,q) += dE  ;
+                state_new(VEC(i,j,k),SX_,q)  += dSx ;
+                state_new(VEC(i,j,k),SY_,q)  += dSy ;
+                state_new(VEC(i,j,k),SZ_,q)  += dSz ;
+            } else {
+                // revert all radiation species to old state
+                #pragma unroll
+                for( int ispec = 0; ispec < n_species; ++ispec ) {
+                    state_new(VEC(i,j,k),ERAD1_ +ispec*GRACE_N_M1_VARS,q) = this->_state(VEC(i,j,k),ERAD1_ +ispec*GRACE_N_M1_VARS,q) ;
+                    state_new(VEC(i,j,k),FRADX1_+ispec*GRACE_N_M1_VARS,q) = this->_state(VEC(i,j,k),FRADX1_+ispec*GRACE_N_M1_VARS,q) ;
+                    state_new(VEC(i,j,k),FRADY1_+ispec*GRACE_N_M1_VARS,q) = this->_state(VEC(i,j,k),FRADY1_+ispec*GRACE_N_M1_VARS,q) ;
+                    state_new(VEC(i,j,k),FRADZ1_+ispec*GRACE_N_M1_VARS,q) = this->_state(VEC(i,j,k),FRADZ1_+ispec*GRACE_N_M1_VARS,q) ;
+                }
+            }
+        #endif
+        
         #ifdef M1_NU_THREESPECIES
-        if constexpr ( ispec == 0 || ispec == 1) {
-        dN = this->_state(VEC(i,j,k),NRAD1_+ispec*GRACE_N_M1_VARS,q) - state_new(VEC(i,j,k),NRAD1_+ispec*GRACE_N_M1_VARS,q) ; 
-        state_new(VEC(i,j,k),YESTAR_,q) += ye_coupling_sign[ispec] * dN ; 
+        const double dN1 = this->_state(VEC(i,j,k),NRAD1_,q)
+           - state_new(VEC(i,j,k),NRAD1_,q) ;
+        const double dN2 = this->_state(VEC(i,j,k),NRAD2_,q)
+           - state_new(VEC(i,j,k),NRAD2_,q) ;
+        
+        // Ye bounds check
+        double yemax = eos.get_c2p_ye_max();
+        double yemin = eos.get_c2p_ye_min();
+        double const D        = state_new(VEC(i,j,k),DENS_,q) ;
+        double const dye_new  = state_new(VEC(i,j,k),YESTAR_,q) + dN1 - dN2 ;
+        double const ye_new   = dye_new / D ;
+        bool const number_e_good = ( ye_new >= yemin && ye_new <= yemax ) ;
+        
+        if ( number_e_good ) {
+            state_new(VEC(i,j,k),YESTAR_,q) = dye_new ;
         }
-        #endif 
-        //KEN may have done a mistake, or at least not nice code
+        else {
+            state_new(VEC(i,j,k),NRAD1_,q) = this->_state(VEC(i,j,k),NRAD1_,q);
+            state_new(VEC(i,j,k),NRAD2_,q) = this->_state(VEC(i,j,k),NRAD2_,q);
+        }
+        #endif
+        
         #ifdef M1_NU_FIVESPECIES
-        if constexpr ( ispec == 2 || ispec == 3) {
-        dN = this->_state(VEC(i,j,k),NRAD1_+ispec*GRACE_N_M1_VARS,q) - state_new(VEC(i,j,k),NRAD1_+ispec*GRACE_N_M1_VARS,q) ; 
-        state_new(VEC(i,j,k),YMUSTAR_,q) += ye_coupling_sign[ispec] * dN ; 
+        const double dN3 = this->_state(VEC(i,j,k),NRAD3_,q)
+           - state_new(VEC(i,j,k),NRAD3_,q) ;
+        const double dN4 = this->_state(VEC(i,j,k),NRAD4_,q)
+           - state_new(VEC(i,j,k),NRAD4_,q) ;        
+        // Ymu bounds check — adjust eos_ymumin/big_ymu as appropriate
+        double const dymu_new = state_new(VEC(i,j,k),YMUSTAR_,q) + dN3 - dN4 ;
+        double const ymu_new  = dymu_new / D ;
+        bool const number_mu_good = ( ymu_new >= eos_ymumin && ymu_new <= big_ymu ) ;
+        
+        if ( number_mu_good ) {
+            state_new(VEC(i,j,k),YMUSTAR_,q) = dymu_new ;
         }
-        #endif 
-        #if 0
-        if ( i == 4 and j == 4 and k == 4 ) {
-            printf("E_old %.16g E_new %.16g eta %.16g kappa %.16g \n", prims[ERADL], U[0], eas[ETAL], eas[KAL]) ; 
+        else {
+            state_new(VEC(i,j,k),NRAD3_,q) = this->_state(VEC(i,j,k),NRAD3_,q);
+            state_new(VEC(i,j,k),NRAD4_,q) = this->_state(VEC(i,j,k),NRAD4_,q);
         }
-        #endif 
+        #endif
     }
 
     /**
@@ -771,35 +869,179 @@ struct m1_equations_system_t
         double E_r = primR[ERADL] * metric_face.sqrtg() ; 
         double f_E_l = metric_face.sqrtg() * (metric_face.alp() * FUd_l - metric_face.beta(idir) * primL[ERADL]) ; 
         double f_E_r = metric_face.sqrtg() * (metric_face.alp() * FUd_r - metric_face.beta(idir) * primR[ERADL]) ; 
-        fluxes(VEC(i,j,k),ERAD1_+ispec*GRACE_N_M1_VARS,idir,q) = (cmax*f_E_l + cmin*f_E_r - A * cmax * cmin * (E_r-E_l))/(cmax+cmin) ; 
+        //fluxes(VEC(i,j,k),ERAD1_+ispec*GRACE_N_M1_VARS,idir,q) = (cmax*f_E_l + cmin*f_E_r - A * cmax * cmin * (E_r-E_l))/(cmax+cmin) ; 
+        double f_E_HLLE = (cmax*f_E_l + cmin*f_E_r - A * cmax * cmin * (E_r-E_l))/(cmax+cmin) ; 
         // Fx 
         double Fx_l = primL[FXL] * metric_face.sqrtg() ;
         double Fx_r = primR[FXL] * metric_face.sqrtg() ;
         double f_Fx_l = metric_face.sqrtg() * (metric_face.alp() * PUD_l[0] - metric_face.beta(idir) * primL[FXL]) ; 
         double f_Fx_r = metric_face.sqrtg() * (metric_face.alp() * PUD_r[0] - metric_face.beta(idir) * primR[FXL]) ; 
-        fluxes(VEC(i,j,k),FRADX1_+ispec*GRACE_N_M1_VARS,idir,q) = (SQR(A)*(cmax*f_Fx_l + cmin*f_Fx_r) - A * cmax * cmin * (Fx_r-Fx_l))/(cmax+cmin) 
+        //fluxes(VEC(i,j,k),FRADX1_+ispec*GRACE_N_M1_VARS,idir,q) = (SQR(A)*(cmax*f_Fx_l + cmin*f_Fx_r) - A * cmax * cmin * (Fx_r-Fx_l))/(cmax+cmin) 
+        //                            + (1-SQR(A)) * 0.5 * (f_Fx_l+f_Fx_r); 
+        double f_Fx_HLLE = (SQR(A)*(cmax*f_Fx_l + cmin*f_Fx_r) - A * cmax * cmin * (Fx_r-Fx_l))/(cmax+cmin) 
                                     + (1-SQR(A)) * 0.5 * (f_Fx_l+f_Fx_r); 
         // Fy 
         double Fy_l = primL[FYL] * metric_face.sqrtg() ;
         double Fy_r = primR[FYL] * metric_face.sqrtg() ;
         double f_Fy_l = metric_face.sqrtg() * (metric_face.alp() * PUD_l[1] - metric_face.beta(idir) * primL[FYL]) ; 
         double f_Fy_r = metric_face.sqrtg() * (metric_face.alp() * PUD_r[1] - metric_face.beta(idir) * primR[FYL]) ;
-        fluxes(VEC(i,j,k),FRADY1_+ispec*GRACE_N_M1_VARS,idir,q) = (SQR(A)*(cmax*f_Fy_l + cmin*f_Fy_r) - A * cmax * cmin * (Fy_r-Fy_l))/(cmax+cmin) 
+        //fluxes(VEC(i,j,k),FRADY1_+ispec*GRACE_N_M1_VARS,idir,q) = (SQR(A)*(cmax*f_Fy_l + cmin*f_Fy_r) - A * cmax * cmin * (Fy_r-Fy_l))/(cmax+cmin) 
+        //                            + (1-SQR(A)) * 0.5 * (f_Fy_l+f_Fy_r); 
+        double f_Fy_HLLE = (SQR(A)*(cmax*f_Fy_l + cmin*f_Fy_r) - A * cmax * cmin * (Fy_r-Fy_l))/(cmax+cmin) 
                                     + (1-SQR(A)) * 0.5 * (f_Fy_l+f_Fy_r); 
         // Fz 
         double Fz_l = primL[FZL] * metric_face.sqrtg() ;
         double Fz_r = primR[FZL] * metric_face.sqrtg() ;
         double f_Fz_l = metric_face.sqrtg() * (metric_face.alp() * PUD_l[2] - metric_face.beta(idir) * primL[FZL]) ; 
         double f_Fz_r = metric_face.sqrtg() * (metric_face.alp() * PUD_r[2] - metric_face.beta(idir) * primR[FZL]) ;
-        fluxes(VEC(i,j,k),FRADZ1_+ispec*GRACE_N_M1_VARS,idir,q) = (SQR(A)*(cmax*f_Fz_l + cmin*f_Fz_r) - A * cmax * cmin * (Fz_r-Fz_l))/(cmax+cmin) 
+        //fluxes(VEC(i,j,k),FRADZ1_+ispec*GRACE_N_M1_VARS,idir,q) = (SQR(A)*(cmax*f_Fz_l + cmin*f_Fz_r) - A * cmax * cmin * (Fz_r-Fz_l))/(cmax+cmin) 
+        //                            + (1-SQR(A)) * 0.5 * (f_Fz_l+f_Fz_r); 
+        double f_Fz_HLLE = (SQR(A)*(cmax*f_Fz_l + cmin*f_Fz_r) - A * cmax * cmin * (Fz_r-Fz_l))/(cmax+cmin) 
                                     + (1-SQR(A)) * 0.5 * (f_Fz_l+f_Fz_r); 
         // Nrad 
         double N_l = primL[NRADL] *  metric_face.sqrtg() ;
         double N_r = primR[NRADL] *  metric_face.sqrtg() ;
         double f_N_l = metric_face.sqrtg() * metric_face.alp() * N_l/cl.Gamma * ( cl.W * (cl.vU[idir]-metric_face.beta(idir)/metric_face.alp()) + cl.HU[idir]/cl.J ) ; 
         double f_N_r = metric_face.sqrtg() * metric_face.alp() * N_r/cr.Gamma * ( cr.W * (cr.vU[idir]-metric_face.beta(idir)/metric_face.alp()) + cr.HU[idir]/cr.J ) ; 
-        fluxes(VEC(i,j,k),NRAD1_+ispec*GRACE_N_M1_VARS,idir,q) = (cmax*f_N_l + cmin*f_N_r - A * cmax * cmin * (N_r-N_l))/(cmax+cmin) ; 
+        //fluxes(VEC(i,j,k),NRAD1_+ispec*GRACE_N_M1_VARS,idir,q) = (cmax*f_N_l + cmin*f_N_r - A * cmax * cmin * (N_r-N_l))/(cmax+cmin) ; 
+        double f_N_HLLE = (cmax*f_N_l + cmin*f_N_r - A * cmax * cmin * (N_r-N_l))/(cmax+cmin) ; 
 
+        //#define M1_USE_PPLIM
+        #ifdef M1_USE_PPLIM
+        {
+            // Proper LLF flux: Godunov (0th-order) reconstruction gives cell-centred
+            // primitives; full closures are built from those to compute exact physical
+            // fluxes for both cells at this face.
+            godunov_reconstructor_t gd_reconstruction{} ;
+            m1_prims_array_t primL_LLF, primR_LLF ;
+            #pragma unroll 5
+            for( int ivar=0; ivar<5; ++ivar) {
+                auto u = Kokkos::subview( this->_state
+                                        , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                                        , recon_indices[ivar], q ) ;
+                gd_reconstruction( u, VEC(i,j,k)
+                                 , primL_LLF[recon_indices_loc[ivar]]
+                                 , primR_LLF[recon_indices_loc[ivar]]
+                                 , idir ) ;
+            }
+            #pragma unroll 3
+            for( int ivar=0; ivar<3; ++ivar) {
+                auto u = Kokkos::subview( this->_aux
+                                        , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                                        , recon_indices_aux[ivar], q ) ;
+                gd_reconstruction( u, VEC(i,j,k)
+                                 , primL_LLF[recon_indices_aux_loc[ivar]]
+                                 , primR_LLF[recon_indices_aux_loc[ivar]]
+                                 , idir ) ;
+            }
+            for( int ii=0; ii<3; ++ii) {
+                primL_LLF[FXL+ii] *= primL_LLF[ERADL] ;
+                primR_LLF[FXL+ii] *= primR_LLF[ERADL] ;
+            }
+            primL_LLF[NRADL] *= primL_LLF[ERADL] ;
+            primR_LLF[NRADL] *= primR_LLF[ERADL] ;
+        
+            // Build closures from cell-centred states
+            m1_closure_t cl_LLF{
+                primL_LLF[ERADL],
+                {primL_LLF[FXL], primL_LLF[FYL], primL_LLF[FZL]},
+                {primL_LLF[ZXL], primL_LLF[ZYL], primL_LLF[ZZL]},
+                metric_face
+            } ;
+            m1_closure_t cr_LLF{
+                primR_LLF[ERADL],
+                {primR_LLF[FXL], primR_LLF[FYL], primR_LLF[FZL]},
+                {primR_LLF[ZXL], primR_LLF[ZYL], primR_LLF[ZZL]},
+                metric_face
+            } ;
+            cl_LLF.update_closure(0) ; cr_LLF.update_closure(0) ;
+            cl_LLF.compute_pressure() ; cr_LLF.compute_pressure() ;
+        
+            auto const PUD_l_LLF = metric_face.lower(
+                {cl_LLF.PUU[idir][0], cl_LLF.PUU[idir][1], cl_LLF.PUU[idir][2]}
+            ) ;
+            auto const PUD_r_LLF = metric_face.lower(
+                {cr_LLF.PUU[idir][0], cr_LLF.PUU[idir][1], cr_LLF.PUU[idir][2]}
+            ) ;
+        
+            double const FUd_l_LLF = metric_face.invgamma(imap[idir][0]) * primL_LLF[FXL]
+                                   + metric_face.invgamma(imap[idir][1]) * primL_LLF[FYL]
+                                   + metric_face.invgamma(imap[idir][2]) * primL_LLF[FZL] ;
+            double const FUd_r_LLF = metric_face.invgamma(imap[idir][0]) * primR_LLF[FXL]
+                                   + metric_face.invgamma(imap[idir][1]) * primR_LLF[FYL]
+                                   + metric_face.invgamma(imap[idir][2]) * primR_LLF[FZL] ;
+        
+            // Cell-centred conserved variables and physical fluxes; LF uses c=1
+            double const E_l_LLF   = primL_LLF[ERADL] * metric_face.sqrtg() ;
+            double const E_r_LLF   = primR_LLF[ERADL] * metric_face.sqrtg() ;
+            double const f_E_l_LLF = metric_face.sqrtg() * (metric_face.alp() * FUd_l_LLF - metric_face.beta(idir) * primL_LLF[ERADL]) ;
+            double const f_E_r_LLF = metric_face.sqrtg() * (metric_face.alp() * FUd_r_LLF - metric_face.beta(idir) * primR_LLF[ERADL]) ;
+            double const f_E_LF    = 0.5*(f_E_l_LLF + f_E_r_LLF) - 0.5*(E_r_LLF - E_l_LLF) ;
+        
+            double const Fx_l_LLF   = primL_LLF[FXL] * metric_face.sqrtg() ;
+            double const Fx_r_LLF   = primR_LLF[FXL] * metric_face.sqrtg() ;
+            double const f_Fx_l_LLF = metric_face.sqrtg() * (metric_face.alp() * PUD_l_LLF[0] - metric_face.beta(idir) * primL_LLF[FXL]) ;
+            double const f_Fx_r_LLF = metric_face.sqrtg() * (metric_face.alp() * PUD_r_LLF[0] - metric_face.beta(idir) * primR_LLF[FXL]) ;
+            double const f_Fx_LF    = 0.5*(f_Fx_l_LLF + f_Fx_r_LLF) - 0.5*(Fx_r_LLF - Fx_l_LLF) ;
+        
+            double const Fy_l_LLF   = primL_LLF[FYL] * metric_face.sqrtg() ;
+            double const Fy_r_LLF   = primR_LLF[FYL] * metric_face.sqrtg() ;
+            double const f_Fy_l_LLF = metric_face.sqrtg() * (metric_face.alp() * PUD_l_LLF[1] - metric_face.beta(idir) * primL_LLF[FYL]) ;
+            double const f_Fy_r_LLF = metric_face.sqrtg() * (metric_face.alp() * PUD_r_LLF[1] - metric_face.beta(idir) * primR_LLF[FYL]) ;
+            double const f_Fy_LF    = 0.5*(f_Fy_l_LLF + f_Fy_r_LLF) - 0.5*(Fy_r_LLF - Fy_l_LLF) ;
+        
+            double const Fz_l_LLF   = primL_LLF[FZL] * metric_face.sqrtg() ;
+            double const Fz_r_LLF   = primR_LLF[FZL] * metric_face.sqrtg() ;
+            double const f_Fz_l_LLF = metric_face.sqrtg() * (metric_face.alp() * PUD_l_LLF[2] - metric_face.beta(idir) * primL_LLF[FZL]) ;
+            double const f_Fz_r_LLF = metric_face.sqrtg() * (metric_face.alp() * PUD_r_LLF[2] - metric_face.beta(idir) * primR_LLF[FZL]) ;
+            double const f_Fz_LF    = 0.5*(f_Fz_l_LLF + f_Fz_r_LLF) - 0.5*(Fz_r_LLF - Fz_l_LLF) ;
+        
+            double const N_l_LLF   = primL_LLF[NRADL] * metric_face.sqrtg() ;
+            double const N_r_LLF   = primR_LLF[NRADL] * metric_face.sqrtg() ;
+            double const f_N_l_LLF = metric_face.sqrtg() * metric_face.alp() * N_l_LLF/cl_LLF.Gamma
+                                   * ( cl_LLF.W * (cl_LLF.vU[idir] - metric_face.beta(idir)/metric_face.alp())
+                                     + cl_LLF.HU[idir]/cl_LLF.J ) ;
+            double const f_N_r_LLF = metric_face.sqrtg() * metric_face.alp() * N_r_LLF/cr_LLF.Gamma
+                                   * ( cr_LLF.W * (cr_LLF.vU[idir] - metric_face.beta(idir)/metric_face.alp())
+                                     + cr_LLF.HU[idir]/cr_LLF.J ) ;
+            double const f_N_LF    = 0.5*(f_N_l_LLF + f_N_r_LLF) - 0.5*(N_r_LLF - N_l_LLF) ;
+        
+            // Positivity check and theta computation (GRMHD-style continuous blend)
+            double const a2CFL       = 6. * (dt * dtfact / _dx) ;
+            double const E_atmo_cons = atmo_params.E_fl * metric_face.sqrtg() ;
+            double const E_m         = E_r_LLF + a2CFL * f_E_HLLE ;   // E in right cell after this flux
+            double const E_p         = E_l_LLF - a2CFL * f_E_HLLE ;   // E in left cell after this flux
+        
+            if ( E_m < E_atmo_cons || E_p < E_atmo_cons ) {
+                double const denom = a2CFL * (f_E_HLLE - f_E_LF) ;
+                double theta_m = 1., theta_p = 1. ;
+                if ( E_m < E_atmo_cons && fabs(denom) > 0. )
+                    theta_m = Kokkos::min(1., Kokkos::max(0.,  (E_atmo_cons - (E_r_LLF + a2CFL*f_E_LF)) / denom )) ;
+                if ( E_p < E_atmo_cons && fabs(denom) > 0. )
+                    theta_p = Kokkos::min(1., Kokkos::max(0., -(E_atmo_cons - (E_l_LLF - a2CFL*f_E_LF)) / denom )) ;
+                double theta = Kokkos::min(theta_m, theta_p) ;
+                if ( std::isnan(theta) ) theta = 0. ;
+                double const phi = (1. - theta) * A ;
+                    fluxes(VEC(i,j,k),ERAD1_ +ispec*GRACE_N_M1_VARS,idir,q) = (1.-phi)*f_E_HLLE  + phi*f_E_LF  ;
+                    fluxes(VEC(i,j,k),NRAD1_ +ispec*GRACE_N_M1_VARS,idir,q) = (1.-phi)*f_N_HLLE  + phi*f_N_LF  ;
+                    fluxes(VEC(i,j,k),FRADX1_+ispec*GRACE_N_M1_VARS,idir,q) = (1.-phi)*f_Fx_HLLE + phi*f_Fx_LF ;
+                    fluxes(VEC(i,j,k),FRADY1_+ispec*GRACE_N_M1_VARS,idir,q) = (1.-phi)*f_Fy_HLLE + phi*f_Fy_LF ;
+                    fluxes(VEC(i,j,k),FRADZ1_+ispec*GRACE_N_M1_VARS,idir,q) = (1.-phi)*f_Fz_HLLE + phi*f_Fz_LF ;
+                } else {
+                    fluxes(VEC(i,j,k),ERAD1_ +ispec*GRACE_N_M1_VARS,idir,q) = f_E_HLLE  ;
+                    fluxes(VEC(i,j,k),NRAD1_ +ispec*GRACE_N_M1_VARS,idir,q) = f_N_HLLE  ;
+                    fluxes(VEC(i,j,k),FRADX1_+ispec*GRACE_N_M1_VARS,idir,q) = f_Fx_HLLE ;
+                    fluxes(VEC(i,j,k),FRADY1_+ispec*GRACE_N_M1_VARS,idir,q) = f_Fy_HLLE ;
+                    fluxes(VEC(i,j,k),FRADZ1_+ispec*GRACE_N_M1_VARS,idir,q) = f_Fz_HLLE ;
+                }
+            }   
+        #else
+                fluxes(VEC(i,j,k),ERAD1_ +ispec*GRACE_N_M1_VARS,idir,q) = f_E_HLLE  ;
+                fluxes(VEC(i,j,k),NRAD1_ +ispec*GRACE_N_M1_VARS,idir,q) = f_N_HLLE  ;
+                fluxes(VEC(i,j,k),FRADX1_+ispec*GRACE_N_M1_VARS,idir,q) = f_Fx_HLLE ;
+                fluxes(VEC(i,j,k),FRADY1_+ispec*GRACE_N_M1_VARS,idir,q) = f_Fy_HLLE ;
+                fluxes(VEC(i,j,k),FRADZ1_+ispec*GRACE_N_M1_VARS,idir,q) = f_Fz_HLLE ;
+        #endif
     }
 
     template< size_t idir >
