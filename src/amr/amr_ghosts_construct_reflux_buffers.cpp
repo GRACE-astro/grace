@@ -61,6 +61,14 @@
 
 namespace grace {
 
+// Anonymous namespace gives these helpers internal linkage. Without it we
+// had an ODR violation with amr_ghosts_construct_buffers.cpp, which defines
+// a DIFFERENT grace::comm_key_t (6 fields, not 2). The linker merged the
+// symbols, so unordered_map<comm_key_t,...> in this TU ended up calling the
+// other TU's operator==/hasher — which read past the end of this struct,
+// producing nonsense lookups (find() missed even when fields matched).
+namespace {
+
 // communication key
 struct comm_key_t {
     size_t qid ;
@@ -71,7 +79,7 @@ struct comm_key_t {
     }
 } ;
 
-// hasher 
+// hasher
 struct comm_key_hash {
     std::size_t operator()(comm_key_t const& k) const noexcept {
         std::size_t h1 = std::hash<size_t>{}(k.qid);
@@ -84,13 +92,15 @@ struct comm_key_hash {
     }
 };
 
-// comparator 
+// comparator
 struct key_cmp {
     bool operator()(auto const& a, auto const& b) const {
         return std::tie(a.qid,a.elem_id)
              < std::tie(b.qid,b.elem_id);
     }
 };
+
+} // anonymous namespace
 
 
 // utility 
