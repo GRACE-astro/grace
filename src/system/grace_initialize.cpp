@@ -60,6 +60,10 @@
 #include <grace/IO/diagnostics/apparent_horizon.hh>
 #endif
 
+#ifdef GRACE_ENABLE_PARTICLES
+#include <grace/particles/particles_module.hh>
+#endif
+
 #include <grace/amr/grace_amr.hh>
 
 #include <grace/errors/error.hh>
@@ -312,12 +316,22 @@ void initialize(int& argc, char* argv[])
         grace::compute_auxiliary_quantities() ;
     }
     //--
-    // setup spherical surfaces 
+    // setup spherical surfaces
     //--
     grace::spherical_surface_manager::initialize() ;
     //--
     #ifdef GRACE_ENABLE_Z4C_METRIC
     grace::compute_constraint_violations() ;
+    #endif
+    #ifdef GRACE_ENABLE_PARTICLES
+    // For restarts, particles_module is already initialized inside
+    // checkpoint_handler::load_checkpoint() (where the file is open and
+    // the loader can replace the seed contents). For fresh starts, init
+    // here — by this point the grid is settled and aux is populated, so
+    // seed_local can walk fluid_topology_shadow_t::local_geometry().
+    if (!started_from_checkpoint) {
+        grace::particles::particles_module_t::get().initialize() ;
+    }
     #endif
     
     Kokkos::fence() ; 

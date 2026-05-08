@@ -1,0 +1,138 @@
+particles:
+  type: schema
+  description: >
+    Lagrangian tracer particle subsystem. v1: passive tracers advected with
+    the fluid 3-velocity, sampling rho/T/Y_e/etc. for nucleosynthesis
+    post-processing. See doc/design/particles.md.
+
+  enabled:
+    type: bool
+    default: false
+    description: >
+      Master enable for the particle subsystem. When false, the entire path
+      is a no-op even if GRACE_ENABLE_PARTICLES was set at compile time.
+
+  n_tracers_per_rank:
+    type: int
+    range: "[0,*)"
+    default: 0
+    description: >
+      Number of tracers seeded per MPI rank at startup. Spread
+      deterministically across the local quads via a Halton offset within
+      each quad's bbox. For density_weighted seeding, this is the target
+      count after rejection — the actual count may be lower if the local
+      fluid lacks enough cells above seeding_rho_threshold.
+
+  seeding_mode:
+    type: keyword
+    allowed: ["uniform", "density_weighted"]
+    default: "uniform"
+    description: >
+      How to choose seed positions.
+        - uniform: deterministic Halton-spaced positions across local quads.
+          Good for shocktubes and uniform tests; useless for nucleosynthesis
+          since most tracers land in low-rho gas that never undergoes
+          burning.
+        - density_weighted: rejection-sample Halton candidates against the
+          local primitive rho field. Each candidate's rho is interpolated
+          trilinearly from the cell-centred AUX storage on its host quad;
+          candidates with rho >= seeding_rho_threshold are accepted, others
+          discarded. Use for nuc post-processing of merger remnants /
+          ejecta. Requires GRMHD.
+
+  seeding_rho_threshold:
+    type: double
+    range: "[0,*)"
+    default: 0.0
+    description: >
+      Minimum primitive rho (code units) for a candidate to be accepted in
+      density_weighted mode. Tune to the floor of the matter you actually
+      care about (e.g. 1e-7 for atmospheric cutoff in CGS-mapped NS-merger
+      runs). Ignored in uniform mode.
+
+  seeding_oversample_factor:
+    type: int
+    range: "[1,*)"
+    default: 10
+    description: >
+      In density_weighted mode, generate oversample_factor * n_tracers_per_rank
+      candidates per rank before rejection. Higher values give a better
+      chance of hitting the target count when the high-rho region is small,
+      at the cost of more candidate evaluations. 10 is reasonable for
+      moderately concentrated remnants; bump to 50-100 if your run logs
+      "fewer than target accepted".
+
+  rebalance_strategy:
+    type: keyword
+    allowed: ["quad_owner"]
+    default: "quad_owner"
+    description: >
+      How to assign tracer destination ranks during topology rebalance.
+        - quad_owner: send each tracer to the rank owning the quad that
+          contains its position. Simple and correct, but bad load balance
+          when fluid clusters (e.g. NS merger remnant). Default.
+      Future strategies (SFC-equal-count, weighted-by-cost, PIC field-locality)
+      slot in here; the migration mechanism is policy-agnostic. Each
+      strategy has its own configuration subsection (e.g. quad_owner.*)
+      where its imbalance metric and threshold live.
+
+  rebalance_every:
+    type: int
+    range: "[1,*)"
+    default: 1
+    description: >
+      Re-evaluate ownership every N iterations. Lookup (which keeps fetches
+      routed correctly) always runs; the actual MPI shuffle is gated by the
+      per-strategy imbalance threshold. Setting N>1 only delays the lookup
+      itself — useful if find_owners_batch is the bottleneck.
+
+  quad_owner:
+    type: schema
+    description: Settings specific to rebalance_strategy=quad_owner.
+
+    imbalance_threshold:
+      type: double
+      range: "[0,1]"
+      default: 0.05
+      description: >
+        Trigger a data shuffle only when the global fraction of tracers
+        whose quad-owner is on a different rank exceeds this. Lookup still
+        runs every step (so owner_rank tracks the live partition and
+        fetches route correctly); only the alltoallv is amortised.
+        0 = migrate whenever any tracer changed owner (close to the legacy
+        "always migrate" behavior); 0.05 trades a small load-balance
+        slop for substantial MPI savings. Bump higher (0.1-0.2) for runs
+        where fetch is cheap and migration cost dominates.
+
+  compact_every:
+    type: int
+    range: "[0,*)"
+    default: 100
+    description: >
+      Drop tracers whose status != PARTICLE_DEFAULT every N iterations.
+      0 disables. Compaction does not free ids — appended tracers always
+      get fresh ids that cannot collide with culled ones.
+
+  output_every:
+    type: int
+    range: "[0,*)"
+    default: 0
+    description: >
+      Write a collective HDF5 snapshot every N iterations. 0 disables.
+      Each snapshot is one parallel-IO HDF5 file (basename_iterNNNNNNNN.h5)
+      plus a master XDMF (basename.xmf) updated in place; ParaView opens
+      the .xmf and renders an animated point cloud, with full trajectories
+      via the "Temporal Particles To Pathlines" filter on the `id` field.
+
+  output_directory:
+    type: string
+    default: "./output_particles"
+    description: >
+      Directory for tracer HDF5 + XMF output, relative to running directory.
+
+  output_basename:
+    type: string
+    default: "tracers"
+    description: >
+      Base filename. HDF5 snapshots: basename_iter<N>.h5. Master XDMF:
+      basename.xmf.

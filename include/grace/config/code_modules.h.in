@@ -59,11 +59,15 @@ const std::vector< std::string > code_modules {
     , "outflows"
     #ifdef GRACE_ENABLE_Z4C_METRIC
     , "gw_integrals"
+    , "adm_integrals"
     #endif
     , "co_tracker"
     , "mhd_diagnostics"
     #ifdef GRACE_ENABLE_Z4C_METRIC
     , "apparent_horizon"
+    #endif
+    #ifdef GRACE_ENABLE_PARTICLES
+    , "particles"
     #endif
 } ;
 //*****************************************************************************************************
@@ -91,11 +95,15 @@ const std::vector< std::string > code_modules_default_configs {
      , "${CMAKE_SOURCE_DIR}/parameters/outflows.yaml"
      #ifdef GRACE_ENABLE_Z4C_METRIC
      , "${CMAKE_SOURCE_DIR}/parameters/gw_integrals.yaml"
+     , "${CMAKE_SOURCE_DIR}/parameters/adm_integrals.yaml"
      #endif
      , "${CMAKE_SOURCE_DIR}/parameters/co_tracker.yaml"
      , "${CMAKE_SOURCE_DIR}/parameters/mhd_diagnostics.yaml"
      #ifdef GRACE_ENABLE_Z4C_METRIC
      , "${CMAKE_SOURCE_DIR}/parameters/apparent_horizon.yaml"
+     #endif
+     #ifdef GRACE_ENABLE_PARTICLES
+     , "${CMAKE_SOURCE_DIR}/parameters/particles.yaml"
      #endif
 } ;
 //*****************************************************************************************************

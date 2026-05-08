@@ -61,12 +61,20 @@
 
 namespace grace {
 
-enum sec_t : uint8_t {FACE=0, EDGE=1, CORNER=2, CBFACE=3, CBEDGE=4, CBCORNER=5} ; 
+// Anonymous namespace: gives these TU-local helpers internal linkage so they
+// don't clash with the differently-shaped comm_key_t / comm_key_hash / key_cmp
+// in amr_ghosts_construct_reflux_buffers.cpp. Without this, the linker merges
+// the symbols into one address and unordered_map lookups in the other TU end
+// up calling this TU's operator==/hasher (which read fields that don't exist
+// in the smaller struct), producing impossible find() misses.
+namespace {
+
+enum sec_t : uint8_t {FACE=0, EDGE=1, CORNER=2, CBFACE=3, CBEDGE=4, CBCORNER=5} ;
 
 
 using desc_ptr_t = std::variant<
-    face_descriptor_t*, 
-    edge_descriptor_t*, 
+    face_descriptor_t*,
+    edge_descriptor_t*,
     corner_descriptor_t*
 >;
 
@@ -76,16 +84,16 @@ struct comm_key_t {
 
     sec_t kind ; //!< Kind of interface
     size_t rank     ; //!< Other rank
-    size_t quad_id  ; //!< Quadrant id 
+    size_t quad_id  ; //!< Quadrant id
     int8_t elem_id  ; //!< Element id
-    int8_t elem_slot ; //!< If needed 
+    int8_t elem_slot ; //!< If needed
     bool is_cbuf_p2p{false}; //!< Is this a coarse buffer peer-to-peer communication?
 
     bool operator==(const comm_key_t & other) const {
-        return (rank == other.rank) && 
-               (quad_id == other.quad_id) && 
-               (elem_id == other.elem_id) && 
-               (kind == other.kind) && 
+        return (rank == other.rank) &&
+               (quad_id == other.quad_id) &&
+               (elem_id == other.elem_id) &&
+               (kind == other.kind) &&
                (is_cbuf_p2p == other.is_cbuf_p2p);
     }
 } ;
@@ -109,19 +117,19 @@ struct comm_key_hash {
     }
 };
 
-using desc_map_t = std::unordered_map<comm_key_t,  std::vector<desc_ptr_t>, comm_key_hash> ; 
+using desc_map_t = std::unordered_map<comm_key_t,  std::vector<desc_ptr_t>, comm_key_hash> ;
 
 // comparison functor for sort
 struct key_cmp {
     bool operator()(comm_key_t const& a, comm_key_t const& b) const {
         if (a.rank < b.rank) return true;
         if (a.rank > b.rank) return false;
-        if (a.kind < b.kind) return true; 
-        if (a.kind > b.kind) return false ; 
+        if (a.kind < b.kind) return true;
+        if (a.kind > b.kind) return false ;
         if (a.quad_id < b.quad_id) return true ;
-        if (a.quad_id > b.quad_id) return false ; 
-        if (a.elem_id < b.elem_id) return true ; 
-        if (a.elem_id > b.elem_id) return false ; 
+        if (a.quad_id > b.quad_id) return false ;
+        if (a.elem_id < b.elem_id) return true ;
+        if (a.elem_id > b.elem_id) return false ;
         // Standard bool comparison: false < true
         if (a.is_cbuf_p2p < b.is_cbuf_p2p) return true;
         if (b.is_cbuf_p2p < a.is_cbuf_p2p) return false;
@@ -130,6 +138,8 @@ struct key_cmp {
         return false;
     }
 };
+
+} // anonymous namespace
 
 
 void register_index(

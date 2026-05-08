@@ -84,6 +84,17 @@ add_grace_test(exchange_test test_new_exchange.cpp)
 add_grace_test(emf_reflux_test test_reflux.cpp)
 add_grace_test(test_sph_int test_spherical_surface.cpp)
 add_grace_test(interp_on_sphere_test test_interpolation_on_shere.cpp)
+add_grace_test(grid_interpolator_test test_grid_interpolator.cpp)
+
+if(GRACE_ENABLE_Z4C_METRIC)
+    add_grace_test(adm_integrals_test test_adm_integrals.cpp)
+endif()
+
+if( GRACE_ENABLE_PARTICLES )
+add_grace_test(particle_owner_search_test test_particle_owner_search.cpp)
+add_grace_test(particle_aux_fetch_test    test_particle_aux_fetch.cpp)
+add_grace_test(particle_advance_test      test_particle_advance.cpp)
+endif()
 
 target_compile_options(exchange_test PRIVATE -g -gdwarf-4)
 
@@ -134,9 +145,13 @@ add_test(NAME bc_test_unigrid_spherical COMMAND
         mpirun -n 2 ./bc_test_unigrid --grace-parfile ./configs/regrid_test_spherical.yaml )
 add_test(NAME bc_test_cartesian COMMAND 
         mpirun -n 2 ./bc_test --grace-parfile ./configs/regrid_test_cartesian.yaml )
-add_test(NAME bc_test_spherical COMMAND 
+add_test(NAME bc_test_spherical COMMAND
         mpirun -n 2 ./bc_test --grace-parfile ./configs/regrid_test_spherical.yaml )
-add_test(NAME scalar_reductions_test COMMAND 
+add_test(NAME emf_reflux_test_cartesian COMMAND
+        mpirun -n 2 ./emf_reflux_test --grace-parfile ./configs/regrid_test_cartesian.yaml )
+add_test(NAME emf_reflux_test_spherical COMMAND
+        mpirun -n 2 ./emf_reflux_test --grace-parfile ./configs/regrid_test_spherical.yaml )
+add_test(NAME scalar_reductions_test COMMAND
         mpirun -n 1 ./scalar_reductions_test --grace-parfile ./configs/scalar_reductions_test.yaml )
 add_test(NAME pwpoly_test COMMAND 
         mpirun -n 1 ./eos_test --grace-parfile ./configs/pwpoly_test_config.yaml )
@@ -144,12 +159,19 @@ add_test(NAME metric_test COMMAND
         mpirun -n 1 ./metric_test --grace-parfile ./configs/basic_config.yaml )
 add_test(NAME gamma2_c2p_test COMMAND 
         mpirun -n 1 ./c2p_test --grace-parfile ./configs/c2p_test_gamma2.yaml )
-add_test(NAME sly4_pw_c2p_test COMMAND 
+add_test(NAME sly4_pw_c2p_test COMMAND
         mpirun -n 1 ./c2p_test --grace-parfile ./configs/c2p_test_sly4_pw.yaml )
-##add_custom_command(
-#        TARGET
-#        COMMENT "Run tests"
-#        POST_BUILD 
-#        WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/test" 
-#        COMMAND ${CMAKE_CTEST_COMMAND} -C $<CONFIGURATION> -R "Unit tests" --output-on-failure
-#)
+add_test(NAME grid_interpolator_test COMMAND
+        mpirun -n 1 ./grid_interpolator_test --grace-parfile ./configs/basic_config.yaml )
+if(GRACE_ENABLE_Z4C_METRIC)
+    add_test(NAME adm_integrals_test COMMAND
+            mpirun -n 1 ./adm_integrals_test --grace-parfile ./configs/adm_integrals_test.yaml )
+endif()
+if( GRACE_ENABLE_PARTICLES )
+add_test(NAME particle_owner_search_test COMMAND
+        mpirun -n 2 ./particle_owner_search_test --grace-parfile ./configs/regrid_test_cartesian.yaml )
+add_test(NAME particle_aux_fetch_test COMMAND
+        mpirun -n 2 ./particle_aux_fetch_test --grace-parfile ./configs/regrid_test_cartesian.yaml )
+add_test(NAME particle_advance_test COMMAND
+        mpirun -n 2 ./particle_advance_test --grace-parfile ./configs/regrid_test_cartesian.yaml )
+endif()
