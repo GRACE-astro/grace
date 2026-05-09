@@ -65,18 +65,20 @@ struct device_handle {
     Kokkos::View<double*> kappa_a_num_table;
     Kokkos::View<double*> kappa_s_table;
 
-    GRACE_HOST_DEVICE inline int flat_index(int ispec, int irho, int itemp, int iye, int iymu) const {
+    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+    int flat_index(int ispec, int irho, int itemp, int iye, int iymu) const {
         return ispec + n_species_table * (irho + nrho * (itemp + ntemp * (iye + nye * iymu)));
     }
 
-    GRACE_HOST_DEVICE inline void clamp_state(double& rho_cgs, double& temp_mev, double& yle, double& ymu) const {
+    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+    void clamp_state(double& rho_code, double& temp_mev, double& yle, double& ymu) const {
         if (!valid) return;
         const double tiny = 1.0e-300;
-        double lrho = Kokkos::log(rho_cgs > tiny ? rho_cgs : tiny);
+        double lrho = Kokkos::log(rho_code > tiny ? rho_code : tiny);
         double ltemp = Kokkos::log(temp_mev > tiny ? temp_mev : tiny);
         lrho = Kokkos::fmax(logrho_min, Kokkos::fmin(lrho, logrho_max));
         ltemp = Kokkos::fmax(logtemp_min, Kokkos::fmin(ltemp, logtemp_max));
-        rho_cgs = Kokkos::exp(lrho);
+        rho_code = Kokkos::exp(lrho);
         temp_mev = Kokkos::exp(ltemp);
         yle = Kokkos::fmax(ye_min, Kokkos::fmin(yle, ye_max));
         if (nymu > 1) {
@@ -88,7 +90,8 @@ struct device_handle {
         }
     }
 
-    GRACE_HOST_DEVICE inline void find_bracket(const Kokkos::View<double*>& axis, int n, double x, int& i0, double& w) const {
+    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+    void find_bracket(const Kokkos::View<double*>& axis, int n, double x, int& i0, double& w) const {
         if (n <= 1) { i0 = 0; w = 0.0; return; }
         if (x <= axis(0)) { i0 = 0; w = 0.0; return; }
         if (x >= axis(n-1)) { i0 = n-2; w = 1.0; return; }
@@ -103,7 +106,8 @@ struct device_handle {
         w = Kokkos::fmax(0.0, Kokkos::fmin(w, 1.0));
     }
 
-    GRACE_HOST_DEVICE inline double interp_table(const Kokkos::View<double*>& table, int ispec,
+    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+    double interp_table(const Kokkos::View<double*>& table, int ispec,
                                                double lrho, double ltemp, double ye, double lymu) const {
         int ir = 0, it = 0, iy = 0, im = 0;
         double wr = 0.0, wt = 0.0, wy = 0.0, wm = 0.0;
@@ -134,11 +138,12 @@ struct device_handle {
         return out;
     }
 
-  GRACE_HOST_DEVICE inline interp_outputs lookup(double rho_cgs, double temp_mev, double yle, double ymu) const {
+  GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+  interp_outputs lookup(double rho_code, double temp_mev, double yle, double ymu) const {
       interp_outputs out;
       if (!valid) return out;
-      clamp_state(rho_cgs, temp_mev, yle, ymu);
-      const double lrho = Kokkos::log(rho_cgs);
+      clamp_state(rho_code, temp_mev, yle, ymu);
+      const double lrho = Kokkos::log(rho_code);
       const double ltemp = Kokkos::log(temp_mev);
       const double lymu = (nymu > 1 ? Kokkos::log(ymu > 1.0e-300 ? ymu : 1.0e-300) : 0.0);
 
@@ -158,6 +163,7 @@ struct device_handle {
               out.kappa_s[s]     = interp_table(kappa_s_table,     s, lrho, ltemp, yle, lymu);
           }
       }
+      #pragma unroll
       for (int s = 0; s < 5; ++s) {
           if (!(out.kappa_a_en[s] > 0.0) || !Kokkos::isfinite(out.kappa_a_en[s])) out.kappa_a_en[s] = 1.0e-60;
           if (!(out.kappa_a_num[s] > 0.0) || !Kokkos::isfinite(out.kappa_a_num[s])) out.kappa_a_num[s] = 1.0e-60;

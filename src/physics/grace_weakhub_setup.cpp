@@ -63,6 +63,9 @@ bool weakhub_enabled_from_params() {
 void initialize_weakhub_from_params() {
     if (g_initialized || !weakhub_enabled_from_params()) return;
     const auto path = get_param<std::string>("m1","eas","weakhub_table");
+
+    GRACE_INFO("Reading Weakhub opacity table {}", path);
+
     hid_t file = H5Fopen(path.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
     if (file < 0) throw std::runtime_error("Failed to open Weakhub HDF5 table: " + path);
 
@@ -73,6 +76,9 @@ void initialize_weakhub_from_params() {
     read_dataset(file, "IVtemp", H5T_NATIVE_INT, &IVtemp);
     read_dataset(file, "IVye", H5T_NATIVE_INT, &IVye);
     read_dataset(file, "IVymu", H5T_NATIVE_INT, &IVymu);
+
+    GRACE_INFO("Weakhub table shape: n_species={}, nrho={}, ntemp={}, nye={}, nymu={}",
+               n_species, IVrho, IVtemp, IVye, IVymu);
 
     std::vector<double> logrho(IVrho);
     std::vector<double> logtemp(IVtemp);
@@ -104,13 +110,31 @@ void initialize_weakhub_from_params() {
                         ord_s[indnew]  = raw_s[indold];
                     }
 
+    GRACE_INFO("Weakhub rho  range: [{}, {}] (log, code units)", logrho.front(), logrho.back());
+    GRACE_INFO("Weakhub temp range: [{}, {}] MeV", 
+               std::exp(logtemp.front()), std::exp(logtemp.back()));
+    GRACE_INFO("Weakhub Ye   range: [{}, {}]", ye.front(), ye.back());
+    if (IVymu > 1)
+        GRACE_INFO("Weakhub Ymu  range: [{}, {}] (log)", logymu.front(), logymu.back());
+    else
+        GRACE_INFO("Weakhub table is 3D (no muon fraction axis)");
+
+    GRACE_INFO("Weakhub total table size: {} doubles ({} MB)",
+               table_size, table_size * 3 * sizeof(double) / (1024*1024));
+
+
     g_handle.n_species_table = n_species;
     g_handle.nrho = IVrho; g_handle.ntemp = IVtemp; g_handle.nye = IVye; g_handle.nymu = std::max(IVymu,1);
     g_handle.logrho_min = logrho.front(); g_handle.logrho_max = logrho.back();
     g_handle.logtemp_min = logtemp.front(); g_handle.logtemp_max = logtemp.back();
     g_handle.ye_min = ye.front(); g_handle.ye_max = ye.back();
-    g_handle.logymu_min = logymu.front(); g_handle.logymu_max = logymu.back();
-
+    if (IVymu > 1) {
+        g_handle.logymu_min = logymu.front();
+        g_handle.logymu_max = logymu.back();
+    } else {
+        g_handle.logymu_min = 0.0;
+        g_handle.logymu_max = 0.0;
+    }
     g_handle.logrho_axis = Kokkos::View<double*>("weakhub_logrho", IVrho);
     g_handle.logtemp_axis = Kokkos::View<double*>("weakhub_logtemp", IVtemp);
     g_handle.ye_axis = Kokkos::View<double*>("weakhub_ye", IVye);
@@ -138,6 +162,8 @@ void initialize_weakhub_from_params() {
     Kokkos::deep_copy(g_handle.kappa_a_en_table, h_ae);
     Kokkos::deep_copy(g_handle.kappa_a_num_table, h_an);
     Kokkos::deep_copy(g_handle.kappa_s_table, h_s);
+
+    GRACE_INFO("Weakhub table loaded successfully");
     g_handle.valid = true;
     g_initialized = true;
 }

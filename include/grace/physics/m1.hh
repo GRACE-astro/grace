@@ -449,7 +449,7 @@ struct m1_equations_system_t
         } ; 
         /**************************************************************************************************/
         // call rootfinder 
-        unsigned long maxiter = 100 ; 
+        unsigned long maxiter = 200 ; 
         int err = 0; 
         utils::rootfind_nd_newton_raphson<4>(
             func, dfunc, U, maxiter, 1e-15, err

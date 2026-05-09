@@ -368,13 +368,13 @@ struct neutrinos_eas_op
         if (use_weakhub && weakhub.valid) {
             switch (tau_kind) {
             case TAU_LOCAL_SPHERICAL:
-            all = compute_all_species_weakhub(weakhub, rho, T, Ye, Ymu, mass_scale, plasmon_decay, bremsstrahlung, pair_annihilation, xyz, spherical_tau, apply_temp_correction);
+            all = compute_all_species_weakhub(weakhub, eos, rho, T, Ye, Ymu, mass_scale, plasmon_decay, bremsstrahlung, pair_annihilation, xyz, spherical_tau, apply_temp_correction);
             break;
             case TAU_ANALYTIC_DENSITY:
-            all = compute_all_species_weakhub(weakhub, rho, T, Ye, Ymu, mass_scale, plasmon_decay, bremsstrahlung, pair_annihilation, xyz, tau_ana, apply_temp_correction);
+            all = compute_all_species_weakhub(weakhub, eos, rho, T, Ye, Ymu, mass_scale, plasmon_decay, bremsstrahlung, pair_annihilation, xyz, tau_ana, apply_temp_correction);
             break;
             default:
-            all = compute_all_species_weakhub(weakhub, rho, T, Ye, Ymu, mass_scale, plasmon_decay, bremsstrahlung, pair_annihilation, xyz, tau_none, apply_temp_correction);
+            all = compute_all_species_weakhub(weakhub, eos, rho, T, Ye, Ymu, mass_scale, plasmon_decay, bremsstrahlung, pair_annihilation, xyz, tau_none, apply_temp_correction);
             break;
             }
         } else {

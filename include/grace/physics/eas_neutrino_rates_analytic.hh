@@ -160,7 +160,7 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE double ipow(double x) {
 }
 
 GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE bool finite_pos(double x) {
-    return (x > 0.0) && ::isfinite(x);
+    return (x > 0.0) && Kokkos::isfinite(x);
 }
 
 GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE double safe_inv_pos_finite(double x) {
@@ -435,21 +435,24 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE double black_body_energy(double g_nu, doub
 //                   double mass_scale, int species, double rho_cgs) const;
 // -----------------------------------------------------------------------------
 
-GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE double compute_analytic_tau_from_rho_cgs(double rho_cgs) {
+GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+double compute_analytic_tau_from_rho_cgs(double rho_cgs) {
     // Deaton+ 2013 fit (log10 tau vs log10 rho) for cold NS-like profiles.
     const double rcgs = safe_pos(rho_cgs);
     const double log10_tau = 0.96 * ((Kokkos::log(rcgs) / Kokkos::log(10.0)) - 11.7);
     const double tau = Kokkos::exp(Kokkos::log(10.0) * log10_tau);
-    return (::isfinite(tau) && tau > 0.0) ? tau : 0.0;
+    return (Kokkos::isfinite(tau) && tau > 0.0) ? tau : 0.0;
 }
 
 struct tau_policy_none {
-    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE double tau_init(double /*rho_code*/, const double* /*xyz_code*/,
+    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+    double tau_init(double /*rho_code*/, const double* /*xyz_code*/,
                                            double /*mass_scale*/, int /*species*/,
                                            double /*rho_cgs*/) const {
         return 0.0;
     }
-    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE double tau_post(double /*kappa_tot_cgs*/, double /*rho_code*/,
+    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+    double tau_post(double /*kappa_tot_cgs*/, double /*rho_code*/,
                                            const double* /*xyz_code*/, double /*mass_scale*/,
                                            int /*species*/, double /*rho_cgs*/) const {
         return 0.0;
@@ -457,12 +460,14 @@ struct tau_policy_none {
 };
 
 struct tau_policy_analytic_density {
-    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE double tau_init(double /*rho_code*/, const double* /*xyz_code*/,
+    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+    double tau_init(double /*rho_code*/, const double* /*xyz_code*/,
                                            double /*mass_scale*/, int /*species*/,
                                            double rho_cgs) const {
         return compute_analytic_tau_from_rho_cgs(rho_cgs);
     }
-    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE double tau_post(double /*kappa_tot_cgs*/, double /*rho_code*/,
+    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+    double tau_post(double /*kappa_tot_cgs*/, double /*rho_code*/,
                                            const double* /*xyz_code*/, double /*mass_scale*/,
                                            int /*species*/, double rho_cgs) const {
         return compute_analytic_tau_from_rho_cgs(rho_cgs);
@@ -475,13 +480,15 @@ struct tau_policy_local_spherical {
     // Optional seed for tau_init.
     bool seed_with_analytic{true};
 
-    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE double tau_init(double /*rho_code*/, const double* /*xyz_code*/,
+    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+    double tau_init(double /*rho_code*/, const double* /*xyz_code*/,
                                            double /*mass_scale*/, int /*species*/,
                                            double rho_cgs) const {
         return seed_with_analytic ? compute_analytic_tau_from_rho_cgs(rho_cgs) : 0.0;
     }
 
-    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE double tau_post(double kappa_tot_cgs, double /*rho_code*/,
+    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+    double tau_post(double kappa_tot_cgs, double /*rho_code*/,
                                            const double* xyz_code, double mass_scale,
                                            int /*species*/, double /*rho_cgs*/) const {
         if (!(r_outer_code > 0.0) || !(kappa_tot_cgs > 0.0)) return 0.0;
@@ -494,7 +501,8 @@ struct tau_policy_local_spherical {
 };
 
 template <typename eos_t, typename tau_policy_t>
-GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE fugacity_state make_fugacity_state(
+GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+fugacity_state make_fugacity_state(
     const eos_t& eos,
     double rho_code,
     double temp_code,
@@ -533,8 +541,8 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE fugacity_state make_fugacity_state(
     F.Xh = (F.Xh > 0.0 ? F.Xh : 0.0);
     F.Xn = (F.Xn > 0.0 ? F.Xn : 0.0);
     F.Xp = (F.Xp > 0.0 ? F.Xp : 0.0);
-    if (!(::isfinite(F.Abar) && F.Abar > 0.0)) F.Abar = 1.0;
-    if (!(::isfinite(F.Zbar) && F.Zbar > 0.0)) F.Zbar = 1.0;
+    if (!(Kokkos::isfinite(F.Abar) && F.Abar > 0.0)) F.Abar = 1.0;
+    if (!(Kokkos::isfinite(F.Zbar) && F.Zbar > 0.0)) F.Zbar = 1.0;
 
     using namespace grace::physical_constants;
     F.nb = safe_pos(F.rho_cgs) * nu_constants::avogadro ;// nu_constants::mnuc_cgs;
@@ -589,8 +597,8 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE fugacity_state make_fugacity_state(
         F.eta_pn = F.nb * Yp;
         F.eta_np = F.nb * Yn;
     }
-    if (!::isfinite(F.eta_np) || !(F.eta_np > 0.0)) F.eta_np = 0.0;
-    if (!::isfinite(F.eta_pn) || !(F.eta_pn > 0.0)) F.eta_pn = 0.0;
+    if (!Kokkos::isfinite(F.eta_np) || !(F.eta_np > 0.0)) F.eta_np = 0.0;
+    if (!Kokkos::isfinite(F.eta_pn) || !(F.eta_pn > 0.0)) F.eta_pn = 0.0;
 
     // ---- DEBUG ----
     if(rho_code > 1.23857e-03 && false) {
@@ -611,21 +619,21 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE fugacity_state make_fugacity_state(
     // ---------------------------------------------------------------------------
     for (int s = 0; s < NUMSPECIES; ++s) {
         const double tau0 = tau_policy.tau_init(rho_code, xyz_code, mass_scale, s, F.rho_cgs);
-        F.tau_n[s] = (::isfinite(tau0) && tau0 > 0.0) ? tau0 : 0.0;
+        F.tau_n[s] = (Kokkos::isfinite(tau0) && tau0 > 0.0) ? tau0 : 0.0;
     }
 
     // Apply suppression (electron types always; muon types only when 5 species)
     {
         const double fac_nue    = 1.0 - Kokkos::exp(-F.tau_n[NUE]);
         const double fac_nuebar = 1.0 - Kokkos::exp(-F.tau_n[NUEBAR]);
-        if (::isfinite(fac_nue))    F.eta_nu[NUE]    *= fac_nue;
-        if (::isfinite(fac_nuebar)) F.eta_nu[NUEBAR] *= fac_nuebar;
+        if (Kokkos::isfinite(fac_nue))    F.eta_nu[NUE]    *= fac_nue;
+        if (Kokkos::isfinite(fac_nuebar)) F.eta_nu[NUEBAR] *= fac_nuebar;
 
         #ifdef M1_NU_FIVESPECIES
         const double fac_numu    = 1.0 - Kokkos::exp(-F.tau_n[NUMU]);
         const double fac_numubar = 1.0 - Kokkos::exp(-F.tau_n[NUMUBAR]);
-        if (::isfinite(fac_numu))    F.eta_nu[NUMU]    *= fac_numu;
-        if (::isfinite(fac_numubar)) F.eta_nu[NUMUBAR] *= fac_numubar;
+        if (Kokkos::isfinite(fac_numu))    F.eta_nu[NUMU]    *= fac_numu;
+        if (Kokkos::isfinite(fac_numubar)) F.eta_nu[NUMUBAR] *= fac_numubar;
         #endif
     }
 
@@ -651,7 +659,8 @@ struct nu_rates_all_out {
     std::array<nu_rates_out, NUMSPECIES> out;
 };
 
-GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void add_charged_current_absorption_opacity(const fugacity_state& F, rates_accum& out) {
+GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+void add_charged_current_absorption_opacity(const fugacity_state& F, rates_accum& out) {
     using namespace nu_constants;
     constexpr double abs_const = 0.25 * (1.0 + 3.0 * alpha * alpha) * sigma_0;
     std::array<double, NUMSPECIES> zeta{{0,0,0,0,0}};
@@ -673,17 +682,18 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void add_charged_current_absorption_opacit
     }
 }
 
-GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void add_scattering_opacity(const fugacity_state& F, rates_accum& out) {
+GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+void add_scattering_opacity(const fugacity_state& F, rates_accum& out) {
     using namespace nu_constants;
     constexpr double Cs_n = (1.0 + 5.0 * alpha * alpha) / 24.0 * sigma_0;
     constexpr double Cs_p = (4.0 * (Cv - 1.0) * (Cv - 1.0) + 5.0 * alpha * alpha) / 24.0 * sigma_0;
     double C_nucleus = (1.0/16.0) * sigma_0 * F.Abar * ipow<2>(1.0 - F.Zbar / F.Abar);
-    if (!::isfinite(C_nucleus)) C_nucleus = 0.0;
+    if (!Kokkos::isfinite(C_nucleus)) C_nucleus = 0.0;
 
     double ymp = F.Xp / (1.0 + (2.0/3.0) * Kokkos::max(0.0, F.mu_p / safe_pos(F.temp_mev)));
     double ymn = F.Xn / (1.0 + (2.0/3.0) * Kokkos::max(0.0, F.mu_n / safe_pos(F.temp_mev)));
-    if (!::isfinite(ymp)) ymp = F.Xp;
-    if (!::isfinite(ymn)) ymn = F.Xn;
+    if (!Kokkos::isfinite(ymp)) ymp = F.Xp;
+    if (!Kokkos::isfinite(ymn)) ymn = F.Xn;
 
     const double tfac2 = ipow<2>(F.temp_mev / me_mev);
     for (int i = NUE; i <= NUX; ++i) {
@@ -700,7 +710,8 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void add_scattering_opacity(const fugacity
 // -----------------------------------------------------------------------------
 // Charged-current emission 
 // -----------------------------------------------------------------------------
-GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void add_charged_current_emission(const fugacity_state& F, rates_accum& out) {
+GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+void add_charged_current_emission(const fugacity_state& F, rates_accum& out) {
     using namespace nu_constants;
 
     // Ruffert+ (B3-4)
@@ -717,13 +728,14 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void add_charged_current_emission(const fu
     const double Qe = beta * F.eta_pn * ipow<6>(F.temp_mev) * fermi::FD<5>::get(F.eta_e)  / block_factor_nue;
     const double Qa = beta * F.eta_np * ipow<6>(F.temp_mev) * fermi::FD<5>::get(-F.eta_e) / block_factor_anue;
 
-    if (Re > 0.0 && ::isfinite(Re)) out.R[NUE]    += Re;
-    if (Ra > 0.0 && ::isfinite(Ra)) out.R[NUEBAR] += Ra;
-    if (Qe > 0.0 && ::isfinite(Qe)) out.Q[NUE]    += Qe;
-    if (Qa > 0.0 && ::isfinite(Qa)) out.Q[NUEBAR] += Qa;
+    if (Re > 0.0 && Kokkos::isfinite(Re)) out.R[NUE]    += Re;
+    if (Ra > 0.0 && Kokkos::isfinite(Ra)) out.R[NUEBAR] += Ra;
+    if (Qe > 0.0 && Kokkos::isfinite(Qe)) out.Q[NUE]    += Qe;
+    if (Qa > 0.0 && Kokkos::isfinite(Qa)) out.Q[NUEBAR] += Qa;
 }
 
-GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void add_pair_process_emission(const fugacity_state& F, rates_accum& out) {
+GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+void add_pair_process_emission(const fugacity_state& F, rates_accum& out) {
     using namespace nu_constants;
 
     std::array<double, NUMSPECIES> block{{1,1,1,1,1}};
@@ -744,7 +756,7 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void add_pair_process_emission(const fugac
     const double R_pair = pair_const * (ipow<2>(Cv - Ca) + ipow<2>(Cv + Ca)) /
                         (36.0 * block[NUE] * block[NUEBAR]);
     //KEN
-    if (::isfinite(R_pair) && (R_pair > 0.0)) {
+    if (Kokkos::isfinite(R_pair) && (R_pair > 0.0)) {
         //out.R[NUE] += R_pair;
         //out.R[NUEBAR] += R_pair;
         //out.Q[NUE] += R_pair * eps_fraction;
@@ -768,7 +780,7 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void add_pair_process_emission(const fugac
                           (block[NUX] * block[NUX]);
     #endif
 
-    if (::isfinite(R_pair_x) && (R_pair_x > 0.0)) {
+    if (Kokkos::isfinite(R_pair_x) && (R_pair_x > 0.0)) {
         out.R[NUX] += R_pair_x;
         out.Q[NUX] += R_pair_x * eps_fraction;
     }
@@ -776,7 +788,7 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void add_pair_process_emission(const fugac
     #ifdef M1_NU_FIVESPECIES
     const double R_pair_numu = (1.0/36.0) * pair_const * pair_heavy_coupling /
                              (block[NUMU] * block[NUMUBAR]);
-    if (::isfinite(R_pair_numu) && (R_pair_numu > 0.0)) {
+    if (Kokkos::isfinite(R_pair_numu) && (R_pair_numu > 0.0)) {
         out.R[NUMU]    += R_pair_numu;
         out.R[NUMUBAR] += R_pair_numu;
         out.Q[NUMU]    += R_pair_numu * eps_fraction;
@@ -785,7 +797,8 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void add_pair_process_emission(const fugac
     #endif
 }
 
-GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void add_plasmon_decay_emission(const fugacity_state& F, rates_accum& out) {
+GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+void add_plasmon_decay_emission(const fugacity_state& F, rates_accum& out) {
     using namespace nu_constants;
 
     const double gamma = gamma_0 * Kokkos::sqrt((pi*pi + 3.0 * F.eta_e * F.eta_e) / 3.0);
@@ -803,7 +816,7 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void add_plasmon_decay_emission(const fuga
     const double R_gamma = ipow<2>(Cv) * gamma_const / (block[NUE] * block[NUEBAR]);
     const double Q_gamma = F.temp_mev * 0.5 * (2.0 + gamma * gamma / (1.0 + gamma));
     // TODO check if plasmon adds to nue, nuebar
-    if (::isfinite(R_gamma) && (R_gamma > 0.0)) {
+    if (Kokkos::isfinite(R_gamma) && (R_gamma > 0.0)) {
         out.R[NUE] += R_gamma;
         out.R[NUEBAR] += R_gamma;
         out.Q[NUE] += Q_gamma * R_gamma;
@@ -820,7 +833,7 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void add_plasmon_decay_emission(const fuga
                            (block[NUX] * block[NUX]);
     #endif
 
-    if (::isfinite(R_gamma_x) && (R_gamma_x > 0.0)) {
+    if (Kokkos::isfinite(R_gamma_x) && (R_gamma_x > 0.0)) {
         out.R[NUX] += R_gamma_x;
         out.Q[NUX] += Q_gamma * R_gamma_x;
     }
@@ -828,7 +841,7 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void add_plasmon_decay_emission(const fuga
     #ifdef M1_NU_FIVESPECIES
     const double R_gamma_numu = ipow<2>(Cv - 1.0) * gamma_const /
                               (block[NUMU] * block[NUMUBAR]);
-    if (::isfinite(R_gamma_numu) && (R_gamma_numu > 0.0)) {
+    if (Kokkos::isfinite(R_gamma_numu) && (R_gamma_numu > 0.0)) {
         out.R[NUMU]    += R_gamma_numu;
         out.R[NUMUBAR] += R_gamma_numu;
         out.Q[NUMU]    += Q_gamma * R_gamma_numu;
@@ -837,13 +850,14 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void add_plasmon_decay_emission(const fuga
     #endif
 }
 
-GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void add_brems_emission(const fugacity_state& F, rates_accum& out) {
+GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+void add_brems_emission(const fugacity_state& F, rates_accum& out) {
     using namespace nu_constants;
     const double factorY = 0.5 * (ipow<2>(F.Xn) + ipow<2>(F.Xp) + (28.0/3.0) * F.Xn * F.Xp);
     const double R_brems =
         0.231 * (2.0778e2 * erg_to_mev) * factorY * ipow<2>(F.rho_cgs) * ipow<4>(F.temp_mev) * Kokkos::sqrt(safe_pos(F.temp_mev));
     const double Q_brems = R_brems * F.temp_mev / 0.231 * 0.504;
-    if (::isfinite(R_brems) && (R_brems > 0.0) && ::isfinite(Q_brems) && (Q_brems > 0.0)) {
+    if (Kokkos::isfinite(R_brems) && (R_brems > 0.0) && Kokkos::isfinite(Q_brems) && (Q_brems > 0.0)) {
         #ifdef M1_NU_FIVESPECIES
         // In 5-species mode:
         //   NUMU    = one heavy species
@@ -863,7 +877,8 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void add_brems_emission(const fugacity_sta
   }
 }
 
-GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void apply_kirchhoff(const fugacity_state& F,
+GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+void apply_kirchhoff(const fugacity_state& F,
                                              const std::array<double, NUMSPECIES>& g_nu,
                                              rates_accum& out) {
     for (int i = NUE; i <= NUX; ++i) {
@@ -884,7 +899,8 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void apply_kirchhoff(const fugacity_state&
     }
 }
 
-GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE void add_kirchhoff_absorption_opacity_from_QR(
+GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+void add_kirchhoff_absorption_opacity_from_QR(
                         const fugacity_state& F,
                         const std::array<double, NUMSPECIES>& g_nu,
                         const std::array<double, NUMSPECIES>& Q_in,
@@ -931,9 +947,11 @@ void add_kirchhoff_emission_from_absorption_opacity(
 // compute opacities/emissivities for one species.
 // -----------------------------------------------------------------------------
 
-template <typename tau_policy_t>
-GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE nu_rates_all_out compute_all_species_weakhub(
+template <typename eos_t, typename tau_policy_t>
+GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+nu_rates_all_out compute_all_species_weakhub(
     const grace::weakhub::device_handle& weakhub,
+    const eos_t& eos,
     double rho_code,
     double temp_code,
     double ye,
@@ -946,18 +964,22 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE nu_rates_all_out compute_all_species_weakh
     const tau_policy_t& tau_policy,
     bool apply_temp_correction)
 {
-    fugacity_state F{};
-    F.rho_code = rho_code;
-    F.temp_code = temp_code;
-    F.ye = ye;
-    F.ymu = ymu;
-    F.mass_scale = mass_scale;
-    F.rho_cgs = rho_code_to_cgs(rho_code, mass_scale);
-    F.temp_mev = temp_code_to_mev(temp_code);
-    F.eta_nu.fill(0.0);
-    F.tau_n.fill(0.0);
+    //fugacity_state F{};
+    //F.rho_code = rho_code;
+    //F.temp_code = temp_code;
+    //F.ye = ye;
+    //F.ymu = ymu;
+    //F.mass_scale = mass_scale;
+    //F.rho_cgs = rho_code_to_cgs(rho_code, mass_scale);
+    //F.temp_mev = temp_code_to_mev(temp_code);
+    //F.eta_nu.fill(0.0);
+    //F.tau_n.fill(0.0);
 
-    const auto tbl = weakhub.lookup(F.rho_cgs, F.temp_mev, ye, ymu);
+    fugacity_state F = make_fugacity_state(eos, rho_code, temp_code, ye, ymu, mass_scale, xyz_code, tau_policy);
+
+
+    //const auto tbl = weakhub.lookup(F.rho_cgs, F.temp_mev, ye, ymu);
+    const auto tbl = weakhub.lookup(rho_code, F.temp_mev, ye, ymu);
     rates_accum rates{};
     for (int s = NUE; s <= NUX; ++s) {
         rates.kappa_a[s] = tbl.kappa_a_en[s];
@@ -969,6 +991,8 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE nu_rates_all_out compute_all_species_weakh
     #ifdef M1_NU_FIVESPECIES
     g_nu = {{1,1,1,1,2}};
     #endif
+
+    #pragma unroll
     for (int s = NUE; s <= NUX; ++s) {
         const double Ber_eq = black_body_energy(g_nu[s], F.temp_mev, F.eta_nu[s]);
         const double Bn_eq = black_body_number(g_nu[s], F.temp_mev, F.eta_nu[s]);
@@ -1076,7 +1100,7 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE nu_rates_all_out compute_all_species(
     //   emissivities from Ruffert/Rosswog formulae,
     //   absorption opacities from the inverse charged-current reactions.
     // Do not overwrite these opacities by Kirchhoff below.
-   // if (beta_decay) {
+    //if (beta_decay) {
     //    add_charged_current_emission(F, rates);
     //    add_charged_current_absorption_opacity(F, rates);
     //}
@@ -1125,6 +1149,9 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE nu_rates_all_out compute_all_species(
     g_nu = {{1,1,1,1,2}};
 #endif
 
+    if (beta_decay) {
+        add_charged_current_emission(F,thermal_rates);
+    }
     std::array<double, NUMSPECIES> kappa_a_thermal{{0,0,0,0,0}};
     std::array<double, NUMSPECIES> kappa_n_thermal{{0,0,0,0,0}};
     add_kirchhoff_absorption_opacity_from_QR(
@@ -1157,12 +1184,12 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE nu_rates_all_out compute_all_species(
                 const double Tnu_mev = fermi::FDR<2,3>::get(F.eta_nu[s]) * eps_mev;
                 const double Tf_mev  = safe_pos(F.temp_mev);
                 double fact = 1.0;
-                if (::isfinite(Tnu_mev) && Tnu_mev > 0.0) {
+                if (Kokkos::isfinite(Tnu_mev) && Tnu_mev > 0.0) {
                     const double ratio = Tnu_mev / Tf_mev;
                     fact = ratio * ratio;
                     if (fact < 1.0) fact = 1.0;
                 }
-                if (::isfinite(fact) && fact > 0.0) {
+                if (Kokkos::isfinite(fact) && fact > 0.0) {
                     // TODO is it correct like that?
                     if(s == NUX){            
                         rates.kappa_s[s] *= fact;
@@ -1187,11 +1214,11 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE nu_rates_all_out compute_all_species(
         out.kappa_n = kappa_to_code(rates.kappa_n[s], mass_scale);
         out.kappa_s = kappa_to_code(rates.kappa_s[s], mass_scale);
 
-        if (!::isfinite(out.eta_E)) out.eta_E = 0.0;
-        if (!::isfinite(out.eta_N)) out.eta_N = 0.0;
-        if (!::isfinite(out.kappa_a)) out.kappa_a = 0.0;
-        if (!::isfinite(out.kappa_n)) out.kappa_n = 0.0;
-        if (!::isfinite(out.kappa_s)) out.kappa_s = 0.0;
+        if (!Kokkos::isfinite(out.eta_E)) out.eta_E = 0.0;
+        if (!Kokkos::isfinite(out.eta_N)) out.eta_N = 0.0;
+        if (!Kokkos::isfinite(out.kappa_a)) out.kappa_a = 0.0;
+        if (!Kokkos::isfinite(out.kappa_n)) out.kappa_n = 0.0;
+        if (!Kokkos::isfinite(out.kappa_s)) out.kappa_s = 0.0;
         all.out[s] = out;
     }
     return all;
