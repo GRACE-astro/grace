@@ -225,45 +225,91 @@ m1_outflows::compute_local_fluxes(
 
         const double domega = detector.weights_h[ip];
 
+        // Read metric
+        double const alp   = ivals(i, loc_var_idx_t::ALPL);
+        double const betax = ivals(i, loc_var_idx_t::BETAXL);
+        double const betay = ivals(i, loc_var_idx_t::BETAYL);
+        double const betaz = ivals(i, loc_var_idx_t::BETAZL);
+
         // Species 0 (nu_e / single-species)
         {
-            const double Fx = ivals(i, loc_var_idx_t::FX1L);
-            const double Fy = ivals(i, loc_var_idx_t::FY1L);
-            const double Fz = ivals(i, loc_var_idx_t::FZ1L);
-            flux_loc[0] += r * r * domega * (Fx * nx + Fy * ny + Fz * nz);
+            double const E  = ivals(i, loc_var_idx_t::E1L);
+            double const Fx = ivals(i, loc_var_idx_t::FX1L);
+            double const Fy = ivals(i, loc_var_idx_t::FY1L);
+            double const Fz = ivals(i, loc_var_idx_t::FZ1L);
+            
+            // Physical coordinate flux: alpha * F^i - beta^i * E
+            double const phys_Fx = alp * Fx - betax * E;
+            double const phys_Fy = alp * Fy - betay * E;
+            double const phys_Fz = alp * Fz - betaz * E;
+            
+            // Project onto outward radial normal
+            flux_loc[0] += r * r * domega * (phys_Fx * nx + phys_Fy * ny + phys_Fz * nz);
         }
 
 #ifdef M1_NU_THREESPECIES
         // Species 1 (anti-nu_e)
         {
-            const double Fx = ivals(i, loc_var_idx_t::FX2L);
-            const double Fy = ivals(i, loc_var_idx_t::FY2L);
-            const double Fz = ivals(i, loc_var_idx_t::FZ2L);
-            flux_loc[1] += r * r * domega * (Fx * nx + Fy * ny + Fz * nz);
+            double const E  = ivals(i, loc_var_idx_t::E2L);
+            double const Fx = ivals(i, loc_var_idx_t::FX2L);
+            double const Fy = ivals(i, loc_var_idx_t::FY2L);
+            double const Fz = ivals(i, loc_var_idx_t::FZ2L);
+            
+            // Physical coordinate flux: alpha * F^i - beta^i * E
+            double const phys_Fx = alp * Fx - betax * E;
+            double const phys_Fy = alp * Fy - betay * E;
+            double const phys_Fz = alp * Fz - betaz * E;
+            
+            // Project onto outward radial normal
+            flux_loc[1] += r * r * domega * (phys_Fx * nx + phys_Fy * ny + phys_Fz * nz);
         }
         // Species 2 (nu_x / heavy leptons)
         {
-            const double Fx = ivals(i, loc_var_idx_t::FX3L);
-            const double Fy = ivals(i, loc_var_idx_t::FY3L);
-            const double Fz = ivals(i, loc_var_idx_t::FZ3L);
-            flux_loc[2] += r * r * domega * (Fx * nx + Fy * ny + Fz * nz);
+            double const E  = ivals(i, loc_var_idx_t::E3L);
+            double const Fx = ivals(i, loc_var_idx_t::FX3L);
+            double const Fy = ivals(i, loc_var_idx_t::FY3L);
+            double const Fz = ivals(i, loc_var_idx_t::FZ3L);
+            
+            // Physical coordinate flux: alpha * F^i - beta^i * E
+            double const phys_Fx = alp * Fx - betax * E;
+            double const phys_Fy = alp * Fy - betay * E;
+            double const phys_Fz = alp * Fz - betaz * E;
+            
+            // Project onto outward radial normal
+            flux_loc[2] += r * r * domega * (phys_Fx * nx + phys_Fy * ny + phys_Fz * nz);
         }
 #endif
 
 #ifdef M1_NU_FIVESPECIES
         // Species 3 (nu_mu)
         {
-            const double Fx = ivals(i, loc_var_idx_t::FX4L);
-            const double Fy = ivals(i, loc_var_idx_t::FY4L);
-            const double Fz = ivals(i, loc_var_idx_t::FZ4L);
-            flux_loc[3] += r * r * domega * (Fx * nx + Fy * ny + Fz * nz);
+            double const E  = ivals(i, loc_var_idx_t::E4L);
+            double const Fx = ivals(i, loc_var_idx_t::FX4L);
+            double const Fy = ivals(i, loc_var_idx_t::FY4L);
+            double const Fz = ivals(i, loc_var_idx_t::FZ4L);
+            
+            // Physical coordinate flux: alpha * F^i - beta^i * E
+            double const phys_Fx = alp * Fx - betax * E;
+            double const phys_Fy = alp * Fy - betay * E;
+            double const phys_Fz = alp * Fz - betaz * E;
+            
+            // Project onto outward radial normal
+            flux_loc[3] += r * r * domega * (phys_Fx * nx + phys_Fy * ny + phys_Fz * nz);
         }
         // Species 4 (anti-nu_mu)
         {
-            const double Fx = ivals(i, loc_var_idx_t::FX5L);
-            const double Fy = ivals(i, loc_var_idx_t::FY5L);
-            const double Fz = ivals(i, loc_var_idx_t::FZ5L);
-            flux_loc[4] += r * r * domega * (Fx * nx + Fy * ny + Fz * nz);
+            double const E  = ivals(i, loc_var_idx_t::E5L);
+            double const Fx = ivals(i, loc_var_idx_t::FX5L);
+            double const Fy = ivals(i, loc_var_idx_t::FY5L);
+            double const Fz = ivals(i, loc_var_idx_t::FZ5L);
+            
+            // Physical coordinate flux: alpha * F^i - beta^i * E
+            double const phys_Fx = alp * Fx - betax * E;
+            double const phys_Fy = alp * Fy - betay * E;
+            double const phys_Fz = alp * Fz - betaz * E;
+            
+            // Project onto outward radial normal
+            flux_loc[4] += r * r * domega * (phys_Fx * nx + phys_Fy * ny + phys_Fz * nz);
         }
 #endif
     }
