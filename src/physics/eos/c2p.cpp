@@ -277,7 +277,7 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
             c2p_backup_t e_c2p(eos,metric,cons) ;
             double residual = e_c2p.invert(prims,c2p_ret) ; 
             // decide if we can accept the inversion 
-            c2p_failed = (math::abs(residual) > c2p_pars.tol) || (!Kokkos::isfinite(residual)) ;
+            c2p_failed = (Kokkos::abs(residual) > c2p_pars.tol) || (!Kokkos::isfinite(residual)) ;
             c2p_failed |= (prims[EPSL] >= eos.get_c2p_eps_max()) ; 
         }
         // handle the return signals from within the 
