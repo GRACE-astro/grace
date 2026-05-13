@@ -51,6 +51,7 @@
 #include <grace/physics/eas_policies.hh>
 #include <grace/physics/id/m1_initial_data.hh>
 #include <grace/physics/grace_weakhub_table.hh>
+#include <grace/physics/bns_nurates_grace.hh>
 
 // grmhd + eos includes 
 #include <grace/physics/grmhd_helpers.hh>
@@ -135,6 +136,9 @@ void set_m1_eas(
                 op(VEC(i,j,k),q,xyz) ;
             }
         );
+    } else if ( eas_kind == "bns_nurates" ) {
+        // Currently being done in auxiliaries.cpp and bns_nurates.hpp
+        set_m1_eas_bns_nurates<eos_t>(state, aux);
     } else {
         ERROR("EAS computation method not supported.") ; 
     }

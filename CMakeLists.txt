@@ -148,7 +148,11 @@ add_subdirectory(src)
 
 
 add_executable(grace src/grace.cpp)
-target_include_directories(grace PRIVATE "${HEADER_DIR}")
+#target_include_directories(grace PRIVATE "${HEADER_DIR}")
+target_include_directories(grace PRIVATE
+    "${HEADER_DIR}"
+    $<$<BOOL:${GRACE_ENABLE_M1}>:${CMAKE_SOURCE_DIR}/extern/bns_nurates/include>
+)
 target_link_libraries(grace PRIVATE 
         grace_objects
         yaml_cpp::yaml

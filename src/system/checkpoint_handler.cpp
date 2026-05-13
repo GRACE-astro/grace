@@ -347,8 +347,11 @@ void write_data_hdf5(
     hsize_t chunk_dim[1] = { std::min(target_chunk_elems, dim_glob) };
 
     // Apply dataset chunking policy
+    // Ken removed chunking when M1 enabled, for Hunter this broke
+    #ifndef GRACE_ENABLE_M1 
     HDF5_CALL(err, H5Pset_chunk(prop_id, 1, chunk_dim));
-
+    #endif
+    
     /* Create dataset */
     hid_t dset_id ; 
         HDF5_CALL( dset_id

@@ -90,7 +90,7 @@ m1:
 
     kind: 
       type: keyword 
-      allowed: ["test", "basic_photon_rates", "neutrino_analytic", "neutrino_weakhub"]
+      allowed: ["test", "basic_photon_rates", "neutrino_analytic", "neutrino_weakhub", "bns_nurates"]
       default: "test" 
       description: > 
         What prescription to use to set eas 

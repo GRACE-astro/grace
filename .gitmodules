@@ -2,3 +2,6 @@
 	path = extern/doxygen-awesome-css
 	url = git@github.com:jothepro/doxygen-awesome-css.git
 
+[submodule "extern/bns_nurates"]
+	path = extern/bns_nurates
+	url = https://github.com/RelNucAs/bns_nurates.git

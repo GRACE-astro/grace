@@ -7,3 +7,10 @@ register_grace_object_conditional(grace_b_field_injection GRACE_ENABLE_GRMHD b_f
 register_grace_object_conditional(grace_bssn GRACE_ENABLE_BSSN_METRIC bssn.cpp)
 register_grace_object_conditional(grace_m1 GRACE_ENABLE_M1 m1.cpp grace_weakhub_setup.cpp) 
 register_grace_object_conditional(grace_kadath_importer GRACE_ENABLE_FUKA import_kadath.cpp )
+
+# bns_nurates is header-only: no .cpp, just add the include path to grace_objects
+if(GRACE_ENABLE_M1)
+    target_include_directories(grace_m1 PRIVATE
+        ${CMAKE_SOURCE_DIR}/extern/bns_nurates/include
+    )
+endif()

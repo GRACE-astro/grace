@@ -304,17 +304,20 @@ enum aux_var_idx : int {
     ETA1_,
     ETAN1_,
     KAPPAAN1_,
+    //M1_IMPL_ERR1_,
     #ifdef M1_NU_THREESPECIES
     KAPPAA2_,
     KAPPAS2_,
     ETA2_,
     ETAN2_,
     KAPPAAN2_,
+    //M1_IMPL_ERR2_,
     KAPPAA3_,
     KAPPAS3_,
     ETA3_,
     ETAN3_,
     KAPPAAN3_,
+    //M1_IMPL_ERR3_,
     #endif
     #ifdef M1_NU_FIVESPECIES
     KAPPAA4_,
@@ -322,11 +325,13 @@ enum aux_var_idx : int {
     ETA4_,
     ETAN4_,
     KAPPAAN4_,
+    //M1_IMPL_ERR4_,
     KAPPAA5_,
     KAPPAS5_,
     ETA5_,
     ETAN5_,
     KAPPAAN5_,
+    //M1_IMPL_ERR5_,
     YMU_,
     #endif
     #endif
