@@ -45,6 +45,7 @@
 #include <grace/IO/diagnostics/black_hole_diagnostics.hh>
 #ifdef GRACE_ENABLE_Z4C_METRIC
 #include <grace/IO/diagnostics/gw_integrals.hh>
+#include <grace/IO/diagnostics/adm_integrals.hh>
 #include <grace/physics/z4c.hh>
 #endif
 #include <grace/IO/diagnostics/outflow_diagnostics.hh>
@@ -83,11 +84,13 @@ void output_diagnostics() {
     {
         z4c_eq_system.compute_psi4(i,j,k,q,idx,coords) ; 
     }) ; 
-    gw_integrals gw_ints{} ; 
-    gw_ints.compute_and_write() ;  
+    gw_integrals gw_ints{} ;
+    gw_ints.compute_and_write() ;
+    adm_integrals adm_ints{} ;
+    adm_ints.compute_and_write() ;
     #endif
-    outflows outfl{} ; 
-    outfl.compute_and_write() ; 
+    outflows outfl{} ;
+    outfl.compute_and_write() ;
 
     em_energy_diagnostic em_energy{} ; 
     em_energy.compute_and_write() ; 
@@ -100,8 +103,10 @@ void initialize_diagnostic_files() {
     bh_diagnostics bh_diag{};
     bh_diag.initialize_files() ; 
     #ifdef GRACE_ENABLE_Z4C_METRIC
-    gw_integrals gw_ints{} ; 
-    gw_ints.initialize_files() ;  
+    gw_integrals gw_ints{} ;
+    gw_ints.initialize_files() ;
+    adm_integrals adm_ints{} ;
+    adm_ints.initialize_files() ;
     #endif
     outflows outfl{} ; 
     outfl.initialize_files() ; 

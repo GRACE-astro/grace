@@ -77,18 +77,19 @@ if(p4est_FOUND)
     set(sc_INCLUDE_DIRS "${p4est_INCLUDE_DIR}")
 endif()
 
-if(p4est_FOUND AND NOT TARGET p4est::p4est)
-    add_library(p4est::p4est UNKNOWN IMPORTED)
-    set_target_properties(p4est::p4est PROPERTIES
-    IMPORTED_LOCATION "${p4est_LIBRARY}"
-    INTERFACE_INCLUDE_DIRECTORIES "${p4est_INCLUDE_DIRS}")
-endif()
-
 if(p4est_FOUND AND NOT TARGET p4est::sc)
     add_library(p4est::sc UNKNOWN IMPORTED)
     set_target_properties(p4est::sc PROPERTIES
     IMPORTED_LOCATION "${sc_LIBRARY}"
     INTERFACE_INCLUDE_DIRECTORIES "${p4est_INCLUDE_DIRS}")
+endif()
+
+if(p4est_FOUND AND NOT TARGET p4est::p4est)
+    add_library(p4est::p4est UNKNOWN IMPORTED)
+    set_target_properties(p4est::p4est PROPERTIES
+    IMPORTED_LOCATION "${p4est_LIBRARY}"
+    INTERFACE_INCLUDE_DIRECTORIES "${p4est_INCLUDE_DIRS}"
+    INTERFACE_LINK_LIBRARIES "p4est::sc")
 endif()
 
 mark_as_advanced(

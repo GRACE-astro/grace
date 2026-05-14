@@ -1,0 +1,16 @@
+adm_integrals:
+  type: schema
+  description: >
+    ADM-mass surface integral. For each named detector sphere, computes
+    M_ADM = (1/16 pi) oint (d_j gamma_ij - d_i gamma_jj) n^i dA via
+    Hermite-cubic interpolation of the spatial metric and chi (Z4c).
+    Output: one M_ADM_<sphere>.dat file per detector under the scalar
+    output directory.
+
+  detector_names:
+    type: list
+    item_type: string
+    default: []
+    description: >
+      Names of detector spheres (registered under spherical_surfaces) at
+      which the ADM-mass integral should be evaluated.

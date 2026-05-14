@@ -5,259 +5,207 @@
 #include <grace/config/config_parser.hh>
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/utils/grace_utils.hh>
-#include <grace/IO/vtk_output.hh>
+
+#include <array>
 #include <iostream>
-#include <catch2/matchers/catch_matchers_floating_point.hpp>
-#include <numeric>
+#include <limits>
 
-/*#undef DBG_GHOSTZONE_TEST*/
+namespace {
 
-static inline bool is_outside_grid(VEC(size_t i,size_t j, size_t k), int64_t q)
+// True iff the physical coordinate `p` lies outside the active simulation
+// domain. Used to skip cells that get filled by a phys-BC kernel — those
+// involve floating-point arithmetic (extrap_3, sommerfeld) so bit-exactness
+// is not guaranteed even for a linear test function.
+inline bool is_phys_boundary(std::array<double, GRACE_NSPACEDIM> const& p)
 {
-    auto params = grace::config_parser::get()["amr"] ; 
-    auto pcoords = grace::get_physical_coordinates({VEC(i,j,k)},q,{VEC(0.5,0.5,0.5)}, true) ;
-    #ifdef GRACE_CARTESIAN_COORDINATES 
-        double xmin = params["xmin"].as<double>() ;
-        double ymin = params["ymin"].as<double>() ;
-        double zmin = params["zmin"].as<double>() ;
-
-        double xmax = params["xmax"].as<double>() ;
-        double ymax = params["ymax"].as<double>() ;
-        double zmax = params["zmax"].as<double>() ; 
-
-        return (pcoords[0]<xmin) || (pcoords[0]>xmax) || pcoords[1]<ymin || pcoords[1]>ymax 
-        #ifdef GRACE_3D 
-        || (pcoords[2]<zmin) || (pcoords[2]>zmax)
-        #endif 
-        ;
-    #else    
-        auto const Ro = params["outer_region_radius"].as<double>() ;
-        auto r2 = EXPR(
-              math::int_pow<2>(pcoords[0]),
-            + math::int_pow<2>(pcoords[1]),
-            + math::int_pow<2>(pcoords[2])
-        );
-
-        return r2 > Ro*Ro ;
-    #endif 
+    auto params = grace::config_parser::get()["amr"];
+#ifdef GRACE_CARTESIAN_COORDINATES
+    double const xmin = params["xmin"].as<double>();
+    double const ymin = params["ymin"].as<double>();
+    double const xmax = params["xmax"].as<double>();
+    double const ymax = params["ymax"].as<double>();
+    bool out = (p[0] < xmin) || (p[0] > xmax)
+            || (p[1] < ymin) || (p[1] > ymax);
+#ifdef GRACE_3D
+    double const zmin = params["zmin"].as<double>();
+    double const zmax = params["zmax"].as<double>();
+    out = out || (p[2] < zmin) || (p[2] > zmax);
+#endif
+    return out;
+#else
+    auto const Ro = params["outer_region_radius"].as<double>();
+    double r2 = math::int_pow<2>(p[0])
+              + math::int_pow<2>(p[1])
+#ifdef GRACE_3D
+              + math::int_pow<2>(p[2])
+#endif
+              ;
+    return r2 > Ro * Ro;
+#endif
 }
 
-static inline bool is_corner_ghostzone(VEC(long i, long j, long k), VEC(long nx, long ny, long nz), int ngz)
+}  // namespace
+
+// Bit-exact ghost-zone fill on a uniformly refined grid.
+//
+// Strategy: initialise interior cells with a closed-form linear function of the
+// physical coordinates, NaN out the ghost zones, run apply_boundary_conditions(),
+// then check every ghost cell whose physical position lies INSIDE the domain
+// (i.e. cells filled by inter-quadrant copy or by MPI pack/unpack — both pure
+// `=` assignment with no FP arithmetic) is bit-exactly equal to the function
+// evaluated at the same physical position.
+//
+// Cells whose physical position lies outside the domain (i.e. filled by a
+// phys-BC kernel that does FP arithmetic) are skipped — they would not satisfy
+// bit-exactness in general.
+//
+// Coverage: centered scalar (DENS) plus all three face staggerings
+// (FACEX/FACEY/FACEZ), including the corner ghost zones.
+TEST_CASE("BC bit-exact ghost-zone fill (unigrid)", "[boundaries]")
 {
-    return (EXPR((i<ngz) + (i>nx+ngz-1), + (j<ngz) + (j>ny+ngz-1), + (k<ngz) + (k>nz+ngz-1))) > 1 ; 
-}
+    using namespace grace;
+    using namespace grace::variables;
 
-static inline bool is_ghostzone(VEC(int i, int j, int k), VEC(int nx, int ny, int nz), int ngz)
-{
-    return (EXPR((i<ngz) + (i>nx+ngz-1), + (j<ngz) + (j>ny+ngz-1), + (k<ngz) + (k>nz+ngz-1))) > 0 ; 
-}
+#if defined(GRACE_ENABLE_BURGERS) || defined(GRACE_ENABLE_SCALAR_ADV)
+    int const DENS = U;
+#else
+    int const DENS = DENS_;
+#endif
 
-TEST_CASE("Apply BC", "[boundaries]")
-{
-    using namespace grace::variables ; 
-    using namespace grace ;
-    using namespace Kokkos ; 
+    auto& state = variable_list::get().getstate();
+    auto& stag  = variable_list::get().getstaggeredstate();
+    auto& coord_system = coordinate_system::get();
 
-    #if defined(GRACE_ENABLE_BURGERS) or defined(GRACE_ENABLE_SCALAR_ADV)
-    int const DENS = U ; 
-    int const DENS_ = U ; 
-    #endif  
-    
-    auto& state  = grace::variable_list::get().getstate()  ;
-    auto& coords = grace::variable_list::get().getcoords() ; 
-    long nx,ny,nz; 
-    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
-    size_t nq = grace::amr::get_local_num_quadrants() ; 
-    int ngz = grace::amr::get_n_ghosts() ; 
-    std::cout << "nx,ny,nz,ngz " << nx << ", " << ny << ", " << nz << ", " << ngz << std::endl ; 
-    auto ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ; 
-    auto ncells_noghost = EXPR(nx,*ny,*nz)*nq ; 
+    long nx, ny, nz;
+    std::tie(nx, ny, nz) = amr::get_quadrant_extents();
+    long const nq  = static_cast<long>(amr::get_local_num_quadrants());
+    int  const ngz = amr::get_n_ghosts();
 
-    auto const h_func = [&] (VEC(const double& x,const double& y,const double &z))
-    {
-        return EXPR(8.5 * x, - 5.1 * y, + 2*z) - 3.14 ; 
-    } ; 
-    auto const h_func_derivative = [&] (VEC(const double& x,const double& y,const double &z))
-    {
-        return std::array<double,GRACE_NSPACEDIM>{
-            VEC(
-                8.5,
-                -5.1,
-                2. 
-            )
-        } ; 
-    } ; 
-    auto h_state = Kokkos::create_mirror_view( state ) ; 
-    auto& coord_system = grace::coordinate_system::get() ;
-    /*************************************************/
-    /*                   fill data                   */
-    /*        here we don't fill ghostzones.         */
-    /*************************************************/
-    for( size_t icell=0UL; icell<ncells; icell+=1UL)
-    {
-        size_t const i = icell%(nx+2*ngz); 
-        size_t const j = (icell/(nx+2*ngz)) % (ny+2*ngz) ;
-        #ifdef GRACE_3D 
-        size_t const k = 
-            (icell/(nx+2*ngz)/(ny+2*ngz)) % (nz+2*ngz) ; 
-        size_t const q = 
-            (icell/(nx+2*ngz)/(ny+2*ngz)/(nz+2*ngz)) ;
-        #else 
-        size_t const q = (icell/(nx+2*ngz)/(ny+2*ngz)) ; 
-        #endif 
-        /* Physical coordinates of cell center */
-        auto pcoords = coord_system.get_physical_coordinates(
-            {VEC(i,j,k)},
-            q,
-            true
-        ) ; 
-        h_state(VEC(i,j,k),DENS,q) = h_func(VEC(pcoords[0],pcoords[1],pcoords[2])) ; 
-    } 
-    /* Set ghostzone values to NaN before filling */ 
-    for( size_t icell=0UL; icell<ncells; icell+=1UL)
-    {
-        long const i = icell%(nx+2*ngz); 
-        long const j = (icell/(nx+2*ngz)) % (ny+2*ngz) ;
-        #ifdef GRACE_3D 
-        long const k = 
-            (icell/(nx+2*ngz)/(ny+2*ngz)) % (nz+2*ngz) ; 
-        long const q = 
-            (icell/(nx+2*ngz)/(ny+2*ngz)/(nz+2*ngz)) ;
-        #else 
-        long const q = (icell/(nx+2*ngz)/(ny+2*ngz)) ; 
-        #endif 
-        if(   is_ghostzone(VEC(i,j,k),VEC(nx,ny,nz),ngz) ) 
-        {
-            h_state(VEC(i,j,k),DENS,q) = std::numeric_limits<double>::quiet_NaN() ; 
-        }
-    }
-    Kokkos::deep_copy(state, h_state) ; 
-    //grace::IO::write_volume_cell_data() ; 
-    /* Fill boundaries and ghost-zones */
-    grace::amr::apply_boundary_conditions() ; 
-    //grace::runtime::get().increment_iteration() ; 
-    //grace::IO::write_cell_output(true,true,true) ; 
+    std::cout << "BC bit-exact unigrid test: nx,ny,nz,ngz = "
+              << nx << "," << ny << "," << nz << "," << ngz
+              << " nq=" << nq << std::endl;
 
-    /* Check values in ghost-zones */
-    auto& idx = grace::variable_list::get().getinvspacings() ; 
-    auto h_idx = Kokkos::create_mirror_view(idx) ; 
-    Kokkos::deep_copy(h_idx,idx)  ; 
-    Kokkos::deep_copy(h_state, state) ; 
-    grace::var_array_t dxdens(
-        "Density derivatives", VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz), GRACE_NSPACEDIM, nq  
-    ) ; 
-    auto h_dxdens = Kokkos::create_mirror_view(dxdens) ; 
+    auto const h_func = [&](VEC(double x, double y, double z)) {
+        return EXPR(8.5 * x, -5.1 * y, +2.0 * z) - 3.14;
+    };
 
-    for( size_t icell=0UL; icell<ncells; icell+=1UL)
-    {
-        size_t const i = icell%(nx+2*ngz); 
-        size_t const j = (icell/(nx+2*ngz)) % (ny+2*ngz) ;
-        #ifdef GRACE_3D 
-        size_t const k = 
-            (icell/(nx+2*ngz)/(ny+2*ngz)) % (nz+2*ngz) ; 
-        size_t const q = 
-            (icell/(nx+2*ngz)/(ny+2*ngz)/(nz+2*ngz)) ;
-        #else 
-        size_t const q = (icell/(nx+2*ngz)/(ny+2*ngz)) ; 
-        #endif 
-        /* Physical coordinates of cell center */
-        auto pcoords = coord_system.get_physical_coordinates(
-            {VEC(i,j,k)},
-            q,
-            true
-        ) ; 
-        
-        if(   is_outside_grid(VEC(i,j,k),q) 
-           or is_outside_grid(VEC(i+2,j,k),q)  
-           or is_outside_grid(VEC(i-2,j,k),q) 
-           or is_outside_grid(VEC(i,j+2,k),q) 
-           or is_outside_grid(VEC(i,j-2,k),q) 
-           #ifdef GRACE_3D 
-           or is_outside_grid(VEC(i,j,k+2),q) 
-           or is_outside_grid(VEC(i,j,k-2),q) 
-           #endif 
-          or  is_corner_ghostzone(VEC(i,j,k),VEC(nx,ny,nz),ngz)) 
-        {
-            continue ; 
-        }
-        #ifdef DBG_GHOSTZONE_TEST
-        std::cout << "Cell " << icell << std::endl ;
-        std::cout << "Quadrant, indices " << q EXPR(<< ", " << i ,<< ", " << j ,<< ", " << k) << '\n'  
-                  << "Coordinates " << EXPR(pcoords[0] ,<< ", " << pcoords[1], << ", " << pcoords[2]) << '\n'
-                  << "Quadrant level " << grace::amr::get_quadrant(q).level() << std::endl ;  
-        std::cout << (is_ghostzone(VEC(i,j,k),VEC(nx,ny,nz),ngz) ? "in ghostzones\n" : "not in ghostzones\n") ; 
-        std::cout << (is_corner_ghostzone(VEC(i,j,k),VEC(nx,ny,nz),ngz) ? "in corner ghostzones\n" : "not in corner ghostzones\n") ; 
-        if(  std::isnan(h_state(VEC(i,j,k),DENS,q)) || std::fabs(h_state(VEC(i,j,k),DENS,q) - h_func(VEC(pcoords[0],pcoords[1],pcoords[2]) ) ) > 1e-12 ) {
-            std::cout << "Rank: " << parallel::mpi_comm_rank() << '\n'
-                      << "Quadrant, indices " << q EXPR(<< ", " << i ,<< ", " << j ,<< ", " << k) << '\n'  
-                      << "Coordinates " << EXPR(pcoords[0] ,<< ", " << pcoords[1], << ", " << pcoords[2]) << '\n'
-                      << "Quadrant level " << grace::amr::get_quadrant(q).level() << std::endl ; 
-        }
-        #endif 
-        CHECK_THAT(
-            h_state(VEC(i,j,k),DENS,q),
-            Catch::Matchers::WithinAbs(h_func(VEC(pcoords[0],pcoords[1],pcoords[2])),
-                1e-12 ) ) ; 
+    // Physical coordinates of a point inside the cell at index (i,j,k) of
+    // local quadrant q. `cc` selects the within-cell logical position:
+    //   {0.5,0.5,0.5} → cell centre        (centred fields)
+    //   {0.0,0.5,0.5} → low-x face centre  (face-x staggering)
+    //   {0.5,0.0,0.5} → low-y face centre  (face-y staggering)
+    //   {0.5,0.5,0.0} → low-z face centre  (face-z staggering)
+    auto phys = [&](VEC(long i, long j, long k), long q,
+                    std::array<double, GRACE_NSPACEDIM> const& cc) {
+        return coord_system.get_physical_coordinates(
+            {VEC(static_cast<size_t>(i),
+                 static_cast<size_t>(j),
+                 static_cast<size_t>(k))},
+            static_cast<size_t>(q), cc, /*include_gzs*/ true);
+    };
 
-    }
-    #if 0 
-    for( size_t icell=0UL; icell<ncells_noghost; icell+=1UL)
-    {
-        size_t const i = icell%(nx) + ngz ; 
-        size_t const j = (icell/(nx)) % (ny) + ngz ;
-        #ifdef GRACE_3D 
-        size_t const k = 
-            (icell/(nx)/(ny)) % (nz) + ngz ; 
-        size_t const q = 
-            (icell/(nx)/(ny)/(nz)) ;
-        #else 
-        size_t const q = (icell/(nx)/(ny)) ; 
-        #endif 
-        auto pcoords = coord_system.get_physical_coordinates(
-            {VEC(i,j,k)},
-            q,
-            false
-        ) ; 
-        #ifdef DBG_GHOSTZONE_TEST
-        std::cout << "Cell " << icell << std::endl ;
-        std::cout << "Quadrant, indices " << q EXPR(<< ", " << i ,<< ", " << j ,<< ", " << k) << '\n'  
-                  << "Coordinates " << EXPR(pcoords[0] ,<< ", " << pcoords[1], << ", " << pcoords[2]) << '\n' ; 
-        #endif 
-        if(   is_outside_grid(VEC(i,j,k),q) 
-           or is_outside_grid(VEC(i+2,j,k),q)  
-           or is_outside_grid(VEC(i-2,j,k),q) 
-           or is_outside_grid(VEC(i,j+2,k),q) 
-           or is_outside_grid(VEC(i,j-2,k),q) 
-           #ifdef GRACE_3D 
-           or is_outside_grid(VEC(i,j,k+2),q) 
-           or is_outside_grid(VEC(i,j,k-2),q) 
-           #endif 
-           ) 
-        {
-            continue ; 
-        }
+    // Initialise an arbitrary 4-D view (i,j,k,var,q) with `h_func` at every
+    // interior point and NaN at every ghost point. Shape (Nx,Ny,Nz) is the
+    // full extent including ghosts; the interior runs i ∈ [ngz, Nx-ngz),
+    // i.e. Nx - 2*ngz interior cells along x.
+    auto init_view = [&](auto& view,
+                         std::array<double, GRACE_NSPACEDIM> const& cc,
+                         VEC(long Nx, long Ny, long Nz),
+                         int var_idx) {
+        auto h = Kokkos::create_mirror_view(view);
+        for (long q = 0; q < nq; ++q) {
+        for (long k = 0; k < Nz; ++k) {
+        for (long j = 0; j < Ny; ++j) {
+        for (long i = 0; i < Nx; ++i) {
+            bool const ghost = (i < ngz) || (i >= Nx - ngz)
+                            || (j < ngz) || (j >= Ny - ngz)
+#ifdef GRACE_3D
+                            || (k < ngz) || (k >= Nz - ngz)
+#endif
+                            ;
+            if (ghost) {
+                h(VEC(i, j, k), var_idx, q) =
+                    std::numeric_limits<double>::quiet_NaN();
+            } else {
+                auto p = phys(VEC(i, j, k), q, cc);
+                h(VEC(i, j, k), var_idx, q) =
+                    h_func(VEC(p[0], p[1], p[2]));
+            }
+        }}}}
+        Kokkos::deep_copy(view, h);
+    };
 
-        
-        auto itree = grace::amr::get_quadrant_owner(q) ; 
-        auto dx_tree = grace::amr::get_tree_spacing(itree) ; 
-        std::array<double,GRACE_NSPACEDIM> idxphys{
-            VEC(
-                h_idx(0,q) / dx_tree[0],
-                h_idx(1,q) / dx_tree[1],
-                h_idx(2,q) / dx_tree[2]
-            ) 
-        } ; 
-        auto der_exact = h_func_derivative(VEC(pcoords[0],pcoords[1],pcoords[2])) ; 
-        
-        for(int idim=0; idim<GRACE_NSPACEDIM; ++idim){ 
-            h_dxdens(VEC(i,j,k),idim,q) = 
-              0.5*(h_state(VEC(i+utils::delta(idim,0),j+utils::delta(idim,1),k+utils::delta(idim,2)), DENS, q)
-            - h_state(VEC(i-utils::delta(idim,0),j-utils::delta(idim,1),k-utils::delta(idim,2)), DENS, q))*idxphys[idim]; 
-            CHECK_THAT( h_dxdens(VEC(i,j,k),idim,q)
-                , Catch::Matchers::WithinAbs(
-                  der_exact[idim]
-                , 1e-3)) ;
-        }
-    } 
-    #endif 
+    // Bit-exact check: every cell whose physical position is inside the
+    // domain must equal h_func evaluated at that position. NaN cells fail
+    // this check (NaN == anything is false), surfacing any ghost zone that
+    // BC failed to fill.
+    auto check_view = [&](auto& view,
+                          char const* name,
+                          std::array<double, GRACE_NSPACEDIM> const& cc,
+                          VEC(long Nx, long Ny, long Nz),
+                          int var_idx) {
+        auto h = Kokkos::create_mirror_view(view);
+        Kokkos::deep_copy(h, view);
+        size_t n_checked = 0, n_failed = 0;
+        for (long q = 0; q < nq; ++q) {
+        for (long k = 0; k < Nz; ++k) {
+        for (long j = 0; j < Ny; ++j) {
+        for (long i = 0; i < Nx; ++i) {
+            auto p = phys(VEC(i, j, k), q, cc);
+            if (is_phys_boundary(p)) continue;  // FP-arith path; skip
+
+            double const expected = h_func(VEC(p[0], p[1], p[2]));
+            double const got      = h(VEC(i, j, k), var_idx, q);
+            ++n_checked;
+            INFO("staggering=" << name
+                 << " q=" << q
+                 << " ijk=(" << i << "," << j << "," << k << ")"
+                 << " phys=(" << p[0] << "," << p[1]
+#ifdef GRACE_3D
+                 << "," << p[2]
+#endif
+                 << ")"
+                 << " expected=" << expected
+                 << " got=" << got);
+            bool const ok = (got == expected);
+            if (!ok) ++n_failed;
+            CHECK(ok);
+        }}}}
+        std::cout << "  " << name
+                  << ": checked " << n_checked
+                  << " cells, " << n_failed << " mismatches" << std::endl;
+    };
+
+    // ===== Initialise =====
+    init_view(state, {VEC(0.5, 0.5, 0.5)},
+              VEC(nx + 2*ngz, ny + 2*ngz, nz + 2*ngz), DENS);
+
+#if defined(GRACE_ENABLE_GRMHD)
+    init_view(stag.face_staggered_fields_x, {VEC(0.0, 0.5, 0.5)},
+              VEC(nx + 2*ngz + 1, ny + 2*ngz, nz + 2*ngz), BSX_);
+    init_view(stag.face_staggered_fields_y, {VEC(0.5, 0.0, 0.5)},
+              VEC(nx + 2*ngz, ny + 2*ngz + 1, nz + 2*ngz), BSY_);
+#ifdef GRACE_3D
+    init_view(stag.face_staggered_fields_z, {VEC(0.5, 0.5, 0.0)},
+              VEC(nx + 2*ngz, ny + 2*ngz, nz + 2*ngz + 1), BSZ_);
+#endif
+#endif
+
+    // ===== Apply BC =====
+    amr::apply_boundary_conditions();
+
+    // ===== Check =====
+    check_view(state, "CENTER", {VEC(0.5, 0.5, 0.5)},
+               VEC(nx + 2*ngz, ny + 2*ngz, nz + 2*ngz), DENS);
+
+#if defined(GRACE_ENABLE_GRMHD)
+    check_view(stag.face_staggered_fields_x, "FACEX", {VEC(0.0, 0.5, 0.5)},
+               VEC(nx + 2*ngz + 1, ny + 2*ngz, nz + 2*ngz), BSX_);
+    check_view(stag.face_staggered_fields_y, "FACEY", {VEC(0.5, 0.0, 0.5)},
+               VEC(nx + 2*ngz, ny + 2*ngz + 1, nz + 2*ngz), BSY_);
+#ifdef GRACE_3D
+    check_view(stag.face_staggered_fields_z, "FACEZ", {VEC(0.5, 0.5, 0.0)},
+               VEC(nx + 2*ngz, ny + 2*ngz, nz + 2*ngz + 1), BSZ_);
+#endif
+#endif
 }

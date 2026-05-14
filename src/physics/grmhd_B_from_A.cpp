@@ -209,7 +209,7 @@ void set_A(
                         }
                     }
                     // coords of edge!
-                    double ccoords[3] = {0,0.5,0.5} ;
+                    double ccoords[3] = {0.5,0.,0.} ;
                     double xyz[3] ;
                     dev_coords.get_physical_coordinates(i,j,k,q,ccoords,xyz,1/*count gzs*/) ;
                     xyz[0] -= center[0] ;
@@ -244,7 +244,7 @@ void set_A(
                         }
                     }
                     // coords of edge!
-                    double ccoords[3] = {0.5,0.,0.5} ;
+                    double ccoords[3] = {0.,0.5,0.} ;
                     double xyz[3] ;
                     dev_coords.get_physical_coordinates(i,j,k,q,ccoords,xyz,1/*count gzs*/) ;
                     xyz[0] -= center[0] ;
@@ -279,7 +279,7 @@ void set_A(
                         }
                     }
                     // coords of edge!
-                    double ccoords[3] = {0.5,0.5,0.} ;
+                    double ccoords[3] = {0.,0.,0.5} ;
                     double xyz[3] ;
                     dev_coords.get_physical_coordinates(i,j,k,q,ccoords,xyz,1/*count gzs*/) ;
                     xyz[0] -= center[0] ;

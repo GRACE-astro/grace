@@ -88,6 +88,162 @@
 
 namespace grace{
 
+// current sheet ID, separate from rest. Hardcodes flat ADM
+// (alpha=1, beta=0, gamma=delta, K=0) directly into the cell-center state
+// slots GXX_, ..., KZZ_, so this only makes sense under a Cowling build.
+// Under Z4c/BSSN, those slot ids are not the storage layout, and the
+// metric would need adm_to_z4c/adm_to_bssn conversion.
+#ifdef GRACE_ENABLE_COWLING_METRIC
+template< typename eos_t >
+static void set_grmhd_initial_data_current_sheet()
+{
+
+    DECLARE_GRID_EXTENTS ;
+    using namespace grace ;
+    using namespace Kokkos ;
+
+    auto& aux   = variable_list::get().getaux() ;
+    auto& state   = variable_list::get().getstate() ;
+    auto& stag_state = variable_list::get().getstaggeredstate() ;
+    auto& emf = grace::variable_list::get().getemfarray() ;
+    auto& idx = grace::variable_list::get().getinvspacings() ;
+
+    auto& csys = grace::coordinate_system::get() ;
+    auto dev_coords = csys.get_device_coord_system() ;
+
+    // first the magnetic field
+
+    // background field
+    // Bx = B0 tanh(y/a)
+    double const B0 = 1 ;
+    double const a  = 0.04 ;
+    parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_BX_current_sheet")
+                    , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz+1,ny+2*ngz,nz+2*ngz),nq})
+                    , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                    {
+                        double xyz[3];
+                        double ccoords[3] = {0,0.5,0.5} ;
+                        dev_coords.get_physical_coordinates(i,j,k,q,ccoords,xyz,1/*offset ngz*/) ;
+                        double Bx = B0 * Kokkos::tanh(xyz[1]/a) ;
+                        stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) = Bx ;
+                    });
+    // Bz is identically zero on the staggered z faces; explicit zero so we
+    // don't depend on Kokkos's default-init for correctness across regrids.
+    parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_BZ_current_sheet")
+                    , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz+1),nq})
+                    , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                    {
+                        stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) = 0.0 ;
+                    });
+    
+    // then perturb by Az 
+    double const eps_pert = 1e-3 ; 
+    double const Kx = 2 * M_PI ; 
+    double const Ky = 4 * M_PI ; 
+    parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_AZ")
+                , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz+1,ny+2*ngz+1,nz+2*ngz),nq})
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                {
+                    // no need to worry about boundaries cause they are either periodic or reflection 
+                    // coords of edge!
+                    double ccoords[3] = {0.5,0.5,0.} ;
+                    double xyz[3] ;
+                    dev_coords.get_physical_coordinates(i,j,k,q,ccoords,xyz,1/*count gzs*/) ;
+                    double Az = eps_pert * B0 * Kokkos::cos(Ky*xyz[1] * 0.5) * Kokkos::cos(Kx*xyz[0]) ; 
+                    emf(i,j,k,2,q) = Az ; 
+                } ) ;
+    // and perturb B 
+    // Bx 
+    parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_BX")
+                , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz+1,ny+2*ngz,nz+2*ngz),nq})
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                {
+                    // B^x = B^x_0 + d/dy A^z 
+                    stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) += (
+                          (emf(VEC(i  ,j+1,k  ),2,q) - emf(VEC(i  ,j  ,k  ),2,q)) * idx(1,q)
+                    ) ; 
+                });
+    // By
+    parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_BY")
+                , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz+1,nz+2*ngz),nq})
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                {  
+                    // B^y = - d/dx A^z
+                    stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) += (
+                        + (emf(VEC(i  ,j  ,k  ),2,q) - emf(VEC(i+1,j  ,k  ),2,q)) * idx(0,q)
+                    ) ; 
+                });
+
+    auto const& _eos = eos::get().get_eos<eos_t>() ; 
+    // Now we can set the the hydro:
+    parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID")
+                , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                {
+
+                    double B[3] ; 
+                    B[0]  =  0.5 * (
+                        stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q)+
+                        stag_state.face_staggered_fields_x(VEC(i+1,j,k),BSX_,q)
+                    ) ; 
+                    B[1]  =  0.5 * (
+                        stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q)+
+                        stag_state.face_staggered_fields_y(VEC(i,j+1,k),BSY_,q)
+                    ) ; 
+                    B[2] = 0.0 ; 
+
+                    aux(i,j,k,BX_,q) = B[0] ;
+                    aux(i,j,k,BY_,q) = B[1] ;
+                    aux(i,j,k,BZ_,q) = B[2] ;
+
+                    aux(i,j,k,RHO_,q) = 1.;
+
+                    double const beta = 1;
+                    aux(i,j,k,PRESS_,q) = 0.5 * (SQR(B0) * (beta+1) - SQR(B[0]));
+
+                    aux(i,j,k,ZVECX_,q) = 0.;
+                    aux(i,j,k,ZVECY_,q) = 0.;
+                    aux(i,j,k,ZVECZ_,q) = 0.;
+
+                    // YE / TEMP / ENTROPY are read by the EOS call below (some
+                    // EOSes use them as inputs/seeds, others overwrite); seed
+                    // them to deterministic defaults rather than reading
+                    // uninitialised memory.
+                    aux(i,j,k,YE_,q)      = 0.5;
+                    aux(i,j,k,TEMP_,q)    = 0.0;
+                    aux(i,j,k,ENTROPY_,q) = 0.0;
+
+                    double cs2,h;
+                    eos_err_t eoserr;
+                    aux(i,j,k,EPS_,q) =  _eos.eps_h_csnd2_temp_entropy__press_rho_ye(
+                        h,cs2,aux(i,j,k,TEMP_,q),aux(i,j,k,ENTROPY_,q),aux(i,j,k,PRESS_,q),aux(i,j,k,RHO_,q),aux(i,j,k,YE_,q),eoserr
+                    ) ;
+
+                    // minkowski metric
+                    state(VEC(i,j,k),ALP_,q) = 1 ;
+
+                    state(VEC(i,j,k),BETAX_,q) = 0 ;
+                    state(VEC(i,j,k),BETAY_,q) = 0 ;
+                    state(VEC(i,j,k),BETAZ_,q) = 0 ;
+
+                    state(VEC(i,j,k),GXX_,q) = 1 ; 
+                    state(VEC(i,j,k),GXY_,q) = 0 ; 
+                    state(VEC(i,j,k),GXZ_,q) = 0 ; 
+                    state(VEC(i,j,k),GYY_,q) = 1 ; 
+                    state(VEC(i,j,k),GYZ_,q) = 0 ;
+                    state(VEC(i,j,k),GZZ_,q) = 1 ;
+
+                    state(VEC(i,j,k),KXX_,q) = 0 ;
+                    state(VEC(i,j,k),KXY_,q) = 0 ;
+                    state(VEC(i,j,k),KXZ_,q) = 0 ;
+                    state(VEC(i,j,k),KYY_,q) = 0 ;
+                    state(VEC(i,j,k),KYZ_,q) = 0 ;
+                    state(VEC(i,j,k),KZZ_,q) = 0 ;
+                } );
+
+}
+#endif // GRACE_ENABLE_COWLING_METRIC
+
 static void rescale_B_field(double max_betam1, double max_press) {
 
     DECLARE_GRID_EXTENTS ; 
@@ -500,6 +656,14 @@ void set_grmhd_initial_data() {
         set_grmhd_initial_data_impl<eos_t,linear_gw_id_t<eos_t>>() ; 
     } else if (id_type == "robust_stability") {
         set_grmhd_initial_data_impl<eos_t,robust_stability_id_t<eos_t>>() ; 
+    } else if (id_type == "current_sheet") {
+        #ifdef GRACE_ENABLE_COWLING_METRIC
+        set_grmhd_initial_data_current_sheet<eos_t>() ;
+        #else
+        ERROR("current_sheet id is only supported under GRACE_ENABLE_COWLING_METRIC "
+              "(it hardcodes flat ADM directly into GXX_/.../KZZ_ slots; would need "
+              "an adm_to_z4c/adm_to_bssn conversion under evolved metric).") ;
+        #endif
     } else {
         ERROR("Unrecognized id_type " << id_type ) ; 
     }
