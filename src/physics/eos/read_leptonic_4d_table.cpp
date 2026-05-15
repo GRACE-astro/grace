@@ -426,8 +426,8 @@ grace::leptonic_eos_4d_t read_leptonic_4d_table()
     // -------------------------------------------------------
     //  5) Cold slice.
     // -------------------------------------------------------
-    Kokkos::View<double**, grace::default_space> cold_tabs ;
-    Kokkos::View<double*,  grace::default_space> cold_lrho ;
+    Kokkos::View<double**, grace::default_execution_space> cold_tabs ;
+    Kokkos::View<double*,  grace::default_execution_space> cold_lrho ;
     read_leptonic_cold_table(cold_fname, cold_tabs, cold_lrho,leptonic_eos_4d_t::COLD_VIDX::N_CTAB_VARS+1) ;
 
     // -------------------------------------------------------
