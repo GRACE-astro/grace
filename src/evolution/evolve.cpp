@@ -96,6 +96,8 @@ void evolve() {
         }
     } else if ( eos_type == "tabulated" ) {
         evolve_impl<grace::tabulated_eos_t>() ;
+    } else if ( eos_type == "leptonic" ) {
+        evolve_impl<grace::leptonic_eos_4d_t>() ;
     } else if  ( eos_type == "ideal_gas") {
         evolve_impl<grace::ideal_gas_eos_t>() ;
     } else {
