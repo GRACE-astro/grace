@@ -98,7 +98,7 @@ inline void h5_read(hid_t file, const char* name, T* out, hid_t type)
 // ============================================================
 //  Cold-table reader (8 cols).
 // ============================================================
-static void read_leptonic_cold_table(
+static void read_leptonic_cold_table_0(
     const std::string& filename,
     Kokkos::View<double**, grace::default_space>& d_data,
     Kokkos::View<double*,  grace::default_space>& d_rho)
@@ -131,6 +131,99 @@ static void read_leptonic_cold_table(
     }
     Kokkos::deep_copy(d_data, h_data) ;
     Kokkos::deep_copy(d_rho,  h_rho)  ;
+}
+
+static void
+read_leptonic_cold_table(
+    const std::string& filename,
+    Kokkos::View<double**, grace::default_execution_space>& d_data,
+    Kokkos::View<double* , grace::default_execution_space>& d_rho,
+    int expected_cols = -1)
+{
+
+    std::ifstream file(filename);
+
+    ASSERT(file.is_open(),"Can't open leptonic cold table file") ;
+
+    std::string line;
+
+    // ---- 1. Skip description line
+    std::getline(file, line);
+
+    // ---- 2. Read number of rows
+    std::getline(file, line);
+    std::istringstream iss_n(line);
+
+    size_t nrows;
+    iss_n >> nrows;
+    ASSERT(iss_n, "Failed to read number of rows in leptonic cold eos table") ;
+
+
+    // ---- 3. Peek first data line to determine columns
+    std::streampos data_start = file.tellg();
+
+    if (!std::getline(file, line)) {
+        ERROR("Unexpected EOF when reading leptonic cold eos table");
+    }
+
+    std::istringstream iss_first(line);
+    std::vector<double> first_row;
+    double val;
+
+    while (iss_first >> val) {
+        first_row.push_back(val);
+    }
+    ASSERT(!first_row.empty(), "Invalid leptonic cold eos table format, first line is empty.") ;
+
+    size_t ncols = first_row.size();
+
+    if (expected_cols > 0 && ncols != static_cast<size_t>(expected_cols)) {
+        ERROR("Column count mismatch in leptonic cold eos table");
+    }
+
+    // ---- 4. Allocate view
+    Kokkos::realloc(d_data, nrows, ncols-1) ;
+    Kokkos::realloc(d_rho, nrows) ;
+    // ----- Create mirrors
+    auto data = Kokkos::create_mirror_view(d_data) ;
+    auto rho  = Kokkos::create_mirror_view(d_rho)  ;
+
+    // ---- 5. Fill first row
+    rho(0) = first_row[0] ;
+    for (size_t j = 1; j < ncols; ++j) {
+        data(0, j-1) = first_row[j];
+    }
+
+    // ---- 6. Read remaining rows
+    size_t i = 1;
+    std::vector<double> row ;
+    while (std::getline(file, line)) {
+        if (line.empty()) continue;
+        row.clear() ;
+
+        std::istringstream iss(line);
+        while (iss >> val) {
+            row.push_back(val);
+        }
+        ASSERT(row.size() == ncols, "Malformed eos file at line " << i + 2 ) ;
+
+        rho(i) = row[0] ;
+        for( int j=1; j<ncols; ++j) {
+            data(i,j-1) = row[j] ;
+        }
+
+        ++i;
+    }
+
+    if (i != nrows) {
+        ERROR("Row count mismatch: expected " +
+                std::to_string(nrows) + ", got " +
+                std::to_string(i));
+    }
+
+
+    Kokkos::deep_copy(d_data, data) ;
+    Kokkos::deep_copy(d_rho, rho)   ;
 }
 
 // ============================================================
@@ -335,7 +428,7 @@ grace::leptonic_eos_4d_t read_leptonic_4d_table()
     // -------------------------------------------------------
     Kokkos::View<double**, grace::default_space> cold_tabs ;
     Kokkos::View<double*,  grace::default_space> cold_lrho ;
-    read_leptonic_cold_table(cold_fname, cold_tabs, cold_lrho) ;
+    read_leptonic_cold_table(cold_fname, cold_tabs, cold_lrho,leptonic_eos_4d_t::COLD_VIDX::N_CTAB_VARS+1) ;
 
     // -------------------------------------------------------
     //  6) Limits.  rho/T/Y_e/eps/h/atmosphere come from the
