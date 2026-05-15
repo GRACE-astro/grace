@@ -322,12 +322,12 @@ struct neutrinos_eas_op
 
     // --- beta equilibrium: mu_e + mu_p - mu_n - Qnp = 0 (chemical equilibrium) ---
     GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE double beta_eq_residual(double rho, double T, double Ye, double Ymu) const {
-        double mu_p=0.0, mu_n=0.0;
+        double mu_p=0.0, mu_mu=0.0, mu_n=0.0;
         double Xa=0.0, Xh=0.0, Xn=0.0, Xp=0.0, Abar=1.0, Zbar=1.0;
         eos_err_t err;
         double ye_loc = Ye, T_loc = T, rho_loc = rho;
         double ymu_loc = Ymu;
-        const double mu_e = eos.mue_mup_mun_Xa_Xh_Xn_Xp_Abar_Zbar__temp_rho_ye_ymu(mu_p, mu_n, Xa, Xh, Xn, Xp, Abar, Zbar, T_loc, rho_loc, ye_loc, ymu_loc, err);
+        const double mu_e = eos.mue_mumu_mup_mun_Xa_Xh_Xn_Xp_Abar_Zbar__temp_rho_ye_ymu(mu_mu, mu_p, mu_n, Xa, Xh, Xn, Xp, Abar, Zbar, T_loc, rho_loc, ye_loc, ymu_loc, err);
         //if (err != eos_err_t{} || !::isfinite(mu_e) || !::isfinite(mu_p) || !::isfinite(mu_n)) return 0.0;
         // KEN could not make this work
         if ( !::isfinite(mu_e) || !::isfinite(mu_p) || !::isfinite(mu_n)) return 0.0;

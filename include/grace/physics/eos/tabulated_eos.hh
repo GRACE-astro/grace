@@ -565,8 +565,8 @@ class tabulated_eos_t
     }
     /**************************************************************************************/
     double GRACE_HOST_DEVICE
-    mue_mup_mun_Xa_Xh_Xn_Xp_Abar_Zbar__temp_rho_ye_ymu_impl(
-        double &mup, double &mun, double &Xa, double &Xh, double &Xn, double &Xp
+    mue_mumu_mup_mun_Xa_Xh_Xn_Xp_Abar_Zbar__temp_rho_ye_ymu_impl(
+        double &mumu, double &mup, double &mun, double &Xa, double &Xh, double &Xn, double &Xp
       , double &Abar, double &Zbar, double &temp, double &rho, double &ye, double &ymu
       , err_t &err) const
     {
@@ -577,6 +577,7 @@ class tabulated_eos_t
         auto ltemp = Kokkos::log(temp) ;
 
         double mue = tables.interp(lrho,ltemp,ye,TABMUE) ;
+        mumu = 0.;
         mup = tables.interp(lrho,ltemp,ye,TABMUP) ;
         mun = tables.interp(lrho,ltemp,ye,TABMUN) ;
         Xa = tables.interp(lrho,ltemp,ye,TABXA) ;

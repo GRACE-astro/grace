@@ -69,6 +69,7 @@ void set_initial_data() {
     } else if ( eos_type == "ideal_gas" ) {
         set_initial_data_impl<grace::ideal_gas_eos_t>() ;
     }
+    else {ERROR("Unknown EOS for initial Data" << eos_type);}
 }
 
 template< typename eos_t >

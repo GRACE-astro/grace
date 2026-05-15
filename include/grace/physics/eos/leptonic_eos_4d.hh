@@ -434,8 +434,8 @@ class leptonic_eos_4d_t
      * unreliable there (Margherita's convention).
      */
     double GRACE_HOST_DEVICE
-    mue_mup_mun_Xa_Xh_Xn_Xp_Abar_Zbar__temp_rho_ye_ymu_impl(
-        double& mup, double& mun, double& Xa, double& Xh,
+    mue_mumu_mup_mun_Xa_Xh_Xn_Xp_Abar_Zbar__temp_rho_ye_ymu_impl(
+        double &mumu, double& mup, double& mun, double& Xa, double& Xh,
         double& Xn,  double& Xp,  double& Abar, double& Zbar,
         double& temp, double& rho, double& ye, double& ymu,
         err_t& err) const
@@ -458,8 +458,11 @@ class leptonic_eos_4d_t
         Zbar = baryon_table.interp(lrho,ltemp,yp,TABZBAR) ;
 
         if (ye + ymu >= this->eos_yemax) {
-            return baryon_table.interp(lrho, ltemp, yp, TABMUE) ;
+            // in this case, we use baryonic table mu_e and force mu_mu = 0
+           	mumu = 105.6583755; // mu_mu at atmosphere value is not 0 mev
+            return baryon_table.interp(lrho,ltemp,yp,TABMUE)  ;
         }
+        mumu = muon_table.interp(lrho, ltemp, ymu, TABMUE) ;
         return ele_table.interp(lrho, ltemp, ye, ELE_VIDX::TABMUELE) ;
     }
 

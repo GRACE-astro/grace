@@ -372,6 +372,7 @@ struct fugacity_state {
     double temp_mev{0.0};
 
     double mu_e{0.0};
+    double mu_mu{0.0};
     double mu_p{0.0};
     double mu_n{0.0};
     double Xa{0.0}, Xh{0.0}, Xn{0.0}, Xp{0.0};
@@ -530,8 +531,8 @@ fugacity_state make_fugacity_state(
     eos_err_t err;
     // TODO!! EOS framework and get chm. pot!
     // Called it here like in FIL
-    F.mu_e = eos.mue_mup_mun_Xa_Xh_Xn_Xp_Abar_Zbar__temp_rho_ye_ymu(
-        F.mu_p, F.mu_n,
+    F.mu_e = eos.mue_mumu_mup_mun_Xa_Xh_Xn_Xp_Abar_Zbar__temp_rho_ye_ymu(
+        F.mu_mu, F.mu_p, F.mu_n,
         F.Xa, F.Xh, F.Xn, F.Xp,
         F.Abar, F.Zbar,
         T_eos, rho_eos, ye_eos, ymu_eos, err);

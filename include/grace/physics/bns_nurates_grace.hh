@@ -293,13 +293,13 @@ struct compute_bns_nurates_eas
         // ----------------------------------------------------------------
         // 2. EOS call: chemical potentials
         // ----------------------------------------------------------------
-        double mup = 0., mun = 0.;
+        double mup = 0., mumu = 0., mun = 0.;
         double Xa = 0., Xh = 0., Xn = 0., Xp = 0.;
         double Abar = 1., Zbar = 1.;
         eos_err_t err;
         double rho_loc = rhoL, T_loc = tempL, ye_loc = yeL, ymu_loc = ymuL;
-        const double mue = eos.mue_mup_mun_Xa_Xh_Xn_Xp_Abar_Zbar__temp_rho_ye_ymu(
-            mup, mun, Xa, Xh, Xn, Xp, Abar, Zbar,
+        const double mue = eos.mue_mumu_mup_mun_Xa_Xh_Xn_Xp_Abar_Zbar__temp_rho_ye_ymu(
+            mumu, mup, mun, Xa, Xh, Xn, Xp, Abar, Zbar,
             T_loc, rho_loc, ye_loc, ymu_loc, err);
 
         // ----------------------------------------------------------------

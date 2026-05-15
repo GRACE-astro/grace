@@ -322,11 +322,12 @@ class ideal_gas_eos_t
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    mue_mup_mun_Xa_Xh_Xn_Xp_Abar_Zbar__temp_rho_ye_ymu_impl(
-        double &mup, double &mun, double &Xa, double &Xh, double &Xn, double &Xp
+    mue_mumu_mup_mun_Xa_Xh_Xn_Xp_Abar_Zbar__temp_rho_ye_ymu_impl(
+        double &mumu, double &mup, double &mun, double &Xa, double &Xh, double &Xn, double &Xp
       , double &Abar, double &Zbar, double &temp, double &rho, double &ye, double &ymu
       , error_type &err) const
     {
+        mumu = 0.;
         mup = 0. ;
         mun = 0. ;
         Xa  = 0. ;

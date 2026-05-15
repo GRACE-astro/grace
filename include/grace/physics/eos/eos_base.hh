@@ -540,13 +540,13 @@ class eos_base_t {
      * @return double Electron chemical potential.
      */
     double GRACE_HOST_DEVICE
-    mue_mup_mun_Xa_Xh_Xn_Xp_Abar_Zbar__temp_rho_ye_ymu(
-        double &mup, double &mun, double &Xa, double &Xh, double &Xn, double &Xp
+    mue_mumu_mup_mun_Xa_Xh_Xn_Xp_Abar_Zbar__temp_rho_ye_ymu(
+        double &mumu, double &mup, double &mun, double &Xa, double &Xh, double &Xn, double &Xp
       , double &Abar, double &Zbar, double &temp, double &rho, double &ye, double &ymu
       , error_type &err) const
     {
-        return static_cast<eos_impl_t const*>(this)->mue_mup_mun_Xa_Xh_Xn_Xp_Abar_Zbar__temp_rho_ye_ymu_impl(
-            mup,mun,Xa,Xh,Xn,Xp,Abar,Zbar,temp,rho,ye,ymu,err
+        return static_cast<eos_impl_t const*>(this)->mue_mumu_mup_mun_Xa_Xh_Xn_Xp_Abar_Zbar__temp_rho_ye_ymu_impl(
+            mup,mumu,mun,Xa,Xh,Xn,Xp,Abar,Zbar,temp,rho,ye,ymu,err
             ) ;
     }
     /**
