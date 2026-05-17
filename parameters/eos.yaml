@@ -171,6 +171,13 @@ eos:
         Setting this incorrectly (true when the baryon table already includes
         electrons) causes double-counting of the electron contribution.
 
+    cold_table_temperature:
+      type: double
+      default: -1
+      description: >
+        If larger than temp_min, Grace will generate its own hot table.
+        If smaller Grace will keep using provided table
+
   eps_maximum:
     type: double
     default: 1.e5

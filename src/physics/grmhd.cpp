@@ -276,7 +276,10 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     aux(VEC(i,j,k),ZVECY_,q)  = w * id.vy ;
                     aux(VEC(i,j,k),ZVECZ_,q)  = w * id.vz ;
                     // set ye
-                    aux(VEC(i,j,k),YE_,q) = id.ye ;
+                    aux(VEC(i,j,k),YE_,q)  = id.ye  ;
+                    #ifdef M1_NU_FIVESPECIES
+                    aux(VEC(i,j,k),YMU_,q) = id.ymu ;
+                    #endif
 
                     /* Set eps temp and entropy */
                     aux(VEC(i,j,k),EPS_,q) = id.eps ;
