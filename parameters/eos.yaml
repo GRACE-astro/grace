@@ -174,9 +174,16 @@ eos:
     cold_table_temperature:
       type: double
       default: -1
+      range: "[-1,*)"
       description: >
         If larger than temp_min, Grace will generate its own hot table.
         If smaller Grace will keep using provided table
+
+    cold_table_output_filename:
+      type: string
+      default: "generated_cold_table.grace"
+      description: >
+        Outputs the cold table Grace is using
 
   eps_maximum:
     type: double

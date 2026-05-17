@@ -71,6 +71,7 @@
 #include <algorithm>
 #include <cmath>
 #include <fstream>
+#include <iomanip>
 #include <limits>
 #include <sstream>
 #include <string>
@@ -164,9 +165,9 @@ solve_npe_beta_eq(
 //  If mu_mu < m_mu even at ymu_min (muons energetically forbidden),
 //  fall back to a pure npe solve with Y_mu = ymu_min.
 //
-//  Returns {Y_e, Y_mu}.
+//  Returns {Y_e, Y_mu, muons_present}.
 // ============================================================
-static std::pair<double,double>
+static std::tuple<double,double,bool>
 solve_muon_beta_eq(
     const leptonic_eos_4d_t& eos,
     double lrho, double ltemp,
@@ -199,10 +200,13 @@ solve_muon_beta_eq(
     // no physical muons at this (rho, T): fall back to npe.
     double const mu_mu_at_min = eos.muon_table.interp(
         lrho, ltemp, lymu_lo, E::TABMUMU) ;
+    GRACE_TRACE("Cold table solve: lrho={:.3f} (rho={:.3e})  "
+                "mu_mu(Ymu_min)={:.3f} MeV  threshold={:.3f} MeV",
+                lrho, std::exp(lrho), mu_mu_at_min, MU_MASS_MEV) ;
     if (mu_mu_at_min < MU_MASS_MEV) {
         double const ye = solve_npe_beta_eq(
             eos, lrho, ltemp, eos.get_c2p_ymu_min(), ye_guess, tol) ;
-        return { ye, eos.get_c2p_ymu_min() } ;
+        return { ye, eos.get_c2p_ymu_min(), false } ;
     }
 
     // ---- Outer Brent over log(Y_mu) ----
@@ -228,14 +232,17 @@ solve_muon_beta_eq(
     double const f_lo = outer_residual(lymu_lo) ;
     double const f_hi = outer_residual(lymu_hi) ;
     if (f_lo * f_hi > 0.) {
+        GRACE_TRACE("Cold table: no sign change in outer Brent at "
+                    "lrho={:.4f} (rho={:.3e})  f_lo={:.4e}  f_hi={:.4e} "
+                    "-> npe fallback",
+                    lrho, std::exp(lrho), f_lo, f_hi) ;
         double const ye = solve_npe_beta_eq(
             eos, lrho, ltemp, eos.get_c2p_ymu_min(), ye_running, tol) ;
-        return { ye, eos.get_c2p_ymu_min() } ;
+        return { ye, eos.get_c2p_ymu_min(), false } ;
     }
 
     auto f_outer = [&](double lymu){ return outer_residual(lymu) ; } ;
     double const lymu_eq = utils::brent(f_outer, lymu_lo, lymu_hi, tol) ;
-
 
     // One final evaluation at the converged log(Y_mu) to get the
     // consistent Y_e (outer_residual updates ye_running each call,
@@ -245,7 +252,57 @@ solve_muon_beta_eq(
         lrho, ltemp, lymu_eq, E::TABMUMU) ;
     double const ye_eq  = find_ye_for_mue(mu_mu) ;
 
-    return { ye_eq, ymu_eq } ;
+    return { ye_eq, ymu_eq, true } ;
+}
+
+
+// ============================================================
+//  .grace file writer
+//
+//  Format (mirrors read_leptonic_cold_table):
+//    Line 1 : description comment
+//    Line 2 : nrows
+//    Lines 3+: log(rho)  col0  col1 ... col(NCOLS-1)
+// ============================================================
+static void
+write_leptonic_cold_table(
+    const std::string& filename,
+    const Kokkos::View<double**, Kokkos::HostSpace>& h_data,
+    const Kokkos::View<double*,  Kokkos::HostSpace>& h_rho,
+    double T_cold)
+{
+    int const nrho  = static_cast<int>(h_rho .extent(0)) ;
+    int const ncols = static_cast<int>(h_data.extent(1)) ;
+
+    std::ofstream out(filename) ;
+    if (!out.is_open()) {
+        GRACE_WARN("Cold table writer: could not open '{}' for writing — skipping.",
+                   filename) ;
+        return ;
+    }
+
+    // Line 1: description
+    out << "# GRACE leptonic cold table  T=" << std::fixed << std::setprecision(4)
+        << T_cold << " MeV  nrho=" << nrho
+        << "  ncols=" << ncols + 1   // +1 because reader expects rho prepended
+        << "  col0=log(rho)  col1=log(T)  col2=Ye  col3=Ymu"
+           "  col4=log(P)  col5=log(eps+shift)  col6=cs2  col7=entropy\n" ;
+
+    // Line 2: number of rows
+    out << nrho << "\n" ;
+
+    // Data rows: log(rho) then the NCOLS columns
+    out << std::scientific << std::setprecision(15) ;
+    for (int i = 0; i < nrho; ++i) {
+        out << h_rho(i) ;
+        for (int j = 0; j < ncols; ++j) {
+            out << "  " << h_data(i, j) ;
+        }
+        out << "\n" ;
+    }
+
+    GRACE_INFO("Cold table written to '{}'  ({} rows, {} data cols).",
+               filename, nrho, ncols) ;
 }
 
 
@@ -256,7 +313,8 @@ void generate_leptonic_cold_table(
     const leptonic_eos_4d_t& eos,
     double T_cold,
     Kokkos::View<double**, grace::default_execution_space>& d_data,
-    Kokkos::View<double*,  grace::default_execution_space>& d_rho)
+    Kokkos::View<double*,  grace::default_execution_space>& d_rho,
+    const std::string& output_filename)
 {
     constexpr int NCOLS = leptonic_eos_4d_t::COLD_VIDX::N_CTAB_VARS ;
 
@@ -269,20 +327,62 @@ void generate_leptonic_cold_table(
     Kokkos::View<double*,  Kokkos::HostSpace> h_rho ("cold_rho_h",  nrho)        ;
 
     GRACE_INFO("Generating leptonic cold table at T = {:.4f} MeV "
-               "over {} rho points.", T_cold, nrho) ;
+               "over {} rho points.  "
+               "rho range [{:.3e}, {:.3e}]  "
+               "Ymu range [{:.3e}, {:.3e}]  "
+               "Ye  range [{:.3f}, {:.3f}]",
+               T_cold, nrho,
+               std::exp(h_logrho(0)), std::exp(h_logrho(nrho-1)),
+               eos.get_c2p_ymu_min(), eos.get_c2p_ymu_max(),
+               eos.get_c2p_ye_min(),  eos.get_c2p_ye_max()) ;
 
     double ye_guess  = 0.10 ;
     double ymu_guess = eos.get_c2p_ymu_min() ;
+
+    // Diagnostic counters / accumulators
+    int    n_muon_rows  = 0 ;
+    int    n_npe_rows   = 0 ;
+    int    n_eos_errors = 0 ;
+    double ye_min_seen  =  1e99, ye_max_seen  = -1e99 ;
+    double ymu_min_seen =  1e99, ymu_max_seen = -1e99 ;
+    int    muon_onset_row = -1 ;
+
+    // Print a progress line every ~5% of the table
+    int const dbg_stride = std::max(1, nrho / 20) ;
 
     for (int i = 0; i < nrho; ++i) {
         double const lrho = h_logrho(i) ;
 
         // ---- Beta equilibrium ----
-        auto [ye_eq, ymu_eq] = solve_muon_beta_eq(
+        auto [ye_eq, ymu_eq, muons_present] = solve_muon_beta_eq(
             eos, lrho, lT, ye_guess, ymu_guess) ;
 
         ye_guess  = ye_eq  ;    // warm start for next density
         ymu_guess = ymu_eq ;
+
+        if (muons_present) {
+            ++n_muon_rows ;
+            if (muon_onset_row < 0) {
+                muon_onset_row = i ;
+                GRACE_INFO("Cold table: muon onset at row {}/{}  "
+                           "rho={:.3e}  Ye={:.4f}  Ymu={:.4e}",
+                           i, nrho-1, std::exp(lrho), ye_eq, ymu_eq) ;
+            }
+        } else {
+            ++n_npe_rows ;
+        }
+
+        if (i % dbg_stride == 0) {
+            GRACE_TRACE("Cold table row {:4d}/{}: "
+                        "rho={:.3e}  Ye={:.4f}  Ymu={:.4e}  muons={}",
+                        i, nrho-1, std::exp(lrho), ye_eq, ymu_eq,
+                        muons_present ? "yes" : "no") ;
+        }
+
+        ye_min_seen  = std::min(ye_min_seen,  ye_eq)  ;
+        ye_max_seen  = std::max(ye_max_seen,  ye_eq)  ;
+        ymu_min_seen = std::min(ymu_min_seen, ymu_eq) ;
+        ymu_max_seen = std::max(ymu_max_seen, ymu_eq) ;
 
         // ---- EOS evaluation ----
         double rho_q  = std::exp(lrho) ;
@@ -297,10 +397,19 @@ void generate_leptonic_cold_table(
                 eps_q, csnd2_q, entropy_q,
                 temp_q, rho_q, ye_q, ymu_q, err) ;
 
-        //if (!err.none()) {
-        //    GRACE_WARN("Cold table row {}: EOS clamping at lrho={:.4f} "
-        //               "Ye={:.4f} Ymu={:.4e}", i, lrho, ye_eq, ymu_eq) ;
-        //}
+        if (   err.test(EOS_RHO_TOO_LOW)        || err.test(EOS_RHO_TOO_HIGH)
+            || err.test(EOS_EPS_TOO_LOW)        || err.test(EOS_EPS_TOO_HIGH)
+            || err.test(EOS_YE_TOO_LOW)         || err.test(EOS_YE_TOO_HIGH)
+            || err.test(EOS_YMU_TOO_LOW)        || err.test(EOS_YMU_TOO_HIGH)
+            || err.test(EOS_TEMPERATURE_TOO_LOW)|| err.test(EOS_TEMPERATURE_TOO_HIGH)
+            || err.test(EOS_ENTROPY_TOO_LOW)    || err.test(EOS_ENTROPY_TOO_HIGH)) {
+            ++n_eos_errors ;
+            GRACE_WARN("Cold table row {}/{}: EOS clamping at "
+                       "lrho={:.4f} (rho={:.3e})  Ye={:.4f}  Ymu={:.4e}  "
+                       "press={:.3e}  eps={:.3e}",
+                       i, nrho-1, lrho, rho_q, ye_eq, ymu_eq,
+                       press_q, eps_q) ;
+        }
 
         // ---- Store (COLD_VIDX order) ----
         h_rho(i) = lrho ;
@@ -313,12 +422,25 @@ void generate_leptonic_cold_table(
         h_data(i, leptonic_eos_4d_t::CTABENTROPY)  = entropy_q ;
     }
 
+    GRACE_INFO("Leptonic cold table done: {} rows x {} cols  "
+               "({} muon rows, {} npe-only rows, {} EOS errors)  "
+               "Ye [{:.4f}, {:.4f}]  Ymu [{:.4e}, {:.4e}]  "
+               "muon onset row: {}",
+               nrho, NCOLS,
+               n_muon_rows, n_npe_rows, n_eos_errors,
+               ye_min_seen,  ye_max_seen,
+               ymu_min_seen, ymu_max_seen,
+               muon_onset_row >= 0 ? std::to_string(muon_onset_row) : "none") ;
+
     Kokkos::realloc(d_data, nrho, NCOLS) ;
     Kokkos::realloc(d_rho,  nrho)        ;
     Kokkos::deep_copy(d_data, h_data)    ;
     Kokkos::deep_copy(d_rho,  h_rho)     ;
 
-    GRACE_INFO("Leptonic cold table done: {} rows x {} cols.", nrho, NCOLS) ;
+    // ---- Optional .grace dump ----
+    if (!output_filename.empty()) {
+        write_leptonic_cold_table(output_filename, h_data, h_rho, T_cold) ;
+    }
 }
 
 // ============================================================
@@ -724,10 +846,16 @@ grace::leptonic_eos_4d_t read_leptonic_4d_table()
         T_cold = std::exp(eos.ltempmin) ;
     }
 
+    std::string cold_out_fname = "" ;
+    try {
+        cold_out_fname = grace::get_param<std::string>(
+            "eos","leptonic","cold_table_output_filename") ;
+    } catch (...) { /* optional param — silence if absent */ }
 
     Kokkos::View<double**, grace::default_execution_space> gen_cold_tabs ;
     Kokkos::View<double*,  grace::default_execution_space> gen_cold_lrho ;
-    generate_leptonic_cold_table(eos, T_cold, gen_cold_tabs, gen_cold_lrho) ;
+    generate_leptonic_cold_table(eos, T_cold, gen_cold_tabs, gen_cold_lrho,
+                                 cold_out_fname) ;
 
     eos.cold_table = cold_eos_linterp_t(gen_cold_tabs, gen_cold_lrho) ;
 
