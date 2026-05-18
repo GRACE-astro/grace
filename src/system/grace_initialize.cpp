@@ -266,17 +266,9 @@ void initialize(int& argc, char* argv[])
     grace::amr_ghosts::initialize() ;
     auto& ghost = grace::amr_ghosts::get() ;
     ghost.update() ;
-    // NOTE: do NOT call apply_boundary_conditions() here on checkpoint restart.
-    // The checkpoint serialises the full (nx+2*ngz)^3 array including ghost zones,
-    // so the loaded state already has valid ghost data from the last evolution step.
-    // Calling BC before compute_auxiliary_quantities() also runs with an uninitialised
-    // _state_p (the scratch timelevel is never written to the checkpoint file), which
-    // can trigger null-pointer GPU faults on ROCm when M1 radiation variables are
-    // active (M1_NU_FIVESPECIES).  The first evolution step will fill ghost zones
-    // correctly via the normal BC call sequence.
-    // if ( started_from_checkpoint ) {
-    //     amr::apply_boundary_conditions() ;
-    // }
+    if ( started_from_checkpoint ) {
+        amr::apply_boundary_conditions() ;
+    }
     /**********************************************************************************/
     /*                                 Initial data                                   */
     /**********************************************************************************/
@@ -317,6 +309,7 @@ void initialize(int& argc, char* argv[])
         }
     } else {
         // aux vars are not in the checkpoint
+        GRACE_INFO("Performing auxiliareis quantities calculation.") ;
         grace::compute_auxiliary_quantities() ;
     }
     //--
