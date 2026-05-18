@@ -1090,10 +1090,26 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
     HDF5_CALL(err,H5Pclose(dxpl)) ;
     HDF5_CALL(err,H5Pclose(plist_id)) ;
     /**********************************************************************/
-    /* Compute auxiliary quantities                                       */
+    /* Initialise scratch timelevel (_state_p) from the loaded state.    */
+    /* _state_p is never written to the checkpoint file; without this    */
+    /* deep_copy it contains un-initialised (zero) values.  On ROCm with */
+    /* M1_NU_FIVESPECIES the Sommerfeld BC kernel accesses data_p, and a  */
+    /* zero-size or un-initialised view can trigger a null-pointer GPU    */
+    /* fault.                                                             */
     /**********************************************************************/
+    {
+        auto& state   = grace::variable_list::get().getstate() ;
+        auto& scratch = grace::variable_list::get().getscratch() ;
+        Kokkos::deep_copy(scratch, state) ;
+
+        auto& sstate         = grace::variable_list::get().getstaggeredstate() ;
+        auto& stag_scratch   = grace::variable_list::get().getstaggeredscratch() ;
+        Kokkos::deep_copy(stag_scratch.face_staggered_fields_x, sstate.face_staggered_fields_x) ;
+        Kokkos::deep_copy(stag_scratch.face_staggered_fields_y, sstate.face_staggered_fields_y) ;
+        Kokkos::deep_copy(stag_scratch.face_staggered_fields_z, sstate.face_staggered_fields_z) ;
+    }
     /**********************************************************************/
-    next_checkpoint_time += grace::get_simulation_time() ; 
+    next_checkpoint_time += grace::get_simulation_time() ;
     next_checkpoint_iter += grace::get_iteration() ;
     GRACE_INFO("Checkpoint loaded successfully.") ;
     GRACE_PROFILING_POP_REGION ; 

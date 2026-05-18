@@ -171,4 +171,18 @@ void initialize_weakhub_from_params() {
 const device_handle& get_device_handle() { return g_handle; }
 bool is_initialized() { return g_initialized && g_handle.valid; }
 
+void finalize_weakhub() {
+    if (!g_initialized) return;
+    g_handle.kappa_a_en_table  = Kokkos::View<double*>();
+    g_handle.kappa_a_num_table = Kokkos::View<double*>();
+    g_handle.kappa_s_table     = Kokkos::View<double*>();
+    g_handle.logrho_axis       = Kokkos::View<double*>();
+    g_handle.logtemp_axis      = Kokkos::View<double*>();
+    g_handle.ye_axis           = Kokkos::View<double*>();
+    g_handle.logymu_axis       = Kokkos::View<double*>();
+    g_handle.valid             = false;
+    g_initialized              = false;
+}
+
+
 }} // namespace grace::weakhub

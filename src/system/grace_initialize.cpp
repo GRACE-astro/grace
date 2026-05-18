@@ -1,33 +1,33 @@
 /**
  * @file grace_inititalize_finalize.cpp
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2024-03-12
- * 
+ *
  * @copyright This file is part of GRACE.
  * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- * 
+ *
  */
 
 #include <grace_config.h>
 
-#include <grace/system/grace_initialize.hh> 
+#include <grace/system/grace_initialize.hh>
 
 #include <grace/system/mpi_runtime.hh>
 #include <grace/system/p4est_runtime.hh>
@@ -54,7 +54,7 @@
 #include <grace/IO/output_diagnostics.hh>
 #ifdef GRACE_ENABLE_Z4C_METRIC
 #include <grace/evolution/evolve.hh>
-#endif 
+#endif
 #include <grace/IO/diagnostics/co_tracker.hh>
 #ifdef GRACE_ENABLE_Z4C_METRIC
 #include <grace/IO/diagnostics/apparent_horizon.hh>
@@ -71,7 +71,7 @@
 #include <grace/system/print.hh>
 #ifdef GRACE_ENABLE_VTK
 #include <grace/IO/vtk_output_auxiliaries.hh>
-#endif 
+#endif
 #include <grace/physics/eos/eos_storage.hh>
 
 #include <spdlog/spdlog.h>
@@ -79,87 +79,87 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/common.h>
 
-#include <Kokkos_Core.hpp> 
+#include <Kokkos_Core.hpp>
 
-#include <map> 
-#include <string> 
+#include <map>
+#include <string>
 #include <filesystem>
-#include <chrono> 
-#include <iostream> 
+#include <chrono>
+#include <iostream>
 
 
 
 namespace grace {
 
 void initialize_loggers() {
-    auto& params = grace::config_parser::get() ; 
+    auto& params = grace::config_parser::get() ;
 
     std::map<std::string, spdlog::level::level_enum> logging_levels {
        { "critical", spdlog::level::critical} ,
-       { "err"     , spdlog::level::err     } , 
+       { "err"     , spdlog::level::err     } ,
        { "warn"    , spdlog::level::warn    } ,
        { "info"    , spdlog::level::info    } ,
-       { "verbose" , spdlog::level::debug   } , 
+       { "verbose" , spdlog::level::debug   } ,
        { "trace"   , spdlog::level::trace   }
-    } ; 
-    int const rank = parallel::mpi_comm_rank() ; 
+    } ;
+    int const rank = parallel::mpi_comm_rank() ;
 
-    std::string const console_log_level = params["system"]["console_log_level"].as<std::string>()     ; 
-    std::string const file_log_level    = params["system"]["file_log_level"].as<std::string>()        ; 
+    std::string const console_log_level = params["system"]["console_log_level"].as<std::string>()     ;
+    std::string const file_log_level    = params["system"]["file_log_level"].as<std::string>()        ;
     bool const flush_on_severity        = params["system"]["flush_logs_based_on_severity"].as<bool>() ;
-    std::string const flush_level       = params["system"]["file_log_level"].as<std::string>()        ; 
+    std::string const flush_level       = params["system"]["file_log_level"].as<std::string>()        ;
     bool const flush_on_time            = params["system"]["flush_logs_based_on_time"].as<bool>()     ;
     double const flush_time             = params["system"]["flush_time"].as<double>()                 ;
-    
-    auto const file_log_basedir  = 
-        std::filesystem::path(params["IO"]["log_output_base_directory"].as<std::string>()) ; 
-    
+
+    auto const file_log_basedir  =
+        std::filesystem::path(params["IO"]["log_output_base_directory"].as<std::string>()) ;
+
     if( not std::filesystem::exists( file_log_basedir ) ){
-            std::filesystem::create_directory(file_log_basedir) ; 
+            std::filesystem::create_directory(file_log_basedir) ;
     }
-    std::string const file_log_filename =  params["IO"]["log_output_base_filename"].as<std::string>() ; 
+    std::string const file_log_filename =  params["IO"]["log_output_base_filename"].as<std::string>() ;
 
-    std::filesystem::path log_fname = 
+    std::filesystem::path log_fname =
         file_log_basedir / (file_log_filename + "_" + std::to_string(rank) + ".out" );
-    std::filesystem::path error_log_fname = 
-        file_log_basedir / (file_log_filename + "_" + std::to_string(rank) + ".err" ); 
-     std::filesystem::path backtrace_log_fname = 
-        file_log_basedir / (std::string("backtrace") + "_" + std::to_string(rank) + ".err" ); 
-    
+    std::filesystem::path error_log_fname =
+        file_log_basedir / (file_log_filename + "_" + std::to_string(rank) + ".err" );
+     std::filesystem::path backtrace_log_fname =
+        file_log_basedir / (std::string("backtrace") + "_" + std::to_string(rank) + ".err" );
+
     if( rank == 0) {
-        auto stdout_logger = spdlog::stdout_color_mt("output_console") ; 
-        auto stderr_logger = spdlog::stderr_color_mt("error_console")  ; 
-        
-        stdout_logger->set_pattern("[%^%l%$] %v") ; 
-        stderr_logger->set_pattern("[%^%l%$] %v") ; 
+        auto stdout_logger = spdlog::stdout_color_mt("output_console") ;
+        auto stderr_logger = spdlog::stderr_color_mt("error_console")  ;
 
-        stdout_logger->set_level(logging_levels[console_log_level]) ; 
-        stderr_logger->set_level(logging_levels[console_log_level]) ; 
+        stdout_logger->set_pattern("[%^%l%$] %v") ;
+        stderr_logger->set_pattern("[%^%l%$] %v") ;
+
+        stdout_logger->set_level(logging_levels[console_log_level]) ;
+        stderr_logger->set_level(logging_levels[console_log_level]) ;
     }
-    
-    std::string logger_name = std::string("file_logger_") + std::to_string(rank) ; 
 
-    auto file_logger = spdlog::basic_logger_mt(logger_name, log_fname.string()) ; 
-    file_logger->set_pattern("[%d-%m-%Y %H.%M:%S.%e] [%^%l%$] %v") ; 
-    file_logger->set_level(logging_levels[file_log_level]) ; 
-    logger_name = std::string("error_file_logger_") + std::to_string(rank) ; 
-    auto error_file_logger = spdlog::basic_logger_mt(logger_name, error_log_fname.string()) ; 
-    error_file_logger->set_pattern("[%d-%m-%Y %H.%M:%S.%e] [%^%l%$] %v") ; 
-    error_file_logger->set_level(logging_levels[file_log_level]) ; 
-    logger_name = std::string("backtrace_logger_") + std::to_string(rank) ; 
-    auto backtrace_logger = spdlog::basic_logger_mt(logger_name, backtrace_log_fname.string()) ; 
-    backtrace_logger->set_pattern( "[%d-%m-%Y %H.%M:%S.%e] [%^%l%$] %v") ; 
+    std::string logger_name = std::string("file_logger_") + std::to_string(rank) ;
+
+    auto file_logger = spdlog::basic_logger_mt(logger_name, log_fname.string()) ;
+    file_logger->set_pattern("[%d-%m-%Y %H.%M:%S.%e] [%^%l%$] %v") ;
+    file_logger->set_level(logging_levels[file_log_level]) ;
+    logger_name = std::string("error_file_logger_") + std::to_string(rank) ;
+    auto error_file_logger = spdlog::basic_logger_mt(logger_name, error_log_fname.string()) ;
+    error_file_logger->set_pattern("[%d-%m-%Y %H.%M:%S.%e] [%^%l%$] %v") ;
+    error_file_logger->set_level(logging_levels[file_log_level]) ;
+    logger_name = std::string("backtrace_logger_") + std::to_string(rank) ;
+    auto backtrace_logger = spdlog::basic_logger_mt(logger_name, backtrace_log_fname.string()) ;
+    backtrace_logger->set_pattern( "[%d-%m-%Y %H.%M:%S.%e] [%^%l%$] %v") ;
     backtrace_logger->set_level(spdlog::level::err) ;
 
-    file_logger->info("Startup of file logger completed.") ; 
-    
-    error_file_logger->flush_on(spdlog::level::err); 
-    backtrace_logger->flush_on(spdlog::level::err); 
+    file_logger->info("Startup of file logger completed.") ;
+
+    error_file_logger->flush_on(spdlog::level::err);
+    backtrace_logger->flush_on(spdlog::level::err);
 
     if(flush_on_time)
-        spdlog::flush_every(std::chrono::duration<double>(flush_time)) ; 
+        spdlog::flush_every(std::chrono::duration<double>(flush_time)) ;
     if(flush_on_severity)
-        file_logger->flush_on(logging_levels[flush_level]) ;  
+        file_logger->flush_on(logging_levels[flush_level]) ;
 
     spdlog::enable_backtrace(32);
 
@@ -200,38 +200,38 @@ void initialize(int& argc, char* argv[])
     argv_new.push_back(nullptr) ;
     argc = static_cast<int>(argv_new.size()) - 1 ;
     argv = argv_new.data() ;
-    /* Initialize global objects in correct order */ 
-    install_signal_handlers(); 
-    grace::config_parser::initialize(parfile) ; 
+    /* Initialize global objects in correct order */
+    install_signal_handlers();
+    grace::config_parser::initialize(parfile) ;
     grace::mpi_runtime::initialize(argc, argv)  ;
-    grace::kokkos_runtime::initialize(&argc, argv) ; 
-    grace::initialize_loggers() ; 
+    grace::kokkos_runtime::initialize(&argc, argv) ;
+    grace::initialize_loggers() ;
     grace::device_stream_pool::initialize() ;
-    GRACE_INFO(GRACE_BANNER) ; 
+    GRACE_INFO(GRACE_BANNER) ;
     #ifdef GRACE_ENABLE_PROFILING
-    grace::profiling_runtime::initialize() ; 
+    grace::profiling_runtime::initialize() ;
     #endif
-    grace::p4est_runtime::initialize() ; 
-    
+    grace::p4est_runtime::initialize() ;
+
     #ifdef GRACE_CARTESIAN_COORDINATES
     GRACE_INFO("GRACE running with cartesian coordinates.");
     #endif
     #ifdef GRACE_SPHERICAL_COORDINATES
     GRACE_INFO("GRACE running with spherical coordinates.");
-    #endif 
+    #endif
 
-    // Here we initialize the checkpoint handler and 
+    // Here we initialize the checkpoint handler and
     // have it autodetect existing checkpoints.
-    // If they are found the initialization of the grid 
+    // If they are found the initialization of the grid
     // is taken over by the checkpoint handler.
-    bool started_from_checkpoint = false ; 
-    checkpoint_handler::initialize() ; 
+    bool started_from_checkpoint = false ;
+    checkpoint_handler::initialize() ;
     if( checkpoint_handler::get().have_checkpoint() ) {
-        checkpoint_handler::get().load_checkpoint() ; 
-        started_from_checkpoint = true ; 
+        checkpoint_handler::get().load_checkpoint() ;
+        started_from_checkpoint = true ;
     } else {
-        GRACE_INFO("Inititalizing connectivity object...") ; 
-        grace::amr::connectivity::initialize() ; 
+        GRACE_INFO("Inititalizing connectivity object...") ;
+        grace::amr::connectivity::initialize() ;
         grace::amr::forest::initialize()       ;
         grace::amr::detail::_nx = grace::config_parser::get()["amr"]["npoints_block_x"].as<int64_t>() ;
         grace::amr::detail::_ny = grace::config_parser::get()["amr"]["npoints_block_y"].as<int64_t>() ;
@@ -245,7 +245,7 @@ void initialize(int& argc, char* argv[])
             << grace::amr::detail::_nx << ", " << grace::amr::detail::_ny << ", " << grace::amr::detail::_nz) ;
         GRACE_INFO("Allocating memory...");
         grace::variable_list::initialize() ;
-        grace::runtime::initialize() ; 
+        grace::runtime::initialize() ;
         grace::coordinate_system::initialize() ;
         grace::eos::initialize() ;
         // initialize trackers before reading checkpoint
@@ -255,42 +255,50 @@ void initialize(int& argc, char* argv[])
         grace::ah_finder_manager::initialize() ;
         #endif
     }
-    
+
     GRACE_INFO("Filling coordinate arrays...") ;
     grace::fill_cell_spacings(
             grace::variable_list::get().getinvspacings()
         ,   grace::variable_list::get().getspacings()   ) ;
     #ifdef GRACE_ENABLE_VTK
     grace::IO::detail::init_auxiliaries()  ;
-    #endif 
-    grace::amr_ghosts::initialize() ; 
-    auto& ghost = grace::amr_ghosts::get() ; 
-    ghost.update() ; 
-    if ( started_from_checkpoint ) {
-        amr::apply_boundary_conditions() ; 
-    }
+    #endif
+    grace::amr_ghosts::initialize() ;
+    auto& ghost = grace::amr_ghosts::get() ;
+    ghost.update() ;
+    // NOTE: do NOT call apply_boundary_conditions() here on checkpoint restart.
+    // The checkpoint serialises the full (nx+2*ngz)^3 array including ghost zones,
+    // so the loaded state already has valid ghost data from the last evolution step.
+    // Calling BC before compute_auxiliary_quantities() also runs with an uninitialised
+    // _state_p (the scratch timelevel is never written to the checkpoint file), which
+    // can trigger null-pointer GPU faults on ROCm when M1 radiation variables are
+    // active (M1_NU_FIVESPECIES).  The first evolution step will fill ghost zones
+    // correctly via the normal BC call sequence.
+    // if ( started_from_checkpoint ) {
+    //     amr::apply_boundary_conditions() ;
+    // }
     /**********************************************************************************/
     /*                                 Initial data                                   */
     /**********************************************************************************/
     if ( ! started_from_checkpoint ) {
-        GRACE_INFO("Setting initial data.") ; 
+        GRACE_INFO("Setting initial data.") ;
 
-        bool regrid_at_pre_initial = grace::get_param<bool>("amr","regrid_at_preinitial") ; 
-        int pre_initial_regrid_depth = 
+        bool regrid_at_pre_initial = grace::get_param<bool>("amr","regrid_at_preinitial") ;
+        int pre_initial_regrid_depth =
             grace::get_param<int>("amr","preinitial_regrid_depth") ;
         if (regrid_at_pre_initial) {
             for( int ilev=0; ilev<pre_initial_regrid_depth; ++ilev){
-                auto grid_has_changed = grace::amr::regrid() ;  
+                auto grid_has_changed = grace::amr::regrid() ;
                 if (grid_has_changed) {
                     ghost.update() ;
                 }
             }
         }
-        // now set id 
-        grace::set_initial_data() ; 
-        
-        bool regrid_at_postinitial = grace::get_param<bool>("amr","regrid_at_postinitial") ; 
-        int postinitial_regrid_depth = 
+        // now set id
+        grace::set_initial_data() ;
+
+        bool regrid_at_postinitial = grace::get_param<bool>("amr","regrid_at_postinitial") ;
+        int postinitial_regrid_depth =
             grace::get_param<int>("amr","postinitial_regrid_depth") ;
         /**********************************************************************************/
         /*                                 Post-Initial data                              */
@@ -299,32 +307,32 @@ void initialize(int& argc, char* argv[])
             GRACE_INFO("Performing initial regrid.") ;
             for( int ilev=0; ilev<postinitial_regrid_depth; ++ilev){
                 GRACE_INFO("Regrid level {}.", ilev+1) ;
-                auto grid_has_changed = grace::amr::regrid() ;  
-                // only reset ID and update ghost struct if grid was modified 
+                auto grid_has_changed = grace::amr::regrid() ;
+                // only reset ID and update ghost struct if grid was modified
                 if (grid_has_changed) {
-                    ghost.update() ; 
-                    grace::set_initial_data() ; 
+                    ghost.update() ;
+                    grace::set_initial_data() ;
                 }
             }
         }
     } else {
-        // aux vars are not in the checkpoint 
+        // aux vars are not in the checkpoint
         grace::compute_auxiliary_quantities() ;
     }
     //--
-    // setup spherical surfaces 
+    // setup spherical surfaces
     //--
     grace::spherical_surface_manager::initialize() ;
     //--
     #ifdef GRACE_ENABLE_Z4C_METRIC
     grace::compute_constraint_violations() ;
     #endif
-    
-    Kokkos::fence() ; 
-    parallel::mpi_barrier() ; 
+
+    Kokkos::fence() ;
+    parallel::mpi_barrier() ;
     GRACE_INFO("Initialization done.");
-    GRACE_INFO("GRACE running on {} backend", GRACE_BACKEND) ; 
-    //GRACE_INFO("GRACE running on {} total devices.", Kokkos::num_devices() ) ; 
+    GRACE_INFO("GRACE running on {} backend", GRACE_BACKEND) ;
+    //GRACE_INFO("GRACE running on {} total devices.", Kokkos::num_devices() ) ;
     GRACE_INFO("Rank {} mapped to device_id {}", parallel::mpi_comm_rank(), Kokkos::device_id() ) ;
 }
 

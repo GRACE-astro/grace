@@ -3,26 +3,26 @@
  * @author Marie Cassing (mcassing@itp.uni-frankfurt.de)
  * @brief Weakhub library interpolation and lookup
  * @date 2026-02-12
- * 
+ *
  * @copyright This file is part of of the General Relativistic Astrophysics
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
- *                                    
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * any later version.
- *   
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *   
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- * 
+ *
  */
 
 #ifndef GRACE_PHYSICS_WEAKHUB_TABLE_HH
@@ -65,12 +65,12 @@ struct device_handle {
     Kokkos::View<double*> kappa_a_num_table;
     Kokkos::View<double*> kappa_s_table;
 
-    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE
     int flat_index(int ispec, int irho, int itemp, int iye, int iymu) const {
         return ispec + n_species_table * (irho + nrho * (itemp + ntemp * (iye + nye * iymu)));
     }
 
-    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE
     void clamp_state(double& rho_code, double& temp_mev, double& yle, double& ymu) const {
         if (!valid) return;
         const double tiny = 1.0e-300;
@@ -90,7 +90,7 @@ struct device_handle {
         }
     }
 
-    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE
     void find_bracket(const Kokkos::View<double*>& axis, int n, double x, int& i0, double& w) const {
         if (n <= 1) { i0 = 0; w = 0.0; return; }
         if (x <= axis(0)) { i0 = 0; w = 0.0; return; }
@@ -106,7 +106,7 @@ struct device_handle {
         w = Kokkos::fmax(0.0, Kokkos::fmin(w, 1.0));
     }
 
-    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE
     double interp_table(const Kokkos::View<double*>& table, int ispec,
                                                double lrho, double ltemp, double ye, double lymu) const {
         int ir = 0, it = 0, iy = 0, im = 0;
@@ -138,7 +138,7 @@ struct device_handle {
         return out;
     }
 
-  GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+  GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE
   interp_outputs lookup(double rho_code, double temp_mev, double yle, double ymu) const {
       interp_outputs out;
       if (!valid) return out;
@@ -177,6 +177,7 @@ bool weakhub_enabled_from_params();
 void initialize_weakhub_from_params();
 const device_handle& get_device_handle();
 bool is_initialized();
+void finalize_weakhub();
 
 }} // namespace grace::weakhub
 

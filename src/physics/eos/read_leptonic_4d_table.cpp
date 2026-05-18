@@ -58,6 +58,7 @@
 #include <grace/physics/eos/read_leptonic_4d_table.hh>
 #include <grace/physics/eos/read_eos_table.hh>
 #include <grace/physics/eos/tabulated_eos.hh>
+#include <grace/parallel/mpi_wrappers.hh>
 #include <grace/physics/eos/unit_system.hh>
 #include <grace/utils/grace_utils.hh>
 #include <grace/system/grace_system.hh>
@@ -446,7 +447,7 @@ void generate_leptonic_cold_table(
     Kokkos::deep_copy(d_rho,  h_rho)     ;
 
     // ---- Optional .grace dump ----
-    if (!output_filename.empty()) {
+    if (!output_filename.empty() && parallel::mpi_comm_rank() == 0) {
         write_leptonic_cold_table(output_filename, h_data, h_rho, T_cold) ;
     }
 }
