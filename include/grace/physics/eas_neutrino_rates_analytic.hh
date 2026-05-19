@@ -639,8 +639,9 @@ void add_charged_current_absorption_opacity(const fugacity_state& F, rates_accum
     constexpr double abs_const = 0.25 * (1.0 + 3.0 * alpha * alpha) * sigma_0;
     std::array<double, NUMSPECIES> zeta{{0,0,0,0,0}};
 
+    //KEN SHOULD BE ETA_NP here TODO
     const double block_n = 1.0 + Kokkos::exp(F.eta_e - fermi::FDR<5,4>::get(F.eta_nu[NUE]));
-    const double absorb_e = (block_n > 0.0) ? (F.eta_np * abs_const / block_n) : 0.0;
+    const double absorb_e = (block_n > 0.0) ? (F.eta_pn * abs_const / block_n) : 0.0;
     if (finite_pos(absorb_e)) zeta[NUE] += absorb_e;
 
     const double block_p = 1.0 + Kokkos::exp(-F.eta_e - fermi::FDR<5,4>::get(F.eta_nu[NUEBAR]));
@@ -1065,17 +1066,17 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE nu_rates_all_out compute_all_species(
 
     // -------------------------------------------------------------------------
     // Step 1: Beta — charged-current absorption opacity (primary quantity).
-    //   kappa_a, kappa_n for NUE/NUEBAR computed directly from nucleon
+    //   kappa_a, kappa_n computed directly from nucleon
     //   densities and blocking factors (Ruffert+ B5-6).
     // -------------------------------------------------------------------------
     rates_accum rates{};
-    //if (beta_decay)
-        //add_charged_current_absorption_opacity(F, rates);
+    if (beta_decay)
+        add_charged_current_absorption_opacity(F, rates);
 
     // -------------------------------------------------------------------------
     // Step 2: Thermal emissivities (pair/plasmon/brems).
     //   These processes have no direct opacity formula; emissivity is primary.
-    //   Effectively only contributes to NUX (and heavy leptons in 5-species).
+    //   Effectively only contributes to heavy leptons.
     // -------------------------------------------------------------------------
     rates_accum thermal{};
     if (pair_annihilation) add_pair_process_emission(F, thermal);
@@ -1084,7 +1085,7 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE nu_rates_all_out compute_all_species(
 
     // -------------------------------------------------------------------------
     // Step 3: Kirchhoff absorption opacity from thermal emissivities.
-    //   kappa_a = Q / B_E,  kappa_n = R / B_N  (NUX only effectively).
+    //   kappa_a = Q / B_E,  kappa_n = R / B_N
     //   Accumulated into rates so that Step 4 sees the full kappa for NUE/NUEBAR.
     // -------------------------------------------------------------------------
     std::array<double, NUMSPECIES> kappa_a_th{{0,0,0,0,0}};
@@ -1110,11 +1111,10 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE nu_rates_all_out compute_all_species(
     //   Added after Step 4 so NUX emissivity comes directly from thermal
     //   processes, not from Kirchhoff inversion of kappa.
     // -------------------------------------------------------------------------
-    // NOT NEEDED, thermal rates are in kappa_a/n already
-    //for (int s = 0; s < NUMSPECIES; ++s) {
-    //    rates.Q[s] += thermal.Q[s];
-    //    rates.R[s] += thermal.R[s];
-    //}
+    for (int s = 0; s < NUMSPECIES; ++s) {
+        rates.Q[s] += thermal.Q[s];
+        rates.R[s] += thermal.R[s];
+    }
 
     // -------------------------------------------------------------------------
     // Step 6: Scattering opacity — independent of emission, added directly.
