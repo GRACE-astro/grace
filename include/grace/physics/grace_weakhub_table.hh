@@ -175,7 +175,7 @@ struct device_handle {
           }
 
       } else {
-          ERROR("Unrecognized weakhub table") ;
+          //ERROR("Unrecognized weakhub table") ;
       }
       #pragma unroll
       for (int s = 0; s < 5; ++s) {

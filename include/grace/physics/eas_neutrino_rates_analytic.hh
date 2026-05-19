@@ -1075,33 +1075,45 @@ GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE nu_rates_all_out compute_all_species(
 #endif
 
     // -------------------------------------------------------------------------
-    // Step 1: Collect all emissivities (Q, R) into one accumulator.
-    //   - beta:   direct Ruffert formula
-    //   - pair/plasmon/brems: their respective kernels
-    // -------------------------------------------------------------------------
-    rates_accum emiss{};
-    if (beta_decay)        add_charged_current_emission(F, emiss);
-    if (pair_annihilation) add_pair_process_emission(F, emiss);
-    if (plasmon_decay)     add_plasmon_decay_emission(F, emiss);
-    if (bremsstrahlung)    add_brems_emission(F, emiss);
-
-    // -------------------------------------------------------------------------
-    // Step 2: Derive absorption opacities from emissivities via Kirchhoff.
-    //   kappa_a = Q / B_E,   kappa_n = R / B_N
+    // Step 1: Beta — absorption opacity is primary, emissivity derived via Kirchhoff.
+    //   This is the physically correct direction for charged-current reactions:
+    //   kappa is computed from nucleon blocking/availability (Ruffert B5-6),
+    //   and Q/R follow from detailed balance.
     // -------------------------------------------------------------------------
     rates_accum rates{};
-    for (int s = 0; s < NUMSPECIES; ++s) {
-        rates.Q[s] = emiss.Q[s];
-        rates.R[s] = emiss.R[s];
+    if (beta_decay) {
+        add_charged_current_absorption_opacity(F, rates);
+        // Derive beta emissivities from Kirchhoff: Q = kappa_a * B_E, R = kappa_n * B_N
+        add_kirchhoff_emission_from_absorption_opacity(
+            F, g_nu, rates.kappa_a, rates.kappa_n, rates.Q, rates.R);
     }
-    add_kirchhoff_absorption_opacity_from_QR(
-        F, g_nu, emiss.Q, emiss.R,
-        rates.kappa_a, rates.kappa_n);
 
     // -------------------------------------------------------------------------
-    // Step 3: Scattering opacity — independent of emission, added directly.
+    // Step 2: Thermal channels — emissivity is primary, absorption opacity derived.
+    //   pair/plasmon/brems have no direct opacity formula, so go the other way.
+    // -------------------------------------------------------------------------
+    rates_accum thermal{};
+    if (pair_annihilation) add_pair_process_emission(F, thermal);
+    if (plasmon_decay)     add_plasmon_decay_emission(F, thermal);
+    if (bremsstrahlung)    add_brems_emission(F, thermal);
+
+    std::array<double, NUMSPECIES> kappa_a_th{{0,0,0,0,0}};
+    std::array<double, NUMSPECIES> kappa_n_th{{0,0,0,0,0}};
+    add_kirchhoff_absorption_opacity_from_QR(
+        F, g_nu, thermal.Q, thermal.R, kappa_a_th, kappa_n_th);
+
+    for (int s = 0; s < NUMSPECIES; ++s) {
+        rates.Q[s]       += thermal.Q[s];
+        rates.R[s]       += thermal.R[s];
+        rates.kappa_a[s] += kappa_a_th[s];
+        rates.kappa_n[s] += kappa_n_th[s];
+    }
+
+    // -------------------------------------------------------------------------
+    // Step 3: Scattering — independent of emission.
     // -------------------------------------------------------------------------
     add_scattering_opacity(F, rates);
+
 
     // -------------------------------------------------------------------------
     // Step 4 (optional): suppress muon species below threshold.
