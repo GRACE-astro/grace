@@ -80,38 +80,32 @@ path.
    The bundled-deps build (Mode A) handles this automatically.
 
 
-Clone and build
-***************
+Build
+*****
+
+For the rest of this tutorial we follow **Mode A** (bundled dependencies)
+— the shortest path to a working build.  After running the ``cmake -B
+build ...`` command from the Mode A block above:
 
 .. code-block:: bash
 
-    git clone --recursive https://github.com/GRACE-astro/grace.git grace-src
-    cd grace-src
-
-    # source your environment file (sets KOKKOS_ROOT, P4EST_ROOT, etc.)
-    source env/my-laptop.env
-
-    # configure: CPU OpenMP backend, Cowling metric (fixed background)
-    cmake -B build -S . \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DGRACE_ENABLE_OMP=ON \
-          -DGRACE_METRIC_EVOL=COWLING
-
-    # build
     cmake --build build -j
 
-The configure step prints a **configuration summary** at the end listing the
-resolved value of every flag plus the active backend. The same summary is
-written to ``build/grace_config_summary.txt`` — archive it alongside any
-simulation output for reproducibility.
+The configure step prints a **configuration summary** at the end listing
+the resolved value of every flag plus the active backend.  The same
+summary is also written to ``build/grace_config_summary.txt`` — archive
+it alongside any simulation output for reproducibility.
 
 If the build succeeds, the GRACE executable lives at ``build/grace``.
 
 .. tip::
 
    Building for GPU? Swap the OpenMP flag for the matching backend:
-   ``-DGRACE_ENABLE_CUDA=ON``, ``-DGRACE_ENABLE_HIP=ON``, etc. Make sure your
-   Kokkos installation was built with the same device backend.
+   ``-DGRACE_ENABLE_CUDA=ON``, ``-DGRACE_ENABLE_HIP=ON``, etc.  In
+   bundled-deps mode (Mode A) you also need to pass the corresponding
+   Kokkos arch flag (e.g. ``-DKokkos_ARCH_HOPPER90=ON``); see the
+   :doc:`building guide <../code_building_guide/index>` for the full
+   architecture-flag list.
 
 
 Run your first simulation
@@ -120,11 +114,22 @@ Run your first simulation
 GRACE ships several ready-to-run parameter files under ``examples/``,
 organized by problem class (``z4c/``, ``grmhd/``, ``cowling_grmhd/``,
 ``symmetry_audit/``).  A good first run is the Balsara MHD shocktube on
-a Cowling background.  The shipped configuration uses a 3D grid
+a fixed flat background.  The shipped configuration uses a 3D grid
 (``32³`` cells per block, 5 stacked trees, refinement level 1), which
 completes in about a minute on a single GPU; on a CPU laptop expect a
-few minutes.  Reduce ``npoints_block_*`` or
-``initial_refinement_level`` in the YAML for a faster smoke test.
+few minutes.
+
+The shocktube is fundamentally 1D — only the ``x``-axis carries the shock
+structure, the ``y`` and ``z`` extents are just thin slabs to make the
+problem three-dimensional.  For a faster CPU smoke test, narrow the slab
+and drop the transverse resolution by editing the YAML before running:
+
+- shrink ``npoints_block_y`` and ``npoints_block_z`` (e.g. ``8`` each)
+- optionally narrow the transverse extents (``ymin / ymax``,
+  ``zmin / zmax``) to keep the cell aspect ratio reasonable
+- and / or lower ``initial_refinement_level``
+
+The resulting run completes in seconds on a single CPU core.
 
 .. code-block:: bash
 

@@ -1,17 +1,5 @@
 {% extends "!layout.html" %}
 {% block document %}
-  {% if is_release %}
-    <div class="wy-alert wy-alert-danger" data-nosnippet>
-      The <a href="/latest/{{ pagename }}.html">latest development version</a>
-      of this page may be more current than this released {{ version }} version.
-    </div>
-  {% else %}
-    <div class="wy-alert wy-alert-danger" data-nosnippet>
-     This is the documentation of the most upstream development version of GRACE.
-     If you're looking for the last stable release please select a different version
-     of this documentation.
-    </div>
-  {% endif %}
   {{ super() }}
 {% endblock %}
 {% block menu %}
