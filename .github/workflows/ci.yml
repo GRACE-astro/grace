@@ -7,6 +7,12 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Force JS-based actions onto Node 24 immediately.  Node 20 is deprecated
+# (forced switch June 2026, full removal September 2026); opting in now
+# keeps us off the deprecation warning and avoids a future scramble.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 permissions:
   contents: read
 

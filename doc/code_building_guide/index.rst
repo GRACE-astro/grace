@@ -88,7 +88,6 @@ Build the 3D variant with MPI enabled for both p4est and the bundled libsc:
 .. code-block:: bash
 
     cmake -B build -S . \
-          -DCMAKE_CXX_COMPILER=nvc++ \
           -DP4EST_ENABLE_BUILD_3D=ON \
           -DP4EST_ENABLE_MPI=ON \
           -Dmpi=ON \
