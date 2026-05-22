@@ -62,7 +62,12 @@ html_context = {
         ("latest", "/"),
     ),
     "reference_links": {
-        "API": f"doxygen/html/index.html"
+        # Absolute URL to the deployed Doxygen output.  Hardcoded to the
+        # GitHub Pages deployment because the previous page-relative form
+        # ("doxygen/html/index.html") only resolved correctly from the
+        # top-level Sphinx page; sub-pages 404'd.  If we ever move the
+        # docs to a different URL we need to update this string.
+        "API": "https://grace-astro.github.io/grace/doxygen/html/index.html"
     }
 }
 

@@ -37,7 +37,7 @@ covers the per-library build instructions you need when going the
 system-install route.
 
 System dependencies (always required)
-=====================================
+-------------------------------------
 
 These come from your OS or HPC modules:
 
@@ -49,7 +49,7 @@ These come from your OS or HPC modules:
 - **libxml2**, **zlib**
 
 In-tree GRACE dependencies
-==========================
+--------------------------
 
 Kokkos
 ~~~~~~
@@ -118,7 +118,7 @@ is built with tests enabled (``-DGRACE_ENABLE_TESTING=ON``); skip
 otherwise.
 
 Optional dependencies (initial-data libraries)
-==============================================
+----------------------------------------------
 
 GRACE can import initial data from several external libraries.  Each is
 only needed if you plan to use the corresponding initial-data source;
@@ -152,7 +152,7 @@ static library.  Multi-threaded import is **strongly** recommended due to
 the cost of evaluating the spectral source on the GRACE grid.
 
 Documentation tools (optional)
-==============================
+------------------------------
 
 Required only if you want to build the docs locally:
 

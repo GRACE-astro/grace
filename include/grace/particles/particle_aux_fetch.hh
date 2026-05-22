@@ -6,7 +6,6 @@
  * Mechanism: forward distributor ships request POD tuples
  * (orig_rank, orig_idx, owner_local_quad, position) to fluid owners; owners
  * run trilinear interp on the requested cell-centered fields; reverse
- * distributor ships responses back. See doc/design/particles.md.
  *
  * Templated on the field count so callers can specialize per particle
  * species (v1 tracers use n_tracer_sample_scalars from particle_storage.hh).

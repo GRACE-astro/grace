@@ -10,7 +10,6 @@
  *
  * Sort key (for the partition): ascending (owner_rank, owner_local_quad,
  * intra_quad_idx). p4est SFC ordering of quads makes this Morton order on
- * particle positions at the quad's level — see doc/design/particles.md.
  */
 #ifndef GRACE_PARTICLES_PARTICLE_STORAGE_HH
 #define GRACE_PARTICLES_PARTICLE_STORAGE_HH
