@@ -1,7 +1,7 @@
 /**
  * @file runtime_functions.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Free-function accessors over the GRACE runtime singleton: simulation time, iteration count, master-rank query, and timer helpers.
  * @version 0.1
  * @date 2024-03-18
  * 

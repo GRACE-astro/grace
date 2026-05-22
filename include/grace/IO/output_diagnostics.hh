@@ -1,7 +1,7 @@
 /**
  * @file output_diagnostics.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Top-level driver that initialises the diagnostic registry and dispatches per-step diagnostic computation and file output.
  * @date 2025-11-17
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

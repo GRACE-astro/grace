@@ -1,7 +1,7 @@
 /**
  * @file c2p.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Shared c2p signal / error bitsets and post-recovery handlers (resets, atmosphere fall-back, EOS-level signal dispatch).
  * @date 2024-06-10
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

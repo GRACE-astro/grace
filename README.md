@@ -40,7 +40,7 @@ cmake -B build -S . -G Ninja \
       -DGRACE_ENABLE_OMP=ON \
       -DGRACE_METRIC_EVOL=COWLING
 cmake --build build -j
-./build/grace examples/cowling_grmhd/shocktubes/balsara1.yaml
+./build/grace --grace-parfile examples/cowling_grmhd/shocktubes/balsara1.yaml
 ```
 
 For GPU builds, see the

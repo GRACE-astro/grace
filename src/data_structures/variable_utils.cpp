@@ -1,7 +1,7 @@
 /**
  * @file variable_utils.cpp
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Implementation of the free-function accessors over the global variable list (counts, names, boundary types, vector/tensor index sets).
  * @date 2024-03-23
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

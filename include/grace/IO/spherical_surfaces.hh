@@ -1,7 +1,7 @@
 /**
  * @file spherical_surfaces.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Spherical-surface registry: sampler descriptors, the spherical_surface_t handle, and the manager singleton that drives interpolation and IO for output spheres.
  * @date 2025-10-03
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

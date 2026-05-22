@@ -1,7 +1,7 @@
 /**
  * @file boundary_conditions.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Driver for ghost-zone filling on AMR state arrays: physical boundaries, MPI halo exchange, prolongation across hanging faces, and restriction across coarse-fine interfaces.
  * @date 2024-03-21
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

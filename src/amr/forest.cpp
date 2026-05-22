@@ -1,7 +1,7 @@
 /**
- * @file forest.hh
+ * @file forest.cpp
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Implementation of the AMR forest singleton: p4est construction, initial refinement, and runtime accessors.
  * @version 0.1
  * @date 2024-02-29
  * 

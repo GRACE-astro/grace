@@ -1,7 +1,7 @@
 /**
  * @file piecewise_polytropic_eos.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Piece-wise polytropic cold EOS implementation: density-segmented Γ_i / κ_i pieces with continuous pressure and consistent thermodynamic derivatives.
  * @date 2024-05-29
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

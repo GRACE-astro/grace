@@ -1,7 +1,7 @@
 /**
  * @file eos_storage.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Singleton holder for the active EOS instance(s); provides type-erased access to whichever cold or hybrid EOS the configuration selected.
  * @date 2024-05-29
  * 
  * @copyright This file is part of the General Relativistic Astrophysics
@@ -161,9 +161,9 @@ class eos_storage_t {
     friend class memory::new_delete_creator<eos_storage_t, memory::new_delete_allocator> ; 
 } ; 
 /**
- * @brief 
+ * @brief Global EOS singleton alias.
  * \ingroup eos
- * Singleton wrapping EOS storage in GRACE. To obtain 
+ * Singleton wrapping EOS storage in GRACE. To obtain
  * a specific EOS object the API is:
  * \code 
  * auto const tabulated_eos = grace::eos::get().get_tabulated();

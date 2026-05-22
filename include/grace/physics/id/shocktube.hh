@@ -1,7 +1,7 @@
 /**
  * @file shocktube.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Shock-tube initial-data kernel: 1D two-state Riemann setups for GRMHD code-testing.
  * @date 2024-07-22
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

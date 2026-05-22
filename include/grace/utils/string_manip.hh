@@ -1,7 +1,7 @@
 /**
  * @file string_manip.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Tiny string-manipulation helpers used to format diagnostic and log messages.
  * @version 0.1
  * @date 2024-03-18
  * 

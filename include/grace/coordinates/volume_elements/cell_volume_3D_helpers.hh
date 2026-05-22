@@ -1,7 +1,7 @@
 /**
- * @file cell_volume_3d_helpers.hh
+ * @file cell_volume_3D_helpers.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Numerical-integrand helpers used to evaluate 3D cell volumes on the spherical multipatch grid, including the prefactor splitting used at high stretching.
  * @date 2024-04-17
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

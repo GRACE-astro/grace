@@ -1,7 +1,7 @@
 /**
  * @file connectivity.cpp
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Implementation of the cartesian and spherical p4est_connectivity_t factories used to build the GRACE macro-topology.
  * @version 0.1
  * @date 2024-02-29
  * 

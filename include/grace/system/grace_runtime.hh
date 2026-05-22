@@ -1,7 +1,7 @@
 /**
  * @file grace_runtime.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Central GRACE runtime singleton: owns simulation time, iteration count, configuration, output state, and tying together physics modules with the AMR forest.
  * @version 0.1
  * @date 2024-03-12
  * 

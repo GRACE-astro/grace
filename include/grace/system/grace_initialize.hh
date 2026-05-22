@@ -1,7 +1,7 @@
 /**
  * @file grace_initialize.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Public entry points for GRACE startup: command-line parsing, MPI / Kokkos / p4est initialization, and logger setup.
  * @version 0.1
  * @date 2024-03-12
  * 

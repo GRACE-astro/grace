@@ -1,7 +1,7 @@
 /**
  * @file matrix_helpers.tpp
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Templated implementations of small-matrix determinant / inverse / linear-solve routines used in metric-tensor manipulations.
  * @date 2024-04-14
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

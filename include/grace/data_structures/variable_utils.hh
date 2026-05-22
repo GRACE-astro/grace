@@ -1,7 +1,7 @@
 /**
  * @file variable_utils.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Free-function accessors over the global variable list: counts, names, boundary and AMR interpolation types, and vector/tensor variable index sets.
  * @date 2024-03-22
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

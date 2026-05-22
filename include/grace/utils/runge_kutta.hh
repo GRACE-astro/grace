@@ -1,7 +1,7 @@
 /**
  * @file runge_kutta.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Generic on-device explicit Runge-Kutta integrators (classical RK4 plus adaptive RK45) used by ODE-style helpers (geodesics, AH finder).
  * @date 2024-07-22
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

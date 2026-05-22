@@ -1,7 +1,7 @@
 /**
  * @file amr_flags.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Per-quadrant state flags driving AMR decisions (refine, coarsen, prolongation, restriction).
  * @version 0.1
  * @date 2024-02-29
  * 

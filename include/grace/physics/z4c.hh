@@ -1,7 +1,7 @@
 /**
  * @file z4c.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Z4c spacetime evolution-system class: RHS assembly, gauge sources, Kreiss-Oliger dissipation, constraint diagnostics, and matter-coupling terms.
  * @date 2025-12-20
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

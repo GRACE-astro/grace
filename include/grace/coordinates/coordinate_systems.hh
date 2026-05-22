@@ -1,7 +1,7 @@
 /**
  * @file coordinate_systems.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Dispatch typedefs selecting the active coordinate system (cartesian or spherical) and host/device variants based on build configuration.
  * @date 2024-03-26
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics
@@ -37,7 +37,7 @@
 #endif 
 namespace grace { 
 /**
- * \defgroup grace_coordinates Coordinate utilities for GRACE
+ * \defgroup coordinates Coordinate systems and Jacobians
  */
 /*****************************************************************************************/
 /*****************************************************************************************/
@@ -68,7 +68,7 @@ using device_coordinate_system = spherical_device_coordinate_system_impl_t ;
  * @brief Get physical coordinates of a point inside a local cell, given 
  *        the quadrant and spatial indices.
  * 
- * \ingroup grace_coordinates
+ * \ingroup coordinates
  * 
  * @param itree Tree index 
  * @param lcoords Logical coordinates \f$[0,1]^{d}\f$ of the points inside the tree
@@ -89,7 +89,7 @@ get_physical_coordinates(
  * @param cell_coordinates Logical coordinates \f$[0,1]^{d}\f$ of the points inside the cell
  * @param include_gzs Include ghostzones in the calculation
  * 
- * \ingroup grace_coordinates
+ * \ingroup coordinates
  * 
  * NB: Including ghostzones means that \f$ijk={0,0(,0)}\f$ has negative logical coordinates,
  *     and the logical coordinates origin lies at \f$ijk={ngz,ngz(,ngz)}\f$.
@@ -110,7 +110,7 @@ get_physical_coordinates(
  * @param local_coords Logical coordinates \f$[0,1]^{d}\f$ of the points inside the cell
  * @param include_gzs Include ghostzones in the calculation
  * 
- * \ingroup grace_coordinates
+ * \ingroup coordinates
  * 
  * NB: Including ghostzones means that \f$ijk={0,0(,0)}\f$ has negative logical coordinates,
  *     and the logical coordinates origin lies at \f$ijk={ngz,ngz(,ngz)}\f$.

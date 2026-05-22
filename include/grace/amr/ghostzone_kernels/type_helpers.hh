@@ -1,7 +1,7 @@
 /**
  * @file type_helpers.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Type aliases used by the ghost-zone kernels: view_alias_t variant, read-only Kokkos view shorthands, and task descriptor tuples.
  * @date 2025-09-05
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

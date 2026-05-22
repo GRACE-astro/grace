@@ -1,7 +1,7 @@
 /**
  * @file forest.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Adaptive mesh refinement forest manager wrapping the p4est forest pointer and exposing the tree / quadrant iteration API used throughout GRACE.
  * @version 0.1
  * @date 2024-02-29
  * 

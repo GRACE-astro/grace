@@ -1,7 +1,7 @@
 /**
  * @file print.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief MPI-aware printing helpers (master-only print, broadcast-safe diagnostics) used throughout GRACE for runtime messages.
  * @version 0.1
  * @date 2024-03-12
  * 

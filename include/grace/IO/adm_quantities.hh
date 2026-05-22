@@ -1,7 +1,7 @@
 /**
  * @file adm_quantities.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Diagnostic that computes ADM mass, momentum, and angular momentum surface integrals on an outer sphere.
  * @date 2025-11-17
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

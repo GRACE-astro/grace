@@ -1,7 +1,7 @@
 /**
  * @file spherical_device_inlines.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Host/device inline implementations of logical-to-physical and physical-to-logical maps for the central-cube and radial-shell patches of the spherical grid.
  * @date 2024-03-28
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

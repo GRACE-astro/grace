@@ -1,7 +1,7 @@
 /**
- * @file black_hole_diagnostics.hh
+ * @file mag_energy.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Diagnostic that integrates the electromagnetic (B²/8π) energy density over the domain.
  * @date 2025-11-17
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

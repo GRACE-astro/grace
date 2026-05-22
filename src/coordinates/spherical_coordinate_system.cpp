@@ -1,7 +1,7 @@
 /**
  * @file spherical_coordinate_system.cpp
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Implementation of the spherical coordinate-system singleton: central + 6-shell construction, radial stretching, and host helpers.
  * @date 2024-03-26
  * 
  * @copyright This file is part of GRACE.

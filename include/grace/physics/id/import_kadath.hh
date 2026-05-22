@@ -4,7 +4,7 @@
  * Subject to GPL and adapted from the work of author(s)/maintainer(s):
  * Samuel David Tootle <tootle@itp.uni-frankfurt.de>
  * Ludwig Jens Papenfort <papenfort@th.physik.uni-frankfurt.de>
- * @brief 
+ * @brief Minimal enum / function declarations for the FUKA-Kadath exporter library, allowing GRACE to link against libkadath without pulling Kadath headers (C++17).
  * @date 2024-08-29
  * The following is a minimal header file to include the necessary
  * enumerators and function defintions

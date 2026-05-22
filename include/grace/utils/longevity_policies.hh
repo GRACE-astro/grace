@@ -1,7 +1,7 @@
 /**
  * @file longevity_policies.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Singleton-lifetime policy templates controlling when GRACE singletons are destroyed at exit.
  * @date 2023-06-14
  * 
  * @copyright This file is part of MagMA.

@@ -1,7 +1,7 @@
 /**
  * @file eos_base.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief CRTP base class for all GRACE EOS implementations: defines the common interface (P, ε, cs2, …) plus the eos_err_t signal bitset.
  * @date 2024-05-28
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

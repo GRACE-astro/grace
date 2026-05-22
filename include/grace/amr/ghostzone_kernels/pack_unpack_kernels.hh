@@ -1,7 +1,7 @@
 /**
  * @file pack_unpack_kernels.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Device-side pack and unpack functors that move ghost-zone payload between cell-centred / staggered Kokkos views and MPI communication buffers.
  * @date 2025-09-05
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

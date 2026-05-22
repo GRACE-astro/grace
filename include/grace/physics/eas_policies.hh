@@ -1,7 +1,7 @@
 /**
  * @file eas_policies.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Emission/absorption/scattering policy functors (test and photon variants) plugged into the M1 source-term evaluator.
  * @date 2024-05-13
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

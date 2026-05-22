@@ -1,7 +1,7 @@
 /**
  * @file regrid.cpp
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Implementation of the regrid entry point: flag evaluation, refine/coarsen, prolongation/restriction of state, and MPI repartition.
  * @version 0.1
  * @date 2024-03-19
  * 

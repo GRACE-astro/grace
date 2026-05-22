@@ -1,7 +1,7 @@
 /**
- * @file cloud.hh
+ * @file lorene_bns.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Initial-data driver that imports LORENE binary-neutron-star data and converts it into the GRACE GRMHD + Z4c state.
  * @date 2025-01-08
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

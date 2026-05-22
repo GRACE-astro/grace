@@ -1,7 +1,7 @@
 /**
  * @file grace/utils/make_string.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief make_string utility: an inline std::ostringstream-like builder for assembling diagnostic strings in one expression.
  * @version 0.1
  * @date 2023-03-10
  * 

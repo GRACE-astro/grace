@@ -1,7 +1,7 @@
 /**
  * @file grmhd_B_from_A.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Helpers that seed face-staggered B from a user-supplied vector potential A, supporting confined-poloidal and global-dipole geometries.
  * @date 2026-04-08
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

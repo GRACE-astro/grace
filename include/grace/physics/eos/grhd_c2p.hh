@@ -2,7 +2,7 @@
 /**
  * @file grhd_c2p.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief GRHD (non-magnetic) conserved-to-primitive inverter, templated on EOS, using a 1D Brent rootfinder in pressure.
  * @date 2024-06-10
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

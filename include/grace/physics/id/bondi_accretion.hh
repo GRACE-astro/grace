@@ -1,7 +1,7 @@
 /**
  * @file bondi_accretion.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Bondi accretion initial-data kernel: spherically-symmetric stationary accretion onto a Schwarzschild black hole.
  * @date 2025-12-16
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

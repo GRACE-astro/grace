@@ -1,7 +1,7 @@
 /**
  * @file tree.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Lightweight wrapper around p4est_tree_t providing safe access to a single tree's quadrants on the local rank.
  * @version 0.1
  * @date 2024-02-29
  * 

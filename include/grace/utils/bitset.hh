@@ -1,7 +1,7 @@
 /**
  * @file bitset.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Host/device-callable fixed-size bitset template used for compact boolean flag arrays.
  * @date 2025-11-24
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

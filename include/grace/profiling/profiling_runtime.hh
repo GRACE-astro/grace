@@ -1,7 +1,7 @@
 /**
  * @file profiling_runtime.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Singleton owning the per-rank profiling state: roctracer/rocprofiler integration, kernel-level timing buffers, and output writers.
  * @date 2024-06-11
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

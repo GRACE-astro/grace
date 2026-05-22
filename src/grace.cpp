@@ -1,7 +1,7 @@
 /**
  * @file grace.cpp
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Top-level GRACE executable: parses the command line, calls initialize / set_initial_data / evolve / finalize.
  * @version 0.1
  * @date 2024-03-18
  * 

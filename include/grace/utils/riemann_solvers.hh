@@ -1,7 +1,7 @@
 /**
  * @file riemann_solvers.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Generic Riemann-solver tag types (HLLD, HLL, LLF) and the plain-HLL solver functor used by the GRMHD HRSC layer.
  * @date 2024-05-13
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

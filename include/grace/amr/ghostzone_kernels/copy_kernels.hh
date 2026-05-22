@@ -1,7 +1,7 @@
 /**
  * @file copy_kernels.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Device-side copy functors for same-level ghost-zone fills: view-to-view, view-to-comm-buffer, and comm-buffer-to-view.
  * @date 2025-09-05
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

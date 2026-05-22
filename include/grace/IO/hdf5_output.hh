@@ -1,7 +1,7 @@
 /**
  * @file hdf5_output.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief HDF5 writers for cell-centred volume / plane / sphere data and the AMR grid structure, including per-variable scalar and vector array helpers.
  * @version 0.1
  * @date 2024-05-23
  * 

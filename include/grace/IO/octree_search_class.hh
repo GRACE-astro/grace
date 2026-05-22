@@ -1,7 +1,7 @@
 /**
  * @file octree_search_class.hh
  * @author  Keneth Miler (miler@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Octree-based query helpers that locate quadrants intersecting a requested plane, used by the 2D slice output writers.
  * @date 2024-07-08
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

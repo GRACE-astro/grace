@@ -1,7 +1,7 @@
 /**
  * @file m1_initial_data.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief M1 radiation initial-data kernels: zero, equilibrium, straight-beam, scattering / diffusion, moving-medium, and emitting-sphere configurations.
  * @date 2025-11-24
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

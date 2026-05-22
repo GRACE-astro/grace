@@ -1,7 +1,7 @@
 /**
  * @file ideal_gas_eos.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Ideal-gas (Γ-law) EOS implementation: trivially copy-able, device-callable, with cold-interface support for hybrid wrapping.
  * @date 2026-04-08
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

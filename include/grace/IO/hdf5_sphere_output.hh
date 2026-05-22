@@ -1,7 +1,7 @@
 /**
  * @file hdf5_sphere_output.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief HDF5 writer for cell-centred data sampled on the registered output spheres.
  * @version 0.1
  * @date 2025-12-05
  * 

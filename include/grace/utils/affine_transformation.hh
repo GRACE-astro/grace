@@ -1,7 +1,7 @@
 /**
  * @file affine_transformation.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Small 1D affine-map helpers used to convert between logical [0,1] coordinates and physical interval coordinates on a brick.
  * @date 2024-04-18
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

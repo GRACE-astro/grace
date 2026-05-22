@@ -1,7 +1,7 @@
 /**
  * @file m1.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief M1 radiation-transport evolution-system class: per-species reconstruction, closure-based Riemann fluxes, source terms, and IMEX integration hooks.
  * @date 2025-11-26
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

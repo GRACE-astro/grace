@@ -1,7 +1,7 @@
 /**
  * @file physical_constants.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Fundamental physical constants (c, G, k_B, ...) and astrophysical conversion factors used across GRACE physics modules.
  * @date 2024-05-29
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

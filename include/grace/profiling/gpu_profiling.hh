@@ -1,7 +1,7 @@
 /**
  * @file gpu_profiling.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief ROCm / rocprofiler-based GPU profiling session: counter registration, session start/stop, and profile-record writers.
  * @date 2024-06-11
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

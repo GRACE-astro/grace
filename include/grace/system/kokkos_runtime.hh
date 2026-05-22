@@ -1,7 +1,7 @@
 /**
  * @file kokkos_runtime.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Singleton wrapper that owns the Kokkos lifetime (initialize / finalize) for the GRACE runtime.
  * @version 0.1
  * @date 2024-03-12
  * 

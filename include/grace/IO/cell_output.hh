@@ -1,7 +1,18 @@
 /**
  * @file cell_output.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Top-level dispatcher for cell-centered output: volume HDF5,
+ *        plane-slice HDF5, spherical-surface HDF5 (and legacy VTK paths).
+ *
+ * \defgroup io Output and diagnostics
+ *
+ * Parallel I/O subsystem: HDF5 volume output (3D), HDF5 plane-slice
+ * output (xy / xz / yz), HDF5 spherical-surface output, scalar
+ * reductions to ``.dat``, named per-module diagnostic timeseries, XDMF
+ * descriptors for ParaView, and HDF5 checkpoints.  The dispatcher in
+ * this header chooses between volume / plane / sphere paths based on
+ * the requested output kind.
+ *
  * @date 2024-05-24
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

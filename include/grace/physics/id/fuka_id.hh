@@ -1,7 +1,7 @@
 /**
  * @file fuka_id.hh
  * @author Konrad Topolski (konrad.topolski@uni-hamburg.de)
- * @brief 
+ * @brief Initial-data driver that imports FUKA-Kadath BNS / BHNS / BBH data and lays it down on the GRACE GRMHD + Z4c grid.
  * @date 2025-02-17
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

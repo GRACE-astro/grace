@@ -1,7 +1,7 @@
 /**
- * @file tabulated.hh
+ * @file tabulated_eos.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de) & Khalil Pierre (pierre@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Three-parameter (rho, T, Y_e) and cold (rho only) tabulated EOS implementations, including bilinear/trilinear interpolators in log-space.
  * @date 2026-02-06
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

@@ -1,6 +1,11 @@
-.. _grace-intro:
+.. _grace-citing:
 
-Citing 
+Citing
 ========
 
-If you use GRACE in your work or publications you are encouraged to include the following citations in your work
+If you use GRACE in your work or publications, please cite the GRACE code
+paper.  Citation details (BibTeX, arXiv ID, DOI) will be added here once
+the paper appears on arXiv.
+
+Authors and contributors are listed in the top-level ``AUTHORS`` file in
+the repository.

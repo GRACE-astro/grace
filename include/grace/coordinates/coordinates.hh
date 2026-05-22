@@ -1,7 +1,7 @@
 /**
  * @file coordinates.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Free-function entry points for populating per-quadrant coordinate, spacing, and Jacobian arrays from the active coordinate system.
  * @version 0.1
  * @date 2023-06-14
  * 

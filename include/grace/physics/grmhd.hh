@@ -1,7 +1,7 @@
 /**
  * @file grmhd.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief GRMHD evolution-system class (templated on EOS): reconstruction, Riemann-flux assembly, source terms, and primitive recovery dispatch.
  * @date 2024-05-28
  * 
  * @copyright This file is part of the General Relativistic Astrophysics
@@ -46,7 +46,6 @@
 #include <grace/utils/riemann_solvers.hh>
 #include <grace/utils/rootfinding.hh>
 #include "grmhd_subexpressions.hh"
-#include "tetrad_subexpressions.hh"
 #include "fd_subexpressions.hh"
 #include "z4c_subexpressions.hh"
 #include <Kokkos_Core.hpp>

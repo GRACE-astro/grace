@@ -1,7 +1,7 @@
 /**
  * @file restrict_kernels.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Device-side restriction functors (volume-average for cell data, area-average for staggered B) used in ghost-zone fills at coarse-fine interfaces.
  * @date 2025-09-05
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

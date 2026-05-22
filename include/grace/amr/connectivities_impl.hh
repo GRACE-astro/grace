@@ -1,7 +1,7 @@
 /**
  * @file connectivities_impl.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Factory routines that build p4est_connectivity_t for the cartesian and spherical macro-topologies supported by GRACE.
  * @version 0.1
  * @date 2023-06-09
  * 

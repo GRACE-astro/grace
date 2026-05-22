@@ -1,7 +1,7 @@
 /**
  * @file outflow_diagnostics.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Diagnostic that integrates mass, energy and momentum outflow fluxes across registered extraction spheres.
  * @date 2026-01-15
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

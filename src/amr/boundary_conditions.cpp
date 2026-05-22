@@ -1,7 +1,7 @@
 /**
  * @file boundary_conditions.cpp
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Implementation of the ghost-zone fill driver: orchestrates pack/unpack, prolongation, restriction, copy, and physical-BC kernels per stage.
  * @date 2024-03-21
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

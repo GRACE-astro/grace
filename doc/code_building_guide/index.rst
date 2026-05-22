@@ -3,9 +3,9 @@
 Building The Code
 =====================
 
-GRACE's build system is based on `CMake <https://cmake.org/>`__. This guide will provide a detailed explanation of all the configure flags that
-can be passed to the build system to customize the code's behaviour, and assumes that you already installed all the code's dependencies.
-If you haven't done that yet, please consult the :doc:`introduction <../introduction/index>`.
+GRACE's build system is based on `CMake <https://cmake.org/>`__. This guide
+covers the dependency setup and a detailed reference of all configure-time
+flags accepted by the build system.
 If you're unfamiliar with CMake, please consult their extensive documentation to learn more about this tool. For our purposes,
 CMake is a build system that we use to generate Makefiles that can then be used to generate the code. GRACE's build process
 is effectively divided into two parts: the configure step and the build step. The configure step is where all the build-time flags
@@ -25,16 +25,140 @@ The way to specify either kind to CMake is the same:
 
     $ cmake -B build -S ./ -D<FLAG_NAME>=<FLAG_VALUE>
 
-Environment File
+Dependencies
 ************************************
 
-The recommended way of building GRACE is to first create an environment file. Some examples can be found in the GRACEpy repository as well as the main GRACE repository under `env`.
+GRACE supports two dependency-resolution modes — bundled (Kokkos / p4est /
+Catch2 / spdlog / yaml-cpp built in-tree under ``extern/``) and system
+installs (located via ``<DEP>_ROOT`` environment variables, usually populated
+by an env file under ``env/``).  See the :doc:`quickstart <../quickstart/index>`
+for the side-by-side walkthrough of both modes.  The rest of this section
+covers the per-library build instructions you need when going the
+system-install route.
 
-In short, these files should load necessary modules and define environment variables pointing to the installation path of GRACE dependencies.
+System dependencies (always required)
+=====================================
 
-The CMake build system looks for dependencies in the location pointed to by the environment variable ``<DEP>_ROOT``, so for instance your environment file should contain ``KOKKOS_ROOT=/my/kokkos/installation``.
+These come from your OS or HPC modules:
 
-After creating and sourcing your environment file you're ready for the configure step.
+- **CMake** ≥ 3.22
+- **C++20 compiler** (GCC ≥ 12, Clang ≥ 16, NVHPC ≥ 24.5 for CUDA builds)
+- **MPI** (OpenMPI, MPICH, Cray-MPICH, ...).  For GPU builds, the MPI
+  installation **must** support GPU-aware (device-to-device) transfers.
+- **HDF5 with MPI-parallel I/O**, built against the *same* MPI as GRACE.
+- **libxml2**, **zlib**
+
+In-tree GRACE dependencies
+==========================
+
+Kokkos
+~~~~~~
+
+Nothing GRACE-specific — enable the backend matching your hardware, the
+matching architecture flag, and (for GPU backends) relocatable device code.
+For example, for an H100 CUDA build:
+
+.. code-block:: bash
+
+    cmake -B build -S . \
+          -DKokkos_ENABLE_CUDA=ON \
+          -DKokkos_ARCH_HOPPER90=ON \
+          -DKokkos_ENABLE_CUDA_RELOCATABLE_DEVICE_CODE=ON \
+          -DCMAKE_INSTALL_PREFIX=/path/to/kokkos-install
+
+Substitute the matching backend / arch / RDC flag for HIP or SYCL targets.
+The full list of architecture keywords is in the
+`Kokkos documentation <https://kokkos.org/kokkos-core-wiki/keywords.html#architecture-keywords>`__.
+
+`Kokkos Tools <https://github.com/kokkos/kokkos-tools>`__ (optional but
+recommended for any performance work) is built separately against the same
+Kokkos install:
+
+.. code-block:: bash
+
+    cmake -B build -S . \
+          -DCMAKE_PREFIX_PATH=$(pwd)/../kokkos-install \
+          -DKokkosTools_ENABLE_MPI=ON
+
+p4est
+~~~~~
+
+Build the 3D variant with MPI enabled for both p4est and the bundled libsc:
+
+.. code-block:: bash
+
+    cmake -B build -S . \
+          -DCMAKE_CXX_COMPILER=nvc++ \
+          -DP4EST_ENABLE_BUILD_3D=ON \
+          -DP4EST_ENABLE_MPI=ON \
+          -Dmpi=ON \
+          -DSC_ENABLE_MPI=ON
+
+p4est runtime logs are routed through GRACE's logging system at runtime,
+so no special log-level configuration is needed at build time.
+
+spdlog
+~~~~~~
+
+Standard CMake build, no GRACE-specific flags.  GRACE uses spdlog for all
+console and file logging.
+
+yaml-cpp
+~~~~~~~~
+
+Standard CMake build, no GRACE-specific flags.  GRACE uses yaml-cpp to
+parse the YAML parameter files described in the :doc:`user guide
+<../userguide/index>`.
+
+Catch2
+~~~~~~
+
+Standard CMake build, no GRACE-specific flags.  Only required when GRACE
+is built with tests enabled (``-DGRACE_ENABLE_TESTING=ON``); skip
+otherwise.
+
+Optional dependencies (initial-data libraries)
+==============================================
+
+GRACE can import initial data from several external libraries.  Each is
+only needed if you plan to use the corresponding initial-data source;
+none are required for a generic GRACE build.
+
+LORENE
+~~~~~~
+
+Use the standard patches that ship with the
+`Einstein Toolkit <https://einsteintoolkit.org/>`__ (in the
+``EinsteinInitialData/LORENE`` thorn).  These fix upstream compatibility
+issues that recur in essentially every GRMHD code linking against LORENE,
+so there's no reason to reinvent them locally.  Multi-threaded import is
+recommended; spectral evaluation of the source data dominates the import
+cost for high-resolution AMR grids.
+
+TwoPunctures
+~~~~~~~~~~~~
+
+GRACE ships a small patch to upstream TwoPunctures at
+``extern/patches/twopunctures.patch``.  Apply it on top of the
+``TwoPunctures`` source tree before configuring, then build with
+TwoPunctures' standard instructions.  The patch addresses interface
+issues encountered when linking from GRACE.
+
+FUKA
+~~~~
+
+Follow the upstream FUKA build instructions; GRACE consumes FUKA as a
+static library.  Multi-threaded import is **strongly** recommended due to
+the cost of evaluating the spectral source on the GRACE grid.
+
+Documentation tools (optional)
+==============================
+
+Required only if you want to build the docs locally:
+
+- **Sphinx** with the project's plugins —
+  ``pip install -r doc/requirements.txt``.
+- **Doxygen** for the C++ API reference.
 
 Configure Options
 ************************************
@@ -102,7 +226,7 @@ These are *string-valued* selectors. Each picks one flavour of a compile-time sc
      - CT EMF reconstruction scheme. ``GS`` is the Gardiner-Stone EMF reconstructed in-kernel from face fluxes during the directional flux sweep. ``UCT`` is upwind constrained transport with edge EMFs computed in a separate pass.
    * - GRACE_RECONSTRUCTION
      - ``WENOZ`` | ``MC2`` | ``MINMOD`` | ``DONOR_CELL`` (default ``WENOZ``)
-     - Spatial reconstruction class for face-centred primitives. ``WENOZ`` is 5th-order WENO-Z (production default). ``MC2`` and ``MINMOD`` are 2nd-order slope-limited. ``DONOR_CELL`` is 1st-order piecewise-constant (intended for symmetry-preservation diagnostics, not production).
+     - Spatial reconstruction class for face-centred primitives. ``WENOZ`` is 5th-order WENO-Z (production default). ``MC2`` and ``MINMOD`` are 2nd-order slope-limited. ``DONOR_CELL`` is 1st-order piecewise-constant (intended for debugging).
    * - GRACE_RECON_THERMO
      - ``TEMP`` | ``PRESS`` (default ``TEMP``)
      - Thermodynamic primitive reconstructed at faces. ``TEMP`` reconstructs temperature (GRACE convention, preserves cold-K exactly along polytropic equilibria). ``PRESS`` reconstructs pressure (continuous across contact discontinuities).
@@ -111,7 +235,7 @@ These are *string-valued* selectors. Each picks one flavour of a compile-time sc
      - Truncation order of every Z4c RHS finite-difference operator (centered 1st-derivative, biased L1/R1, centered 2nd-derivative diagonal and mixed, upwind 1st, Kreiss-Oliger). Operators are auto-generated by the codegen pipeline with symmetry-equivariant grouping baked into the emitted C99 expressions. Extending beyond order 6 requires re-running the codegen with a larger ``ORDERS`` tuple.
    * - GRACE_MATTER_METRIC_DER_ORDER
      - ``2`` | ``4`` | ``6`` (defaults to ``GRACE_Z4C_DER_ORDER``)
-     - FD order used by matter subsystems (GRMHD, M1) when sampling spatial derivatives of the metric for geometric source terms. Defaults to ``GRACE_Z4C_DER_ORDER`` so matter and metric live on the same dispersion curve at all wavenumbers. Mismatching the two introduces a coherent ringing artefact at NS surfaces in BNS configurations (the May-2026 wake-ripple); override only deliberately for diagnostic A/B comparisons. A configure-time warning is emitted if the two differ.
+     - FD order used by matter subsystems (GRMHD, M1) when sampling spatial derivatives of the metric for geometric source terms. Defaults to ``GRACE_Z4C_DER_ORDER`` so matter and metric live on the same dispersion curve at all wavenumbers. Override only for diagnostic A/B comparisons.
 
 
 Numerical schemes (boolean)

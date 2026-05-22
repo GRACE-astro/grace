@@ -1,7 +1,7 @@
 /**
  * @file m1_helpers.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Per-cell M1 helpers: closure functor, atmosphere/excision parameter structs, and rest-frame transformation primitives.
  * @date 2024-11-21
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

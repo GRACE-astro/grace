@@ -1,7 +1,7 @@
 /**
- * @file vtk_volume_output_3D.hh
+ * @file vtk_volume_output.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief VTK writer for cell-centred volume data on the local AMR forest.
  * @date 2024-03-15
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

@@ -1,7 +1,7 @@
 /**
- * @file restrict_kernels.hh
+ * @file prolongation_kernels.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Device-side prolongation functors (slope-limited and high-order Lagrange interpolation, plus Tóth-Ryu divergence-preserving fill for face-staggered B).
  * @date 2025-09-05
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

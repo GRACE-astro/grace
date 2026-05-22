@@ -1,7 +1,7 @@
 /**
  * @file coordinate_systems.cpp
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Translation-unit anchor for the active coordinate-system singleton and the free-function coordinate dispatch points.
  * @date 2024-03-26
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

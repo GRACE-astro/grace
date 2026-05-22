@@ -1,7 +1,7 @@
 /**
  * @file cell_surface_helpers.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Dimension-agnostic dispatch entry points for per-direction (zeta/eta/xi) cell-surface area integrals on the spherical multipatch grid.
  * @date 2024-04-17
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

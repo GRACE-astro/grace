@@ -1,7 +1,7 @@
 /**
  * @file regrid.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Top-level regridding entry point: refine/coarsen the AMR forest based on flagged quadrants and shepherd field data through prolongation, restriction and repartition.
  * @version 0.1
  * @date 2024-03-19
  * 

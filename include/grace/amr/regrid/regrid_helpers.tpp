@@ -1,7 +1,7 @@
 /**
  * @file regrid_helpers.tpp
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Templated implementations of regrid criterion evaluation kernels (gradient-style indicators and binary tracker criteria) for AMR refinement flagging.
  * @version 0.1
  * @date 2024-03-20
  * 

@@ -1,7 +1,7 @@
 /**
  * @file execution_tag.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief GRACE_EXECUTION_TAG macro that builds Kokkos parallel-region label strings of the form "GRACE::<domain>::<task>".
  * @version 0.1
  * @date 2024-03-19
  * 
