@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,6 +31,7 @@
 #include <grace_config.h>
 
 #include <grace/utils/grace_utils.hh>
+#include <grace/utils/riemann_solvers.hh>
 #include <grace/data_structures/variable_properties.hh>
 #include <grace/coordinates/coordinate_systems.hh>
 #include <grace/evolution/evolution_kernel_tags.hh>
@@ -47,52 +48,52 @@ struct hrsc_evolution_system_t {
      : _state(state_), _stag_state(stag_state_), _aux(aux_)
     {} 
 
-    template< typename recon_t >
-    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_x_flux( int const q  
-                  , VEC( const int i 
-                  ,      const int j 
+    template< typename recon_t, typename riemann_t = grace::default_riemann_tag_t >
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    compute_x_flux( int const q
+                  , VEC( const int i
+                  ,      const int j
                   ,      const int k)
                   , grace::flux_array_t const fluxes
                   , grace::flux_array_t const vbar
                   , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
-                  , double const dt 
-                  , double const dtfact ) const 
+                  , double const dt
+                  , double const dtfact ) const
     {
-        static_cast<EvolSystem_t const *>(this)->template 
-            compute_x_flux_impl<recon_t>(q,VEC(i,j,k),fluxes,vbar,dx,dt,dtfact) ;
+        static_cast<EvolSystem_t const *>(this)->template
+            compute_x_flux_impl<recon_t,riemann_t>(q,VEC(i,j,k),fluxes,vbar,dx,dt,dtfact) ;
     }
 
-    template< typename recon_t >
-    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    template< typename recon_t, typename riemann_t = grace::default_riemann_tag_t >
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     compute_y_flux( int const q
-                  , VEC( const int i 
-                  ,      const int j 
+                  , VEC( const int i
+                  ,      const int j
                   ,      const int k)
                   , grace::flux_array_t const fluxes
                   , grace::flux_array_t const vbar
                   , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
-                  , double const dt 
-                  , double const dtfact ) const 
+                  , double const dt
+                  , double const dtfact ) const
     {
-        static_cast<EvolSystem_t const *>(this)->template 
-            compute_y_flux_impl<recon_t>(q,VEC(i,j,k),fluxes,vbar,dx,dt,dtfact) ; 
+        static_cast<EvolSystem_t const *>(this)->template
+            compute_y_flux_impl<recon_t,riemann_t>(q,VEC(i,j,k),fluxes,vbar,dx,dt,dtfact) ;
     }
 
-    template< typename recon_t >
-    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_z_flux( int const q  
-                  , VEC( const int i 
-                  ,      const int j 
+    template< typename recon_t, typename riemann_t = grace::default_riemann_tag_t >
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    compute_z_flux( int const q
+                  , VEC( const int i
+                  ,      const int j
                   ,      const int k)
                   , grace::flux_array_t const fluxes
                   , grace::flux_array_t const vbar
                   , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
-                  , double const dt 
-                  , double const dtfact ) const  
+                  , double const dt
+                  , double const dtfact ) const
     {
-        static_cast<EvolSystem_t const *>(this)->template 
-            compute_z_flux_impl<recon_t>(q,VEC(i,j,k),fluxes,vbar,dx,dt,dtfact) ; 
+        static_cast<EvolSystem_t const *>(this)->template
+            compute_z_flux_impl<recon_t,riemann_t>(q,VEC(i,j,k),fluxes,vbar,dx,dt,dtfact) ;
     }
 
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 

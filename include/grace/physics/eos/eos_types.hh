@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,5 +32,26 @@
 #include <grace/physics/eos/piecewise_polytropic_eos.hh>
 #include <grace/physics/eos/ideal_gas_eos.hh>
 #include <grace/physics/eos/tabulated_eos.hh>
+#include <grace/physics/eos/tabulated_cold_eos.hh>
 
-#endif 
+namespace grace {
+
+// Conservative default: any unlisted EOS evolves Y_e.
+// Add a specialization (value = false) for composition-free EOS to
+// disable Y_e advection at compile time.
+template < typename eos_t >
+struct has_ye {
+    constexpr static bool value = true ;
+} ;
+
+template<> struct has_ye<ideal_gas_eos_t>                          { constexpr static bool value = false ; } ;
+template<> struct has_ye<hybrid_eos_t<piecewise_polytropic_eos_t>> { constexpr static bool value = false ; } ;
+template<> struct has_ye<hybrid_eos_t<tabulated_cold_eos_t>>       { constexpr static bool value = false ; } ;
+template<> struct has_ye<tabulated_eos_t>                          { constexpr static bool value = true  ; } ;
+
+template< typename eos_t >
+inline constexpr bool has_ye_v = has_ye<eos_t>::value ;
+
+} // namespace grace
+
+#endif

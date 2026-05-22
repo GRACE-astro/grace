@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,6 +31,7 @@
 #include <grace/evolution/refluxing.hh>
 #include <grace/evolution/auxiliaries.hh>
 #include <grace/evolution/evolution_kernel_tags.hh>
+#include <grace/evolution/boundary_outflow.hh>
 
 #include <grace/system/grace_system.hh>
 
@@ -45,26 +46,13 @@
 #include <grace/utils/weno_reconstruction.hh>
 #include <grace/utils/riemann_solvers.hh>
 #include <grace/utils/tstep_utils.hh>
-#ifdef GRACE_ENABLE_BURGERS 
-#include <grace/physics/burgers.hh>
-#endif 
-#ifdef GRACE_ENABLE_SCALAR_ADV
-#include <grace/physics/scalar_advection.hh>
-#endif  
-#ifdef GRACE_ENABLE_GRMHD
 #include <grace/physics/grmhd.hh>
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/eos_storage.hh>
-//#include <grace/utils/advanced_riemann_solvers.hh>
-#endif
-#ifdef GRACE_ENABLE_Z4C_METRIC
+#if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
 #include <grace/physics/z4c.hh>
 #include <grace/physics/z4c_helpers.hh>
-#endif 
-#ifdef GRACE_ENABLE_BSSN_METRIC
-#include <grace/physics/bssn.hh>
-#include <grace/physics/bssn_helpers.hh>
-#endif 
+#endif
 #ifdef GRACE_ENABLE_M1 
 #include <grace/physics/m1_helpers.hh>
 #include <grace/physics/m1.hh>
@@ -85,6 +73,23 @@
 
 namespace grace {
 
+// After AMR ghost-zone prolongation, the 5-point Lagrange interpolation of
+// the conformal metric / extrinsic curvature leaves an O(dx^5) defect in
+// det γ̃ and tr Ã in the ghost cells.  The subsequent 4th-order FD stencils
+// would copy those defects into the interior at each substep — exactly the
+// kind of AMR-boundary noise that drags BNS convergence below its formal
+// rate.  Re-impose the BSSN/Z4c algebraic constraints (det γ̃ = 1, tr Ã = 0,
+// χ ≥ χ_safe, α ≥ α_min) on the full extent after every BC fill; interior
+// re-imposition is idempotent (rescale factor 1, trace already zero) and
+// cheap relative to a single Z4c RHS kernel.  No-op under Cowling.
+static inline void enforce_algebraic_constraints_after_bc(
+    [[maybe_unused]] grace::var_array_t& state)
+{
+#if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
+    enforce_algebraic_constraints(state) ;
+#endif
+}
+
 void evolve() {
     auto const eos_type = grace::get_param<std::string>("eos", "eos_type") ;
     GRACE_VERBOSE("Performing timestep integration at iteration {}", grace::get_iteration()) ; 
@@ -94,7 +99,7 @@ void evolve() {
         if( cold_eos_type == "piecewise_polytrope" ) {
             evolve_impl<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>() ;
         } else if ( cold_eos_type == "tabulated" ) {
-            ERROR("Not implemented yet.") ;
+            evolve_impl<grace::hybrid_eos_t<grace::tabulated_cold_eos_t>>() ;
         } else {
             ERROR("Unknown cold eos type " << cold_eos_type) ;
         }
@@ -139,17 +144,19 @@ void evolve_impl() {
     //amr::apply_boundary_conditions(state) ; 
     Kokkos::deep_copy(state_p, state) ; 
     grace::deep_copy(sstate_p, sstate) ; 
-    // reset mass error once per timestep
-    #ifdef GRACE_ENABLE_GRMHD 
+    // Reset per-step c2p diagnostics once per timestep. C2P_DENS_ERR_ is a
+    // signed mass-error accumulator; C2P_ERR_ holds a packed bit-pattern of
+    // c2p failure modes (sticky-OR'd over the RK substages in grmhd.hh's
+    // compute_auxiliaries — see c2p_err_enum_t for the layout).
     #ifndef GRACE_FREEZE_HYDRO
     Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>,default_execution_space>
         policy({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq}) ;
-    parallel_for(GRACE_EXECUTION_TAG("EVOL","reset_d_err"), policy 
+    parallel_for(GRACE_EXECUTION_TAG("EVOL","reset_c2p_diagnostics"), policy
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
     {
-        aux(i,j,k,C2P_DENS_ERR_,q) = 0.0 ; 
+        aux(i,j,k,C2P_DENS_ERR_,q) = 0.0 ;
+        aux(i,j,k,C2P_ERR_,q)      = 0.0 ;
     });
-    #endif
     #endif
 
     #ifdef GRACE_ENABLE_PARTICLES
@@ -163,25 +170,29 @@ void evolve_impl() {
 
     if ( tstepper == "euler" ) {
         //compute_auxiliary_quantities<eos_t>(state, aux) ;
-        advance_substep<eos_t>(t,dt,1.0,state,state_p,sstate,sstate_p) ; 
-        amr::apply_boundary_conditions(state, sstate,state_p,sstate_p,dt,1.0) ; 
+        advance_substep<eos_t>(t,dt,1.0,state,state_p,sstate,sstate_p) ;
+        amr::apply_boundary_conditions(state, sstate,state_p,sstate_p,dt,1.0) ;
+        enforce_algebraic_constraints_after_bc(state) ;
         compute_auxiliary_quantities<eos_t>(state, sstate, aux) ;
     } else if (tstepper == "rk2" ) {
         /* Compute auxiliaries at current timelevel */
         //compute_auxiliary_quantities<eos_t>(state, aux) ;
-        advance_substep<eos_t>(t,dt,0.5,state_p,state,sstate_p,sstate) ; 
-        amr::apply_boundary_conditions(state_p,sstate_p,state,sstate,dt,0.5) ; 
+        advance_substep<eos_t>(t,dt,0.5,state_p,state,sstate_p,sstate) ;
+        amr::apply_boundary_conditions(state_p,sstate_p,state,sstate,dt,0.5) ;
+        enforce_algebraic_constraints_after_bc(state_p) ;
         compute_auxiliary_quantities<eos_t>(state_p, sstate_p, aux) ;
         advance_substep<eos_t>(t,dt,1.0,state,state_p,sstate,sstate_p) ;
-        amr::apply_boundary_conditions(state,sstate,state_p,sstate_p,dt,1.0) ; 
+        amr::apply_boundary_conditions(state,sstate,state_p,sstate_p,dt,1.0) ;
+        enforce_algebraic_constraints_after_bc(state) ;
         compute_auxiliary_quantities<eos_t>(state, sstate, aux) ;
     } else if (tstepper == "rk3" ) {
         // step 1: state_p -> u^1 = u^n + dt L( u^n )
         advance_substep<eos_t>(
             t,dt,1.0,
             state_p,state,
-            sstate_p,sstate) ; 
-        amr::apply_boundary_conditions(state_p,sstate_p,state,sstate,dt,1.0) ; 
+            sstate_p,sstate) ;
+        amr::apply_boundary_conditions(state_p,sstate_p,state,sstate,dt,1.0) ;
+        enforce_algebraic_constraints_after_bc(state_p) ;
         compute_auxiliary_quantities<eos_t>(state_p, sstate_p, aux) ;
         // Allocate state_pp and sstate_pp 
         auto state_pp  = grace::variable_list::get().getstagingbuffer()[0] ;
@@ -195,7 +206,8 @@ void evolve_impl() {
             t,dt,0.25,
             state_pp/*new*/,state_p/*old*/,
             sstate_pp,sstate_p) ;
-        amr::apply_boundary_conditions(state_pp,sstate_pp,state_p,sstate_p,dt,0.25) ; 
+        amr::apply_boundary_conditions(state_pp,sstate_pp,state_p,sstate_p,dt,0.25) ;
+        enforce_algebraic_constraints_after_bc(state_pp) ;
         compute_auxiliary_quantities<eos_t>(state_pp, sstate_pp, aux) ;
         // step 4: state = 1/3 u^n + 2/3 u^2
         linop_apply(state,state,state_pp,
@@ -206,7 +218,8 @@ void evolve_impl() {
             t,dt,2./3.,
             state,state_pp,
             sstate,sstate_pp) ;
-        amr::apply_boundary_conditions(state,sstate,state_pp,sstate_pp,dt,2./3.) ; 
+        amr::apply_boundary_conditions(state,sstate,state_pp,sstate_pp,dt,2./3.) ;
+        enforce_algebraic_constraints_after_bc(state) ;
         compute_auxiliary_quantities<eos_t>(state, sstate, aux) ;
     } else if ( tstepper == "rk4" ) { 
         // get storage 
@@ -236,11 +249,12 @@ void evolve_impl() {
             t,dt,beta,
             s3,s1,
             ss3,ss1
-        ) ; 
-        // apply bc 
+        ) ;
+        // apply bc
         amr::apply_boundary_conditions(s3,ss3,s1,ss1,dt,beta) ;
-        compute_auxiliary_quantities<eos_t>(s3, ss3, aux) ;  
-        // stage 2 
+        enforce_algebraic_constraints_after_bc(s3) ;
+        compute_auxiliary_quantities<eos_t>(s3, ss3, aux) ;
+        // stage 2
         delta  = 0.217683334308543;
         gamma1 = 0.121098479554482 ; gamma2 = 0.721781678111411;
         beta = 0.099279895495783;
@@ -261,10 +275,11 @@ void evolve_impl() {
             t,dt,beta,
             s1,s3,
             ss1,ss3
-        ) ; 
-        // apply bc 
+        ) ;
+        // apply bc
         amr::apply_boundary_conditions(s1,ss1,s3,ss3,dt,beta) ;
-        compute_auxiliary_quantities<eos_t>(s1, ss1, aux) ; 
+        enforce_algebraic_constraints_after_bc(s1) ;
+        compute_auxiliary_quantities<eos_t>(s1, ss1, aux) ;
         // stage 3
         delta  = 1.065841341361089;
         gamma1 = -3.843833699660025 ; gamma2 = 2.121209265338722;
@@ -286,10 +301,11 @@ void evolve_impl() {
             t,dt,beta,
             s3,s1,
             ss3,ss1
-        ) ; 
-        // apply bc 
+        ) ;
+        // apply bc
         amr::apply_boundary_conditions(s3,ss3,s1,ss1,dt,beta) ;
-        compute_auxiliary_quantities<eos_t>(s3, ss3, aux) ; 
+        enforce_algebraic_constraints_after_bc(s3) ;
+        compute_auxiliary_quantities<eos_t>(s3, ss3, aux) ;
         // stage 4
         delta  = 0.000000000000000;
         gamma1 = 0.546370891121863 ; gamma2 = 0.198653035682705;
@@ -307,15 +323,17 @@ void evolve_impl() {
             t,dt,beta,
             s1,s3,
             ss1,ss3
-        ) ; 
-        // apply bc 
+        ) ;
+        // apply bc
         amr::apply_boundary_conditions(s1,ss1,s3,ss3,dt,beta) ;
-        compute_auxiliary_quantities<eos_t>(s1, ss1, aux) ; 
-    } else if (tstepper == "imex1") { 
+        enforce_algebraic_constraints_after_bc(s1) ;
+        compute_auxiliary_quantities<eos_t>(s1, ss1, aux) ;
+    } else if (tstepper == "imex1") {
         advance_substep<eos_t>(t,dt,1.0,state,state_p,sstate,sstate_p) ;
-        amr::apply_boundary_conditions(state,sstate,state_p,sstate_p,dt,1.0) ; 
+        amr::apply_boundary_conditions(state,sstate,state_p,sstate_p,dt,1.0) ;
+        enforce_algebraic_constraints_after_bc(state) ;
         advance_implicit_substep<eos_t>(t,dt,1.0,state,state_p,sstate,sstate_p) ;
-        compute_auxiliary_quantities<eos_t>(state, sstate, aux) ;  
+        compute_auxiliary_quantities<eos_t>(state, sstate, aux) ;
     } else if (tstepper == "imex222" ) {
         
         double const lambda = 1.0 - 1.0/sqrt(2.0); 
@@ -345,7 +363,8 @@ void evolve_impl() {
             /*new*/sstate_p,/*old*/sstate_pp
         ) ; 
         amr::apply_boundary_conditions(state_p,sstate_p,state_pp,sstate_pp,dt,1.0) ;
-        compute_auxiliary_quantities<eos_t>(state_p, sstate_p, aux) ; 
+        enforce_algebraic_constraints_after_bc(state_p) ;
+        compute_auxiliary_quantities<eos_t>(state_p, sstate_p, aux) ;
         // set s2 = dt G(xi1)
         linop_apply(
             state_pp, state_pp, state,
@@ -367,7 +386,8 @@ void evolve_impl() {
         // apply BC 
         // For Sommerfeld: here we keep the BC frozen since 
         // 
-        amr::apply_boundary_conditions(state_p,sstate_p,state_p,sstate_p,dt,0.0/*FIXME*/) ; 
+        amr::apply_boundary_conditions(state_p,sstate_p,state_p,sstate_p,dt,0.0/*FIXME*/) ;
+        enforce_algebraic_constraints_after_bc(state_p) ;
         // reset s2 = xi1
         linop_apply(
             state_pp, state_pp, state_p,
@@ -392,9 +412,10 @@ void evolve_impl() {
             t, dt, 0.5,
             /*new*/ state, /*old*/ state_pp,
             /*new*/ sstate, /*old*/ sstate_pp
-        ) ; 
+        ) ;
         amr::apply_boundary_conditions(state,sstate,state_pp,sstate_pp,dt,0.5) ;
-        compute_auxiliary_quantities<eos_t>(state, sstate, aux) ; 
+        enforce_algebraic_constraints_after_bc(state) ;
+        compute_auxiliary_quantities<eos_t>(state, sstate, aux) ;
         /* done */
     } else if (tstepper == "imex232" ) { 
         ERROR("Imex 3 not implemented yet") ; 
@@ -404,7 +425,7 @@ void evolve_impl() {
     Kokkos::deep_copy(state_p,state) ;
     grace::deep_copy(sstate_p,sstate) ;
 
-    #ifdef GRACE_ENABLE_Z4C_METRIC
+    #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
     // Fill Hamiltonian and momentum constraints once per full RK step.
     // Reuses Ricci/Γ̃/matter cached in _z4c_curv_scratch by the last set
     // of pre-kernels (matter/wave/conn) of this RK step — much cheaper
@@ -412,6 +433,344 @@ void evolve_impl() {
     // pass.  Post-regrid / post-initial-data paths call the full
     // compute_constraint_violations() in their own files.
     compute_constraint_violations_fast() ;
+    #endif
+}
+
+/**
+ * @brief FOFC stage 3: tentative-update + bad-cell flag.
+ *
+ * Builds the hypothetical post-substep cons (new_state base + dt*dtfact*divF,
+ * i.e. what add_fluxes_and_source_terms would add next) and dry-runs c2p at
+ * every interior cell.  Cells where c2p would have floored / reset to
+ * atmosphere are compacted atomically into the singleton's FOFC index lists
+ * (q,i,j,k) and the per-substep count.  apply_fofc_correction then iterates
+ * [0, count) and re-runs the surrounding fluxes with donor + LLF.
+ *
+ * Geometric sources are omitted from the tentative — they're tiny relative
+ * to the flux artifacts FOFC is designed to catch.  Cell-centered B comes
+ * from old_stag_state (CT hasn't run yet); metric from old_state, matching
+ * the geometry compute_fluxes used.
+ */
+template< typename eos_t >
+void flag_fofc_cells(
+    double const t, double const dt, double const dtfact
+    , var_array_t& new_state
+    , var_array_t& old_state
+    , staggered_variable_arrays_t & new_stag_state
+    , staggered_variable_arrays_t & old_stag_state
+)
+{
+    using namespace grace ;
+    using namespace Kokkos ;
+    DECLARE_GRID_EXTENTS ;
+    //**************************************************************************************************/
+    // FOFC widens the flag range by one cell into the ghost zone on each axis
+    // so that the boundary face between two same-level neighbors is
+    // recomputed with donor+LLF from both sides using mirror-consistent
+    // primitives (FOFC algorithm: arXiv:2409.10384).  The
+    // widest reconstruction stencil for the widened FACE at j=ngz-1 spans
+    // cells [j-3, j+2] = [ngz-4, ngz+1]; the leftmost (ngz-4 = 0) is the
+    // outermost ghost cell, so we need ngz >= 4 for PPM/WENO5/WENOZ.
+    ASSERT(ngz >= 4,
+        "FOFC requires ngz >= 4 with PPM/WENO5/WENOZ recon (widened "
+        "boundary face at j=ngz-1 reads cell ngz-4). Current ngz = " << ngz) ;
+    #if GRACE_EMF_SCHEME == GRACE_EMF_SCHEME_UCT
+        ASSERT(0, "FOFC is not supported with UCT due to the stencil involved in EMF evaluation.") ; 
+    #endif 
+
+    auto& idx      = grace::variable_list::get().getinvspacings() ;
+    auto& fluxes   = grace::variable_list::get().getfluxesarray() ;
+    auto& emf      = grace::variable_list::get().getemfarray() ;
+    auto& fofc_faces    = grace::variable_list::get().getfofcfacetags() ;
+    auto& fofc_edges    = grace::variable_list::get().getfofcedgetags() ;
+    auto& fofc_face_cnt = grace::variable_list::get().getfofcfcnt() ;
+    auto& fofc_edge_cnt = grace::variable_list::get().getfofcecnt() ;
+
+    auto eos      = eos::get().get_eos<eos_t>() ;
+    auto atmo     = get_atmo_params() ;
+    auto excision = get_excision_params() ;
+    auto c2p_pars = get_c2p_params() ;
+    // Force c2p_is_lenient = true everywhere during the dry-run: a
+    // Kokkos::abort would defeat FOFC's purpose, which is precisely to
+    // catch tentative states the inversion can't handle.  alp_bh_thresh
+    // above any realistic lapse triggers the lenient branch unconditionally.
+    c2p_pars.alp_bh_thresh = 1e30 ;
+    auto dcoords  = grace::coordinate_system::get().get_device_coord_system() ;
+
+    // Per-substep reset: byte-flag tag views and the 3-element compact-slot
+    // counters.  Lists are oversized to (worst-case interior) * nq so no
+    // bound check is needed once the slot is claimed.
+    Kokkos::deep_copy(fofc_faces,    int{0}) ;
+    Kokkos::deep_copy(fofc_edges,    int{0}) ;
+    Kokkos::deep_copy(fofc_face_cnt, int{0}) ;
+    Kokkos::deep_copy(fofc_edge_cnt, int{0}) ;
+
+    auto Bx = old_stag_state.face_staggered_fields_x ;
+    auto By = old_stag_state.face_staggered_fields_y ;
+    auto Bz = old_stag_state.face_staggered_fields_z ;
+
+    // Widened by one ghost cell on each axis (vs. the original [ngz, nx+ngz)
+    // interior-only range) so flagged ghost cells trigger boundary-face
+    // recomputation from this rank's side.  The neighbor rank flags the
+    // same physical cell as its own interior under deterministic local
+    // computation from mirror-consistent ghost primitives, and rewrites
+    // the same boundary face from its side with bit-identical LLF.
+    auto fofc_flag_policy = MDRangePolicy<Rank<GRACE_NSPACEDIM+1>>(
+          {VEC(ngz-1,ngz-1,ngz-1),0}
+        , {VEC(nx+ngz+1,ny+ngz+1,nz+ngz+1),nq}
+    ) ;
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "flag_fofc_cells")
+                , fofc_flag_policy
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
+        /************************************************************************************/
+        grmhd_cons_array_t cons ;
+        /************************************************************************************/
+        // evol_hrsc_var_cc_idx [0..ENTROPYSTAR_] and GRMHD_CONS_LOC_INDICES
+        // [DENSL..ENTSL] share order, so a single linear copy suffices.
+        /************************************************************************************/
+        for (int ivar = 0; ivar <= static_cast<int>(ENTROPYSTAR_); ++ivar) {
+            cons[ivar] = new_state(VEC(i,j,k),ivar,q) + dt * dtfact * (
+                EXPR(   ( fluxes(VEC(i,j,k)  ,ivar,0,q) - fluxes(VEC(i+1,j,k),ivar,0,q) ) * idx(0,q)
+                    , + ( fluxes(VEC(i,j,k)  ,ivar,1,q) - fluxes(VEC(i,j+1,k),ivar,1,q) ) * idx(1,q)
+                    , + ( fluxes(VEC(i,j,k)  ,ivar,2,q) - fluxes(VEC(i,j,k+1),ivar,2,q) ) * idx(2,q))
+            ) ;
+        }
+        /************************************************************************************/
+
+        /************************************************************************************/
+        // Tentative post-CT face B values for the c2p dry-run.  Same FD as the
+        // production CT update (see ct_update_B*_face in grmhd_helpers.hh);
+        // factored to keep this kernel and apply_fofc_correction in sync.
+        double const dt_eff = dt * dtfact ;
+        double const Bxi  = ct_update_Bx_face(Bx, emf, idx, VEC(i,   j, k), q, dt_eff) ;
+        double const Bxip = ct_update_Bx_face(Bx, emf, idx, VEC(i+1, j, k), q, dt_eff) ;
+        double const Byj  = ct_update_By_face(By, emf, idx, VEC(i, j,   k), q, dt_eff) ;
+        double const Byjp = ct_update_By_face(By, emf, idx, VEC(i, j+1, k), q, dt_eff) ;
+        double const Bzk  = ct_update_Bz_face(Bz, emf, idx, VEC(i, j, k  ), q, dt_eff) ;
+        double const Bzkp = ct_update_Bz_face(Bz, emf, idx, VEC(i, j, k+1), q, dt_eff) ;
+        cons[BSXL] = 0.5 * ( Bxi + Bxip ) ;
+        cons[BSYL] = 0.5 * ( Byj + Byjp ) ;
+        cons[BSZL] = 0.5 * ( Bzk + Bzkp ) ;
+        /************************************************************************************/
+
+        /************************************************************************************/
+        metric_array_t metric ;
+        FILL_METRIC_ARRAY(metric, old_state, q, VEC(i,j,k)) ;
+
+        double rtp[3] ;
+        dcoords.get_physical_coordinates_sph(i,j,k,q,rtp) ;
+
+        grmhd_prims_array_t prims{} ;
+        c2p_err_t c2p_errors ;
+        bool const floored = conservs_to_prims<eos_t>(
+            cons, prims, metric, eos,
+            atmo, excision, c2p_pars, rtp,
+            c2p_errors ) ;
+        /************************************************************************************/
+
+        /************************************************************************************/
+        if (floored) {
+            // 6 faces touching cell (i,j,k):
+            Kokkos::atomic_or(&fofc_faces(VEC(i,  j,  k  ), 0, q), int8_t{1});  // -x face
+            Kokkos::atomic_or(&fofc_faces(VEC(i+1,j,  k  ), 0, q), int8_t{1});  // +x face
+            Kokkos::atomic_or(&fofc_faces(VEC(i,  j,  k  ), 1, q), int8_t{1});  // -y
+            Kokkos::atomic_or(&fofc_faces(VEC(i,  j+1,k  ), 1, q), int8_t{1});  // +y
+            Kokkos::atomic_or(&fofc_faces(VEC(i,  j,  k  ), 2, q), int8_t{1});  // -z
+            Kokkos::atomic_or(&fofc_faces(VEC(i,  j,  k+1), 2, q), int8_t{1});  // +z
+
+            // 12 edges touching cell (i,j,k):
+            // E^x parallel to x-axis at the 4 (j,k) corners of the cell
+            Kokkos::atomic_or(&fofc_edges(VEC(i,j,  k  ), 0, q), int8_t{1});
+            Kokkos::atomic_or(&fofc_edges(VEC(i,j+1,k  ), 0, q), int8_t{1});
+            Kokkos::atomic_or(&fofc_edges(VEC(i,j,  k+1), 0, q), int8_t{1});
+            Kokkos::atomic_or(&fofc_edges(VEC(i,j+1,k+1), 0, q), int8_t{1});
+            // E^y parallel to y-axis at the 4 (i,k) corners
+            Kokkos::atomic_or(&fofc_edges(VEC(i,  j,k  ), 1, q), int8_t{1});
+            Kokkos::atomic_or(&fofc_edges(VEC(i+1,j,k  ), 1, q), int8_t{1});
+            Kokkos::atomic_or(&fofc_edges(VEC(i,  j,k+1), 1, q), int8_t{1});
+            Kokkos::atomic_or(&fofc_edges(VEC(i+1,j,k+1), 1, q), int8_t{1});
+            // E^z parallel to z-axis at the 4 (i,j) corners
+            Kokkos::atomic_or(&fofc_edges(VEC(i,  j,  k), 2, q), int8_t{1});
+            Kokkos::atomic_or(&fofc_edges(VEC(i+1,j,  k), 2, q), int8_t{1});
+            Kokkos::atomic_or(&fofc_edges(VEC(i,  j+1,k), 2, q), int8_t{1});
+            Kokkos::atomic_or(&fofc_edges(VEC(i+1,j+1,k), 2, q), int8_t{1});
+        }
+        /************************************************************************************/
+    }) ;
+
+    // compact
+    auto& fofc_fx  = grace::variable_list::get().getfofcfx() ;
+    auto& fofc_fy  = grace::variable_list::get().getfofcfy() ;
+    auto& fofc_fz  = grace::variable_list::get().getfofcfz() ;
+    auto& fofc_eyz = grace::variable_list::get().getfofceyz() ;
+    auto& fofc_exz = grace::variable_list::get().getfofcexz() ;
+    auto& fofc_exy = grace::variable_list::get().getfofcexy() ;
+    // fofc_face_cnt / fofc_edge_cnt are already bound at the top of the function.
+
+    auto fofc_compact_policy = MDRangePolicy<Rank<GRACE_NSPACEDIM+1>>(
+          {VEC(ngz-1,ngz-1,ngz-1),0}
+        , {VEC(nx+ngz+1,ny+ngz+1,nz+ngz+1),nq}
+    ) ;
+    parallel_for("fofc_compact_faces_and_edges", fofc_compact_policy,
+        KOKKOS_LAMBDA(int i, int j, int k, int q) {
+        // X face
+        // needed range: i \in [ngz,  nx + ngz] (i.e. inclusive!) for flux update
+        //               j \in [ngz-1, ny + ngz], k \in [ngz-1, nz + ngz] for emf computation (GS only!)
+        if ( (i >= ngz) && (fofc_faces(VEC(i,j,k), 0, q)) ) {
+            int slot = Kokkos::atomic_fetch_add(&fofc_face_cnt(0), 1);
+            fofc_index_tag_t tag ; 
+            tag.q = q ; tag.i = i ; tag.j = j ; tag.k = k ; 
+            fofc_fx(slot) = tag ; 
+        }
+        // Y face
+        // needed range: j \in [ngz,  ny + ngz] (i.e. inclusive!) for flux update
+        //               i \in [ngz-1, nx + ngz], k \in [ngz-1, nz + ngz] for emf computation (GS only!)
+        if ((j >= ngz) && (fofc_faces(VEC(i,j,k), 1, q))) {
+            int slot = Kokkos::atomic_fetch_add(&fofc_face_cnt(1), 1);
+            fofc_index_tag_t tag ; 
+            tag.q = q ; tag.i = i ; tag.j = j ; tag.k = k ; 
+            fofc_fy(slot) = tag ;
+        }
+        // Z face
+        // needed range: k \in [ngz,  nz + ngz] (i.e. inclusive!) for flux update
+        //               i \in [ngz-1, nx + ngz], j \in [ngz-1, ny + ngz] for emf computation (GS only!)
+        if ((k >= ngz) && (fofc_faces(VEC(i,j,k), 2, q))) {
+            int slot = Kokkos::atomic_fetch_add(&fofc_face_cnt(2), 1);
+            fofc_index_tag_t tag ; 
+            tag.q = q ; tag.i = i ; tag.j = j ; tag.k = k ; 
+            fofc_fz(slot) = tag ;
+        }
+        // YZ EDGE (E^x, parallel to x-axis, staggered in y and z)
+        // needed range: i \in [ngz, nx+ngz-1] for CT update
+        //               j \in [ngz, ny+ngz],   k \in [ngz, nz+ngz] for CT update
+        if ( (i>=ngz) && (j>=ngz) && (k>=ngz) && (i<nx+ngz) && (fofc_edges(i,j,k,0,q)) ) {
+            int slot = Kokkos::atomic_fetch_add(&fofc_edge_cnt(0), 1);
+            fofc_index_tag_t tag ; 
+            tag.q = q ; tag.i = i ; tag.j = j ; tag.k = k ; 
+            fofc_eyz(slot) = tag ;
+        }
+        // XZ EDGE (E^y, parallel to y-axis, staggered in x and z)
+        // needed range: j \in [ngz, ny+ngz-1] for CT update
+        //               i \in [ngz, nx+ngz],   k \in [ngz, nz+ngz] for CT update
+        if ( (j>=ngz) && (i>=ngz) && (k>=ngz) && (j<ny+ngz) && (fofc_edges(i,j,k,1,q)) ) {
+            int slot = Kokkos::atomic_fetch_add(&fofc_edge_cnt(1), 1);
+            fofc_index_tag_t tag ; 
+            tag.q = q ; tag.i = i ; tag.j = j ; tag.k = k ; 
+            fofc_exz(slot) = tag ;
+        }
+        // XY EDGE (E^z, parallel to z-axis, staggered in x and y)
+        // needed range: k \in [ngz, nz+ngz-1] for CT update
+        //               i \in [ngz, nx+ngz],   j \in [ngz, ny+ngz] for CT update
+        if ( (k>=ngz) && (i>=ngz) && (j>=ngz) && (k<nz+ngz) && (fofc_edges(i,j,k,2,q)) ) {
+            int slot = Kokkos::atomic_fetch_add(&fofc_edge_cnt(2), 1);
+            fofc_index_tag_t tag ; 
+            tag.q = q ; tag.i = i ; tag.j = j ; tag.k = k ; 
+            fofc_exy(slot) = tag ;
+        }
+    });
+}
+
+template< typename eos_t >
+void apply_fofc_correction(
+    double const t, double const dt, double const dtfact
+    , var_array_t& new_state
+    , var_array_t& old_state
+    , staggered_variable_arrays_t & new_stag_state
+    , staggered_variable_arrays_t & old_stag_state
+)
+{
+    using namespace grace ;
+    using namespace Kokkos ;
+    DECLARE_GRID_EXTENTS ;
+    //**************************************************************************************************/
+    // fetch some stuff
+    auto& idx     = grace::variable_list::get().getinvspacings() ;
+    auto& dx      = grace::variable_list::get().getspacings() ;
+    auto& fluxes  = grace::variable_list::get().getfluxesarray() ;
+    auto& emf     = grace::variable_list::get().getemfarray() ;
+    auto& aux     = grace::variable_list::get().getaux()     ;
+    #if GRACE_EMF_SCHEME == GRACE_EMF_SCHEME_GS
+    auto& Eface  = grace::variable_list::get().getefarray() ;
+    auto& Ecenter  = grace::variable_list::get().getecarray() ;
+    #else
+    ASSERT(0, "Should have been caught earlier, FOFC and UCT are incompatible.") ; 
+    #endif
+    // FOFC index lists were populated atomically by flag_fofc_cells.  The
+    // counter scalar was already copied back to host there (for the log line),
+    // but flag_fofc_cells is a separate translation-unit-level call, so we
+    // bring the count over again here — it's a single int.
+    auto& fofc_fx = grace::variable_list::get().getfofcfx() ;
+    auto& fofc_fy = grace::variable_list::get().getfofcfy() ;
+    auto& fofc_fz = grace::variable_list::get().getfofcfz() ;
+    auto& fofc_eyz = grace::variable_list::get().getfofceyz() ;
+    auto& fofc_exz = grace::variable_list::get().getfofcexz() ;
+    auto& fofc_exy = grace::variable_list::get().getfofcexy() ;
+
+    auto& fofc_face_cnt = grace::variable_list::get().getfofcfcnt() ;
+    auto& fofc_edge_cnt = grace::variable_list::get().getfofcecnt() ;
+    // Stage through a HostSpace mirror of the same View<int[1]> shape rather
+    // than deep_copy-ing into a bare int (which isn't portable across Kokkos
+    // backends for rank-0/rank-1 sources).
+    Kokkos::View<int[3], Kokkos::HostSpace> host_face_cnt("fofc_face_count_host") ;
+    Kokkos::deep_copy(host_face_cnt, fofc_face_cnt) ;
+    Kokkos::View<int[3], Kokkos::HostSpace> host_edge_cnt("fofc_edge_count_host") ;
+    Kokkos::deep_copy(host_edge_cnt, fofc_edge_cnt) ;
+    //**************************************************************************************************/
+    using recon_t   = donor_cell_reconstructor_t ;
+    using riemann_t = llf_riemann_tag_t ;
+    //**************************************************************************************************/
+    auto eos = eos::get().get_eos<eos_t>() ;
+    grmhd_equations_system_t<eos_t>
+        grmhd_eq_system(eos,old_state,old_stag_state,aux) ;
+
+    #ifndef GRACE_FREEZE_HYDRO
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "correct_x_fluxes_fofc")
+                , host_face_cnt(0)
+                , KOKKOS_LAMBDA (int idx) {
+        auto qijk = fofc_fx(idx) ; 
+        grmhd_eq_system.template compute_x_flux<recon_t,riemann_t>(qijk.q,qijk.i,qijk.j,qijk.k, fluxes, Eface, dx, dt, dtfact) ;
+    }) ;
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "correct_y_fluxes_fofc")
+                , host_face_cnt(1)
+                , KOKKOS_LAMBDA (int idx) {
+        auto qijk = fofc_fy(idx) ; 
+        grmhd_eq_system.template compute_y_flux<recon_t,riemann_t>(qijk.q,qijk.i,qijk.j,qijk.k, fluxes, Eface, dx, dt, dtfact) ;
+    }) ;
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "correct_z_fluxes_fofc")
+                , host_face_cnt(2)
+                , KOKKOS_LAMBDA (int idx) {
+        auto qijk = fofc_fz(idx) ; 
+        grmhd_eq_system.template compute_z_flux<recon_t,riemann_t>(qijk.q,qijk.i,qijk.j,qijk.k, fluxes, Eface, dx, dt, dtfact) ;
+    }) ;
+    // Recompute the GS edge EMF on every flagged edge using the (partly
+    // updated) Eface / Ecenter / fluxes.  Same arithmetic as compute_emfs
+    // — see gs_edge_emf_{x,y,z} in grmhd_helpers.hh for the discretization.
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "correct_yz_edge_fofc")
+                , host_edge_cnt(0)
+                , KOKKOS_LAMBDA (int idx_) {
+        auto qijk = fofc_eyz(idx_) ;
+        emf(qijk.i, qijk.j, qijk.k, 0, qijk.q) =
+            gs_edge_emf_x(Eface, Ecenter, fluxes,
+                          VEC(qijk.i, qijk.j, qijk.k), qijk.q) ;
+    }) ;
+
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "correct_xz_edge_fofc")
+                , host_edge_cnt(1)
+                , KOKKOS_LAMBDA (int idx_) {
+        auto qijk = fofc_exz(idx_) ;
+        emf(qijk.i, qijk.j, qijk.k, 1, qijk.q) =
+            gs_edge_emf_y(Eface, Ecenter, fluxes,
+                          VEC(qijk.i, qijk.j, qijk.k), qijk.q) ;
+    }) ;
+
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "correct_xy_edge_fofc")
+                , host_edge_cnt(2)
+                , KOKKOS_LAMBDA (int idx_) {
+        auto qijk = fofc_exy(idx_) ;
+        emf(qijk.i, qijk.j, qijk.k, 2, qijk.q) =
+            gs_edge_emf_z(Eface, Ecenter, fluxes,
+                          VEC(qijk.i, qijk.j, qijk.k), qijk.q) ;
+    }) ;
     #endif
 }
 
@@ -433,7 +792,7 @@ void compute_fluxes(
     auto& dx     = grace::variable_list::get().getspacings() ;  
     auto& fluxes  = grace::variable_list::get().getfluxesarray() ; 
     auto& aux     = grace::variable_list::get().getaux()     ; 
-    #ifdef GRACE_GRMHD_USE_GS
+    #if GRACE_EMF_SCHEME == GRACE_EMF_SCHEME_GS
     auto& vbar  = grace::variable_list::get().getefarray() ;
     #else 
     auto& vbar  = grace::variable_list::get().getvbararray() ;
@@ -443,43 +802,43 @@ void compute_fluxes(
     using recon_t = GRACE_RECONSTRUCTION_T ; 
     auto eos = eos::get().get_eos<eos_t>() ;  
     grmhd_equations_system_t<eos_t>
-        grmhd_eq_system(eos,old_state,old_stag_state,aux) ; 
+        grmhd_eq_system(eos,old_state,old_stag_state,aux) ;
     //**************************************************************************************************/
     #ifdef GRACE_ENABLE_M1
     m1_equations_system_t m1_eq_system(old_state,old_stag_state,aux) ;
-    // normalize 
-    auto m1_norm_policy = 
+    // normalize
+    auto m1_norm_policy =
         MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
               {VEC(0,0,0),0}
             , {VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq}
-        ) ; 
+        ) ;
     parallel_for(
           GRACE_EXECUTION_TAG("evol", "m1_normalize_conservs")
         , m1_norm_policy
         , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
-            metric_array_t metric ; 
+            metric_array_t metric ;
             FILL_METRIC_ARRAY(metric,old_state,q,VEC(i,j,k)) ;
-            old_state(VEC(i,j,k),NRAD_,q)  /=  old_state(VEC(i,j,k),ERAD_,q); 
-            old_state(VEC(i,j,k),FRADX_,q) /=  old_state(VEC(i,j,k),ERAD_,q); 
-            old_state(VEC(i,j,k),FRADY_,q) /=  old_state(VEC(i,j,k),ERAD_,q); 
-            old_state(VEC(i,j,k),FRADZ_,q) /=  old_state(VEC(i,j,k),ERAD_,q); 
-            old_state(VEC(i,j,k),ERAD_,q)  /= metric.sqrtg() ; 
+            old_state(VEC(i,j,k),NRAD_,q)  /=  old_state(VEC(i,j,k),ERAD_,q);
+            old_state(VEC(i,j,k),FRADX_,q) /=  old_state(VEC(i,j,k),ERAD_,q);
+            old_state(VEC(i,j,k),FRADY_,q) /=  old_state(VEC(i,j,k),ERAD_,q);
+            old_state(VEC(i,j,k),FRADZ_,q) /=  old_state(VEC(i,j,k),ERAD_,q);
+            old_state(VEC(i,j,k),ERAD_,q)  /= metric.sqrtg() ;
             #ifdef M1_NU_THREESPECIES
-            old_state(VEC(i,j,k),NRAD1_,q)  /=  old_state(VEC(i,j,k),ERAD1_,q); 
-            old_state(VEC(i,j,k),FRADX1_,q) /=  old_state(VEC(i,j,k),ERAD1_,q); 
-            old_state(VEC(i,j,k),FRADY1_,q) /=  old_state(VEC(i,j,k),ERAD1_,q); 
-            old_state(VEC(i,j,k),FRADZ1_,q) /=  old_state(VEC(i,j,k),ERAD1_,q); 
-            old_state(VEC(i,j,k),ERAD1_,q)  /= metric.sqrtg() ; 
+            old_state(VEC(i,j,k),NRAD1_,q)  /=  old_state(VEC(i,j,k),ERAD1_,q);
+            old_state(VEC(i,j,k),FRADX1_,q) /=  old_state(VEC(i,j,k),ERAD1_,q);
+            old_state(VEC(i,j,k),FRADY1_,q) /=  old_state(VEC(i,j,k),ERAD1_,q);
+            old_state(VEC(i,j,k),FRADZ1_,q) /=  old_state(VEC(i,j,k),ERAD1_,q);
+            old_state(VEC(i,j,k),ERAD1_,q)  /= metric.sqrtg() ;
 
-            old_state(VEC(i,j,k),NRAD2_,q)  /=  old_state(VEC(i,j,k),ERAD2_,q); 
-            old_state(VEC(i,j,k),FRADX2_,q) /=  old_state(VEC(i,j,k),ERAD2_,q); 
-            old_state(VEC(i,j,k),FRADY2_,q) /=  old_state(VEC(i,j,k),ERAD2_,q); 
-            old_state(VEC(i,j,k),FRADZ2_,q) /=  old_state(VEC(i,j,k),ERAD2_,q); 
-            old_state(VEC(i,j,k),ERAD2_,q)  /= metric.sqrtg() ; 
-            #endif 
+            old_state(VEC(i,j,k),NRAD2_,q)  /=  old_state(VEC(i,j,k),ERAD2_,q);
+            old_state(VEC(i,j,k),FRADX2_,q) /=  old_state(VEC(i,j,k),ERAD2_,q);
+            old_state(VEC(i,j,k),FRADY2_,q) /=  old_state(VEC(i,j,k),ERAD2_,q);
+            old_state(VEC(i,j,k),FRADZ2_,q) /=  old_state(VEC(i,j,k),ERAD2_,q);
+            old_state(VEC(i,j,k),ERAD2_,q)  /= metric.sqrtg() ;
+            #endif
         }
-    ) ; 
-    #endif 
+    ) ;
+    #endif
     //**************************************************************************************************/
     // loop ranges: extended for mhd (need vbar at faces for emf)
     //
@@ -496,19 +855,23 @@ void compute_fluxes(
     #endif
     using flux_policy_t =
         MDRangePolicy< Rank<GRACE_NSPACEDIM+1>, GRACE_FLUX_LB > ;
+    // FOFC widening: compute one extra HO flux on each side of the interior
+    // so that the FOFC test at one ghost cell deep on each axis has a valid
+    // F(i)/F(i+1) pair.  Requires ngz >= recon_half_width + 1 (4 for
+    // WENO5/WENOZ/PPM, runtime-checked in flag_fofc_cells).
     flux_policy_t flux_x_policy_mhd (
-              {VEC(ngz,0,0),0}
-            , {VEC(nx+ngz+1,ny+2*ngz,nz+2*ngz),nq}
+              {VEC(ngz-1,0,0),0}
+            , {VEC(nx+ngz+2,ny+2*ngz,nz+2*ngz),nq}
             , {VEC(16,4,4),1}
         ) ;
     flux_policy_t flux_y_policy_mhd (
-              {VEC(0,ngz,0),0}
-            , {VEC(nx+2*ngz,ny+ngz+1,nz+2*ngz),nq}
+              {VEC(0,ngz-1,0),0}
+            , {VEC(nx+2*ngz,ny+ngz+2,nz+2*ngz),nq}
             , {VEC(16,4,4),1}
         ) ;
     flux_policy_t flux_z_policy_mhd (
-              {VEC(0,0,ngz),0}
-            , {VEC(nx+2*ngz,ny+2*ngz,nz+ngz+1),nq}
+              {VEC(0,0,ngz-1),0}
+            , {VEC(nx+2*ngz,ny+2*ngz,nz+ngz+2),nq}
             , {VEC(16,4,4),1}
         ) ;
     // non-mhd 
@@ -657,7 +1020,7 @@ void compute_fluxes(
     ) ; 
     #endif 
 }
-#ifdef GRACE_GRMHD_USE_GS
+#if GRACE_EMF_SCHEME == GRACE_EMF_SCHEME_GS
 void compute_emfs(
     double const t, double const dt, double const dtfact 
     , var_array_t& new_state 
@@ -670,16 +1033,14 @@ void compute_emfs(
     using namespace Kokkos ; 
     DECLARE_GRID_EXTENTS ; 
     //**************************************************************************************************/
-    // fetch some stuff 
-    using recon_t = GRACE_RECONSTRUCTION_T ; 
-    auto& idx     = grace::variable_list::get().getinvspacings() ;
-    auto& fluxes = grace::variable_list::get().getfluxesarray() ;
-    auto& Eface  = grace::variable_list::get().getefarray() ;
-    auto& Ecenter  = grace::variable_list::get().getecarray() ;
-    auto& emf  = grace::variable_list::get().getemfarray() ;
+    // fetch some stuff
+    auto& fluxes  = grace::variable_list::get().getfluxesarray() ;
+    auto& Eface   = grace::variable_list::get().getefarray() ;
+    auto& Ecenter = grace::variable_list::get().getecarray() ;
+    auto& emf     = grace::variable_list::get().getemfarray() ;
     //**************************************************************************************************/
-    // loop ranges 
-    auto emf_policy_x = 
+    // loop ranges
+    auto emf_policy_x =
     MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
             {VEC(ngz,ngz,ngz),0}
         , {VEC(nx+ngz,ny+ngz+1,nz+ngz+1),nq}
@@ -695,162 +1056,30 @@ void compute_emfs(
             , {VEC(nx+ngz+1,ny+ngz+1,nz+ngz),nq}
     ) ;
     //**************************************************************************************************/
+    // The GS edge EMF assembly is identical to apply_fofc_correction's
+    // edge-recompute kernels and shares one implementation in
+    // gs_edge_emf_{x,y,z} (grmhd_helpers.hh).
     //**************************************************************************************************/
-    // compute EMF -- x (stag yz)
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "EMF_X")
-                , emf_policy_x 
+                , emf_policy_x
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
     {
-        // Here direction 0 is y and direction 1 is z 
-        // meaning that South-North is -+ z and West-East is -+ y
-        double Exzf  = Eface(i,j,k,0,2,q)    ;
-        double Exzfm = Eface(i,j-1,k,0,2,q)  ;
-        double Exyf  = Eface(i,j,k,0,1,q)    ;
-        double Exyfm = Eface(i,j,k-1,0,1,q)  ;
-        // and centered 
-        double ExNE = Ecenter(i,j,k,0,q)     ; 
-        double ExNW = Ecenter(i,j-1,k,0,q)   ; 
-        double ExSE = Ecenter(i,j,k-1,0,q)   ; 
-        double ExSW = Ecenter(i,j-1,k-1,0,q) ;
-        // first compute arithmetic average 
-        double Eavg = 0.25 * ( 
-            Exzf + Exzfm
-          + Exyf + Exyfm    
-        ) ;
-        // first derivative piece:
-        // dE/dz (north south)
-        // get signs 
-        double Sy  = Kokkos::copysign(1.,fluxes(i,j,k,DENS_,1,q))   ; 
-        double Sym = Kokkos::copysign(1.,fluxes(i,j,k-1,DENS_,1,q)) ; 
-        // Get "North"
-        double dEdzN = (1-Sy) * (ExNE-Exzf)
-                     + (1+Sy) * (ExNW-Exzfm) ; 
-        // "South"
-        double dEdzS = (1-Sym) * (Exzf-ExSE) 
-                     + (1+Sym) * (Exzfm-ExSW) ; 
-        // Assemble 
-        double dEdz = 1./8. * (dEdzS - dEdzN) ; 
-        // second derivative piece 
-        // Other signs 
-        double Sz  = Kokkos::copysign(1.,fluxes(i,j,k,DENS_,2,q)) ; 
-        double Szm = Kokkos::copysign(1.,fluxes(i,j-1,k,DENS_,2,q)) ; 
-        // Get "East"
-        double dEdyE = (1-Sz) * (ExNE - Exyf)
-                     + (1+Sz) * (ExSE - Exyfm) ; 
-        // "West"
-        double dEdyW = (1-Szm) * (Exyf  - ExNW) 
-                     + (1+Szm) * (Exyfm - ExSW) ; 
-        // Assemble 
-        double dEdy = 1./8. * (dEdyW - dEdyE) ; 
-        // finally 
-        emf(i,j,k,0,q) = Eavg + dEdz + dEdy ; 
-    } );
-    //**************************************************************************************************/
-    // compute EMF -- y (stag xz)
+        emf(i,j,k,0,q) = gs_edge_emf_x(Eface, Ecenter, fluxes, VEC(i,j,k), q);
+    });
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "EMF_Y")
-                , emf_policy_y 
+                , emf_policy_y
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
     {
-        // Here direction 0 is x and direction 1 is z 
-        // meaning that South-North is -+ z and West-East is -+ x 
-        // copy locally 
-        double Eyzf  = Eface(i,j,k,1,2,q)    ;
-        double Eyzfm = Eface(i-1,j,k,1,2,q)  ;
-        double Eyxf  = Eface(i,j,k,0,0,q)    ;
-        double Eyxfm = Eface(i,j,k-1,0,0,q)  ;
-        // and centered 
-        double EyNE = Ecenter(i,j,k,1,q)     ; 
-        double EyNW = Ecenter(i-1,j,k,1,q)   ; 
-        double EySE = Ecenter(i,j,k-1,1,q)   ; 
-        double EySW = Ecenter(i-1,j,k-1,1,q) ; 
-        // first compute arithmetic average 
-        double Eavg = 0.25 * ( 
-            Eyzf + Eyzfm
-          + Eyxf + Eyxfm    
-        ) ;
-        // first derivative piece:
-        // dE/dz (north south)
-        // get signs 
-        double Sx  = Kokkos::copysign(1.,fluxes(i,j,k,DENS_,0,q)) ; 
-        double Sxm = Kokkos::copysign(1.,fluxes(i,j,k-1,DENS_,0,q)) ; 
-        // Get "North"
-        double dEdzN = (1-Sx) * (EyNE-Eyzf)
-                     + (1+Sx) * (EyNW-Eyzfm) ; 
-        // "South"
-        double dEdzS = (1-Sxm) * (Eyzf-EySE) 
-                     + (1+Sxm) * (Eyzfm-EySW) ; 
-        // Assemble (Avengers!)
-        double dEdz = 1./8. * (dEdzS - dEdzN) ; 
-        // Other signs 
-        double Sz  = Kokkos::copysign(1.,fluxes(i,j,k,DENS_,2,q)) ; 
-        double Szm = Kokkos::copysign(1.,fluxes(i-1,j,k,DENS_,2,q)) ; 
-        // "East"
-        double dEdxE = (1-Sz) * (EyNE - Eyxf)
-                     + (1+Sz) * (EySE - Eyxfm) ; 
-        // "West"
-        double dEdxW = (1-Szm) * (Eyxf  - EyNW) 
-                     + (1+Szm) * (Eyxfm - EySW) ; 
-        // Assemble 
-        double dEdx = 1./8. * (dEdxW - dEdxE) ; 
-        // finally 
-        emf(i,j,k,1,q) = Eavg + dEdz + dEdx ; 
-
-    } ) ; 
-    //**************************************************************************************************/
-    // compute EMF -- z (stag xy)
+        emf(i,j,k,1,q) = gs_edge_emf_y(Eface, Ecenter, fluxes, VEC(i,j,k), q);
+    });
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "EMF_Z")
-                , emf_policy_z 
+                , emf_policy_z
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
     {
-        // E^z_{i-1/2, j-1/2, k} = 1/4 ( avg E from faces )
-        //                       + (1+Sxf)/2 (Fx_{yf} - F_x)
-        // copy locally 
-        double Ezyf  = Eface(i,j,k,1,1,q)    ;
-        double Ezyfm = Eface(i-1,j,k,1,1,q)  ;
-        double Ezxf  = Eface(i,j,k,1,0,q)    ;
-        double Ezxfm = Eface(i,j-1,k,1,0,q)  ;
-        // and centered 
-        double EzNE = Ecenter(i,j,k,2,q)     ; 
-        double EzNW = Ecenter(i-1,j,k,2,q)   ; 
-        double EzSE = Ecenter(i,j-1,k,2,q)   ; 
-        double EzSW = Ecenter(i-1,j-1,k,2,q) ; 
-        // first compute arithmetic average 
-        double Eavg = 0.25 * ( 
-            Ezyf + Ezyfm   // E_z(i,j-1/2,k) + E_z(i-1,j-1/2,k)
-          + Ezxf + Ezxfm   // E_z(i-1/2,j,k) + E_z(i-1/2,j-1,k) 
-        ) ; 
-
-        // then we need the derivatives 
-        // get the sign of vbar at x face 
-        auto Sx  = Kokkos::copysign(1.0, fluxes(i,j,k,DENS_,0,q))   ; 
-        auto Sxm = Kokkos::copysign(1.0, fluxes(i,j-1,k,DENS_,0,q)) ;
-        // first derivative term  
-        // "north"
-        double dEdyN =  (1.-Sx) * ( EzNE - Ezyf  )    // select if v < 0
-                     +  (1.+Sx) * ( EzNW - Ezyfm ) ;  // select if v > 0 
-        // "south"
-        double dEdyS =  (1.-Sxm) * ( Ezyf  - EzSE )
-                     +  (1.+Sxm) * ( Ezyfm - EzSW ) ; 
-        double dEdy  = 1./ 8. * ( dEdyS - dEdyN ) ; 
-        // Get the sign of vbar at y face 
-        auto Sy  = Kokkos::copysign(1.0, fluxes(i,j,k,DENS_,1,q))   ; 
-        auto Sym = Kokkos::copysign(1.0, fluxes(i-1,j,k,DENS_,1,q))   ; 
-        // second derivative term 
-        // "east"
-        double dEdxE = (1-Sy) * ( EzNE - Ezxf  ) 
-                     + (1+Sy) * ( EzSE - Ezxfm ) ;
-        // "west" 
-        double dEdxW = (1-Sym) * ( Ezxf  - EzNW  ) 
-                     + (1+Sym) * ( Ezxfm - EzSW ) ;
-        // combine 
-        double dEdx = 1./8. * ( dEdxW - dEdxE ) ; 
-        
-        // finally 
-        emf(i,j,k,2,q) = Eavg + dEdy + dEdx ; 
-
-    } ) ;
+        emf(i,j,k,2,q) = gs_edge_emf_z(Eface, Ecenter, fluxes, VEC(i,j,k), q);
+    });
     //**************************************************************************************************/
-    // all done! 
+    // all done!
 }
 #else 
 void compute_emfs(
@@ -1118,16 +1347,14 @@ void add_fluxes_and_source_terms(
         grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i,j,k), idx, new_state, dt, dtfact );
         #endif 
         for( int ivar=0; ivar<nvars_hrsc; ++ivar) {
-            new_state(VEC(i,j,k),ivar,q) += 
-                dt * dtfact * (
-                EXPR(   ( fluxes(VEC(i,j,k)  ,ivar,0,q) - fluxes(VEC(i+1,j,k),ivar,0,q) ) * idx(0,q)
-                    , + ( fluxes(VEC(i,j,k)  ,ivar,1,q) - fluxes(VEC(i,j+1,k),ivar,1,q) ) * idx(1,q)
-                    , + ( fluxes(VEC(i,j,k)  ,ivar,2,q) - fluxes(VEC(i,j,k+1),ivar,2,q) ) * idx(2,q))
-            ) ;
+            // this way of writing is explicitly bit-wise equivariant
+            double dFx = ( fluxes(VEC(i,j,k)  ,ivar,0,q) - fluxes(VEC(i+1,j,k),ivar,0,q) ) * idx(0,q);
+            double dFy = ( fluxes(VEC(i,j,k)  ,ivar,1,q) - fluxes(VEC(i,j+1,k),ivar,1,q) ) * idx(1,q);
+            double dFz = ( fluxes(VEC(i,j,k)  ,ivar,2,q) - fluxes(VEC(i,j,k+1),ivar,2,q) ) * idx(2,q);
+            new_state(VEC(i,j,k),ivar,q) += dt * dtfact * ( (dFx + dFy) + dFz ) ; 
         }
         
     }) ; 
-    // fixme better to have two kernels? --> I don't think so nvars_hrsc is small.
 }
 
 void update_CT(
@@ -1217,7 +1444,7 @@ void update_fd(
     using namespace Kokkos ; 
     DECLARE_GRID_EXTENTS ;
     //**************************************************************************************************/
-    #ifdef GRACE_ENABLE_Z4C_METRIC
+    #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
     //**************************************************************************************************/
     // fetch some stuff
     auto& idx     = grace::variable_list::get().getinvspacings() ;
@@ -1341,28 +1568,7 @@ void update_fd(
     }
     #endif
     //**************************************************************************************************/
-    #elif defined(GRACE_ENABLE_BSSN_METRIC)
-    //**************************************************************************************************/
-    // fetch some stuff 
-    auto& idx     = grace::variable_list::get().getinvspacings() ;  
-    auto& aux     = grace::variable_list::get().getaux()     ; 
-    //**************************************************************************************************/
-    bssn_system_t bssn_eq_system(old_state,aux,old_stag_state) ; 
-    //**************************************************************************************************/
-    auto advance_policy = 
-    MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
-              {VEC(ngz,ngz,ngz),0}
-            , {VEC(nx+ngz,ny+ngz,nz+ngz),nq}
-        ) ;
-    //**************************************************************************************************/
-    parallel_for( GRACE_EXECUTION_TAG("EVOL","bssn_update")
-                , advance_policy
-                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) 
-                {
-                    bssn_eq_system.compute_update(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact);
-                }) ; 
-    //**************************************************************************************************/
-    #endif 
+    #endif
 }
 
 
@@ -1426,13 +1632,28 @@ void advance_substep( double const t, double const dt, double const dtfact
     using namespace Kokkos  ; 
 
     //**************************************************************************************************/
-    compute_fluxes<eos_t>(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ; 
-    //**************************************************************************************************/    
+    compute_fluxes<eos_t>(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ;
+    //**************************************************************************************************/
+    compute_emfs(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ;
+    //**************************************************************************************************/
+#ifdef GRACE_ENABLE_FOFC
+    flag_fofc_cells<eos_t>(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ;
+    //**************************************************************************************************/
+    apply_fofc_correction<eos_t>(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ;
+    //**************************************************************************************************/
+#endif
     auto flux_context = reflux_fill_flux_buffers() ;
     //**************************************************************************************************/
-    compute_emfs(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ; 
+    auto emf_context = reflux_fill_emf_buffers() ;
     //**************************************************************************************************/
-    auto emf_context = reflux_fill_emf_buffers() ; 
+    reflux_correct_fluxes(flux_context) ;
+    //**************************************************************************************************/
+    // Mass-conservation diagnostic: integrate the DENS face flux over the
+    // outer (non-periodic) domain boundary using the SAME (corrected) flux
+    // about to be applied to the state.  Weighted by dt·dtfact so each RK
+    // substage contributes correctly; sticky across substages within an
+    // output interval, MPI-reduced and flushed by the diagnostic.
+    boundary_outflow_t::get().accumulate(dt, dtfact) ;
     //**************************************************************************************************/
     add_fluxes_and_source_terms<eos_t>(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ;
     //**************************************************************************************************/
@@ -1440,16 +1661,14 @@ void advance_substep( double const t, double const dt, double const dtfact
     //**************************************************************************************************/
     update_CT(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ;
     //**************************************************************************************************/
-    update_fd(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ; 
-    //**************************************************************************************************/
-    reflux_correct_fluxes(flux_context,t,dt,dtfact,new_state) ;
+    update_fd(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ;
     //**************************************************************************************************/
     parallel::mpi_barrier() ;  
     Kokkos::fence() ; 
     GRACE_PROFILING_POP_REGION ; 
 }
 
-#ifdef GRACE_ENABLE_Z4C_METRIC
+#if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
 void compute_constraint_violations() {
     using namespace grace ;
     using namespace Kokkos  ;
@@ -1565,6 +1784,20 @@ void compute_fluxes<EOS>( double const , double const , double const \
                         , grace::staggered_variable_arrays_t &       \
                         ) ;                                          \
 template                                                             \
+void flag_fofc_cells<EOS>( double const , double const , double const \
+                         , grace::var_array_t&                        \
+                         , grace::var_array_t&                        \
+                         , grace::staggered_variable_arrays_t &       \
+                         , grace::staggered_variable_arrays_t &       \
+                         ) ;                                          \
+template                                                             \
+void apply_fofc_correction<EOS>( double const , double const , double const \
+                         , grace::var_array_t&                        \
+                         , grace::var_array_t&                        \
+                         , grace::staggered_variable_arrays_t &       \
+                         , grace::staggered_variable_arrays_t &       \
+                         ) ;                                          \
+template                                                             \
 void add_fluxes_and_source_terms<EOS>( double const , double const , double const \
                         , grace::var_array_t&                        \
                         , grace::var_array_t&                        \
@@ -1575,6 +1808,7 @@ template                                                              \
 void evolve_impl<EOS>()
 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::tabulated_cold_eos_t>) ;
 INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;
 INSTANTIATE_TEMPLATE(grace::ideal_gas_eos_t) ;
 #undef INSTANTIATE_TEMPLATE

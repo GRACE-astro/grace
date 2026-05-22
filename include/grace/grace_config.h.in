@@ -1,66 +1,221 @@
 /**
  * @file grace_config.h
- * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
- * @version 0.1
- * @date 2023-03-13
- * 
- * @copyright This file is part of grace.
- * grace is an evolution framework that uses Finite Difference
- * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
- *                                                                    
+ * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
+ * @brief CMake-generated build configuration for GRACE.
+ *
+ * This header is produced by CMake from `grace_config.h.in` at configure
+ * time.  It exposes:
+ *   - dimensionality and execution backend,
+ *   - coordinate system,
+ *   - optional diagnostics / I/O,
+ *   - initial-data libraries,
+ *   - physics-scheme selectors (metric evolution, EMF scheme, Riemann solver,
+ *     reconstruction, reconstructed thermodynamic variable),
+ *   - optional physics modules (M1 radiation, tracer particles),
+ *   - utility macros for dimension-independent code,
+ *   - the run-time banner string.
+ *
+ * String-valued schemes (metric evolution, Riemann solver, EMF scheme,
+ * reconstruction) are exposed as integer enumerators of the form
+ * `GRACE_<NAME>_<FLAVOR>` plus an alias `GRACE_<NAME>` selecting one of them.
+ * Compare with `#if GRACE_<NAME> == GRACE_<NAME>_<FLAVOR>` (or use
+ * `if constexpr (...)` after promoting to a C++ enum).
+ *
+ * @copyright This file is part of GRACE.
+ * GRACE is an evolution framework that uses Finite Volume methods to
+ * simulate relativistic spacetimes and plasmas.
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * any later version.
- *  
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *  
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- * 
  */
 #ifndef GRACE_CONFIG_HEADER_H_FB650CE9_1908_47F9_98EB_3C4E4087C9CC
 #define GRACE_CONFIG_HEADER_H_FB650CE9_1908_47F9_98EB_3C4E4087C9CC
 
 #include <stdlib.h>
 
-
 namespace grace {
 
-//*****************************************************************************************************
-//*****************************************************************************************************
+//=====================================================================
+// 1. Dimensionality
+//=====================================================================
+#cmakedefine GRACE_NSPACEDIM @GRACE_NSPACEDIM@
+#cmakedefine GRACE_3D
 
-#cmakedefine GRACE_NSPACEDIM @GRACE_NSPACEDIM@ 
-#cmakedefine GRACE_3D 
+#ifdef GRACE_3D
+#define GRACE_FACE_CHILDREN 4
+#else
+#define GRACE_FACE_CHILDREN 2
+#endif
 
-#cmakedefine GRACE_ENABLE_CUDA 
+//=====================================================================
+// 2. Execution backend (Kokkos device)
+//=====================================================================
+#cmakedefine GRACE_ENABLE_CUDA
 #cmakedefine GRACE_ENABLE_HIP
-#cmakedefine GRACE_ENABLE_SYCL 
-#cmakedefine GRACE_ENABLE_OMP 
-#cmakedefine GRACE_ENABLE_SERIAL 
+#cmakedefine GRACE_ENABLE_SYCL
+#cmakedefine GRACE_ENABLE_OMP
+#cmakedefine GRACE_ENABLE_SERIAL
 
+#ifdef GRACE_ENABLE_CUDA
+#define GRACE_BACKEND "CUDA"
+#elif defined(GRACE_ENABLE_HIP)
+#define GRACE_BACKEND "HIP"
+#elif defined(GRACE_ENABLE_SYCL)
+#define GRACE_BACKEND "SYCL"
+#else
+#define GRACE_BACKEND "HOST"
+#endif
+
+//=====================================================================
+// 3. Coordinate system
+//=====================================================================
 #cmakedefine GRACE_CARTESIAN_COORDINATES
 #cmakedefine GRACE_SPHERICAL_COORDINATES
 
-#cmakedefine GRACE_ENABLE_GRMHD
-#cmakedefine GRACE_ENABLE_BURGERS
-#cmakedefine GRACE_ENABLE_SCALAR_ADV
-
+//=====================================================================
+// 4. Diagnostics & optional I/O
+//=====================================================================
 #cmakedefine GRACE_ENABLE_PROFILING
-
 #cmakedefine GRACE_ENABLE_VTK
 
-#cmakedefine GRACE_FREEZE_HYDRO
+// Canonical-ordered MPI sums for bit-deterministic reductions; see
+// mpi_wrappers.hh::mpi_allreduce for the implementation.
+#cmakedefine GRACE_ENABLE_DETERMINISTIC_MPI_REDUCTIONS
 
+// Same-level face-flux averaging in the reflux pipeline.  When defined,
+// `reflux_fill_flux_buffers` exchanges face fluxes at same-level interior
+// faces and `reflux_correct_fluxes` averages the two sides in place,
+// so both quadrants apply identical fluxes — eliminating directional
+// FMA-roundoff drift and giving bit-exact mass conservation.
+#cmakedefine GRACE_SAME_LEVEL_FACE_AVERAGE
+
+//=====================================================================
+// 5. Initial-data libraries
+//=====================================================================
 #cmakedefine GRACE_ENABLE_LORENE
 #cmakedefine GRACE_ENABLE_FUKA
 #cmakedefine GRACE_ENABLE_TWO_PUNCTURES
 
+//=====================================================================
+// 6. Physics-scheme selectors
+//=====================================================================
+
+// 6.1 First-Order Flux Correction.  When defined, advance_substep calls
+//     flag_fofc_cells + apply_fofc_correction after the high-order flux
+//     sweep.  When undefined, both calls are compiled out and the FOFC
+//     symbols are dead-stripped by the linker.
+#cmakedefine GRACE_ENABLE_FOFC
+
+// 6.2 Metric evolution (GRACE_METRIC_EVOL = COWLING|Z4).
+//   COWLING — frozen background metric (no spacetime evolution).
+//   Z4      — Z4c evolution.
+#define GRACE_METRIC_EVOL_COWLING 0
+#define GRACE_METRIC_EVOL_Z4      1
+#define GRACE_METRIC_EVOL GRACE_METRIC_EVOL_@GRACE_METRIC_EVOL@
+
+// 6.3 EMF reconstruction scheme for CT (GRACE_EMF_SCHEME = GS|UCT).
+//   GS  — Gardiner-Stone EMF (default): edge EMFs reconstructed in-kernel
+//         from face fluxes during the directional flux sweep.
+//   UCT — Upwind constrained transport: edge EMFs computed in a separate
+//         pass from face-centered vtilde and the staggered B field.
+#define GRACE_EMF_SCHEME_GS  0
+#define GRACE_EMF_SCHEME_UCT 1
+#define GRACE_EMF_SCHEME GRACE_EMF_SCHEME_@GRACE_EMF_SCHEME@
+
+// 6.4 GRMHD Riemann solver (GRACE_RIEMANN_SOLVER = HLL|ADV|LLF).
+//   HLL — 2-wave HLLE.
+//   ADV — HLLD (MHD) / HLLC (hydro) with HLLE fallback.
+//   LLF — Local Lax-Friedrichs (Rusanov), symmetric HLL with the largest
+//         local |fast magnetosonic speed|.
+#define GRACE_RIEMANN_SOLVER_HLL 0
+#define GRACE_RIEMANN_SOLVER_ADV 1
+#define GRACE_RIEMANN_SOLVER_LLF 2
+#define GRACE_RIEMANN_SOLVER GRACE_RIEMANN_SOLVER_@GRACE_RIEMANN_SOLVER@
+
+// 6.5 Reconstruction class (GRACE_RECONSTRUCTION = WENOZ|MC2|MINMOD|DONOR_CELL).
+//     Aliased as a C++ type tag GRACE_RECONSTRUCTION_T.  Default is WENOZ.
+#define GRACE_RECONSTRUCTION_T @GRACE_RECONSTRUCTION_T@
+
+// 6.6 Thermodynamic primitive reconstructed at faces (GRACE_RECON_THERMO).
+//   GRACE_RECON_THERMO_TEMP  — reconstruct T (default).
+//   GRACE_RECON_THERMO_PRESS — reconstruct P (continuous across contacts).
+// Exactly one of the two is defined at configure time.
+#cmakedefine GRACE_RECON_THERMO_TEMP
+#cmakedefine GRACE_RECON_THERMO_PRESS
+
+// 6.7 Hydrodynamics evolution freeze (debug / metric-only runs).
+#cmakedefine GRACE_FREEZE_HYDRO
+
+//=====================================================================
+// 7. Optional physics modules
+//=====================================================================
+#cmakedefine GRACE_ENABLE_M1
+#cmakedefine GRACE_ENABLE_PARTICLES
+
+#ifdef GRACE_ENABLE_M1
+#define GRACE_N_M1_VARS 5
+#define GRACE_N_M1_AUX  5
+#endif
+
+//=====================================================================
+// 8. Numeric constants
+//=====================================================================
+// Z4c FD order is the truncation order used by every Z4c RHS finite-difference
+// operator (centered 1st, biased L1/R1, centered 2nd diag/mixed, upwind 1st,
+// KO dissipation).  Supported values: 2, 4, 6.  Set at configure time via
+//   cmake -DGRACE_Z4C_DER_ORDER=<2|4|6> ...
+// Promoting beyond 6 requires extending the codegen at
+// ~/grace_notebooks/Z4c/fd_emit.py.
+#define Z4C_DER_ORDER @GRACE_Z4C_DER_ORDER@
+
+// FD order used by matter subsystems (GRMHD, M1) when sampling spatial
+// derivatives of the metric / lapse / shift for geometric source terms.
+// Defaults to Z4C_DER_ORDER so matter and metric live on the same dispersion
+// curve at all k (eliminates the order-mismatch coupling at NS surfaces
+// diagnosed in the May 2026 BNS wake-ripple discussion).  Override only
+// for diagnostic A/B comparisons via
+//   cmake -DGRACE_MATTER_METRIC_DER_ORDER=<2|4|6> ...
+#define MATTER_METRIC_DER_ORDER @GRACE_MATTER_METRIC_DER_ORDER@
+
+#define LAGRANGE_INTERP_ORDER 4 // Lagrange order for sphere interpolators.
+
+//=====================================================================
+// 9. Utility macros for dimension-independent code
+//=====================================================================
+/**
+ * @brief Macros to help write dimension-independent code.
+ * \ingroup utils
+ */
+#ifdef GRACE_3D
+#define VEC(X,Y,Z) X,Y,Z
+#define EXPR(X,Y,Z) X Y Z
+#define PICK_D(X,Y) Y
+#define VECD(X,Y) X,Y
+#define EXPRD(X,Y) X Y
+#else
+#define VEC(X,Y,Z) X,Y
+#define EXPR(X,Y,Z) X Y
+#define PICK_D(X,Y) X
+#define VECD(X,Y) X
+#define EXPRD(X,Y) X
+#endif
+
+#define SQR(a) ((a)*(a))
+
+//=====================================================================
+// 10. Run-time banner
+//=====================================================================
 #define GRACE_BANNER                                                          \
 "                                                                           \n" \
 "                                                                           \n" \
@@ -79,7 +234,7 @@ namespace grace {
 "of the General Relativistic Astrophysics Code for Exascale.                \n" \
 "GRACE is an evolution framework that uses Finite Volume\n"                     \
 "methods to simulate relativistic spacetimes and plasmas\n"                     \
-"Copyright (C) 2023 Carlo Musolino\n"                                           \
+"Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors\n"                                           \
 "\n"                                                                            \
 "This program is free software: you can redistribute it and/or modify\n"        \
 "it under the terms of the GNU General Public License as published by\n"        \
@@ -94,73 +249,16 @@ namespace grace {
 "You should have received a copy of the GNU General Public License\n"           \
 "along with this program.  If not, see <https://www.gnu.org/licenses/>.\n\n"    \
 
+} // namespace grace
 
-#ifdef GRACE_3D 
-#define GRACE_FACE_CHILDREN 4 
-#else 
-#define GRACE_FACE_CHILDREN 2 
-#endif 
-
-#ifdef GRACE_ENABLE_CUDA 
-#define GRACE_BACKEND "CUDA"
-#elif defined(GRACE_ENABLE_HIP)
-#define GRACE_BACKEND "HIP"
-#elif defined(GRACE_ENABLE_SYCL)
-#define GRACE_BACKEND "SYCL"
-#else 
-#define GRACE_BACKEND "HOST"
-#endif 
-
-/**
- * @brief Macros designed to help with writing dimension independent code.
- * \ingroup utils 
- * 
- */
-#ifdef GRACE_3D 
-#define VEC(X,Y,Z) X,Y,Z
-#define EXPR(X,Y,Z) X Y Z
-#define PICK_D(X,Y) Y 
-#define VECD(X,Y) X,Y
-#define EXPRD(X,Y) X Y 
-#else 
-#define VEC(X,Y,Z) X,Y
-#define EXPR(X,Y,Z) X Y
-#define PICK_D(X,Y) X 
-#define VECD(X,Y) X
-#define EXPRD(X,Y) X
-#endif 
-
-#cmakedefine GRACE_ENABLE_COWLING_METRIC
-#cmakedefine GRACE_ENABLE_Z4C_METRIC
-
-#cmakedefine GRACE_ENABLE_M1 
-
-#cmakedefine GRACE_ENABLE_PARTICLES
-
-#cmakedefine GRACE_GRMHD_USE_GS
-
-#define Z4C_DER_ORDER 4
-
-// for spheres
-#define LAGRANGE_INTERP_ORDER 4
-
-#define SQR(a) ((a)*(a))
-
-#ifdef GRACE_ENABLE_M1
-#define GRACE_N_M1_VARS 5
-#define GRACE_N_M1_AUX 5 
-#endif
-
-
-#define GRACE_RECONSTRUCTION_T weno_reconstructor_t<5>
-
-}
-
-// Per-architecture performance-tuning macros.  Selected by CMake via
-// `Kokkos_ARCH_*` detection; see top-level CMakeLists.txt.  Header may be
-// empty (generic / CPU) — in that case the source-level `#ifndef` defaults
-// apply.  Must appear after the closing `}` of `namespace grace` so macro
-// definitions are in the global scope.
+//=====================================================================
+// 11. Per-architecture performance-tuning macros (global scope)
+//=====================================================================
+// Selected by CMake via `Kokkos_ARCH_*` detection; see top-level
+// CMakeLists.txt.  Header may be empty (generic / CPU) — in that case
+// the source-level `#ifndef` defaults apply.  Must appear after the
+// closing `}` of `namespace grace` so macro definitions are in the
+// global scope.
 #include "@GRACE_PERF_TUNING_HEADER@"
 
 #endif /* FB650CE9_1908_47F9_98EB_3C4E4087C9CC */

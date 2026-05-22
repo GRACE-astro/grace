@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -586,12 +586,28 @@ class tabulated_eos_t
         return mue ; 
     }
 
-    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    // P-recon inverse hook for tabulated EOS.  Mirror of
+    // press_h_csnd2_temp_entropy__eps_rho_ye_impl, with the rootfind running
+    // on TABPRESS instead of TABEPS (see ltemp__press_lrho_ye below).
+    // Algorithm: clamp (rho, Ye), take log rho, invert P -> T via
+    // bisect-then-linear-refine on the T-axis, then read (eps, csnd2, S)
+    // from the table at the resolved ltemp and derive enthalpy.
+    double GRACE_HOST_DEVICE
     eps_h_csnd2_temp_entropy__press_rho_ye_impl( double& h, double& csnd2, double& temp
-                                               , double& entropy, double& press, double& rho 
-                                               , double& ye, err_t& err) const 
+                                               , double& entropy, double& press, double& rho
+                                               , double& ye, err_t& err) const
     {
-        Kokkos::abort("The function eps_h_csnd2_temp_entropy__press_rho_ye_impl is not well defined for a tabulated eos.") ; 
+        limit_rho(rho, err) ;
+        limit_ye(ye, err)   ;
+        auto lrho  = Kokkos::log(rho) ;
+        // this call clamps press to the (rho, ye) T-range and returns ltemp.
+        auto ltemp = ltemp__press_lrho_ye(press, lrho, ye, err) ;
+        temp = Kokkos::exp(ltemp) ;
+        auto eps = Kokkos::exp(tables.interp(lrho, ltemp, ye, TABEPS)) - energy_shift ;
+        csnd2    = tables.interp(lrho, ltemp, ye, TABCSND2) ;
+        h        = 1. + eps + press/rho ;
+        entropy  = tables.interp(lrho, ltemp, ye, TABENTROPY) ;
+        return eps ;
     }
     /**************************************************************************************/
     /**************************************************************************************/
@@ -878,7 +894,7 @@ class tabulated_eos_t
         return utils::brent(rootfun,ltempmin,ltempmax, 1e-14/*FIXME tolerance?*/) ; 
     } 
     #else
-    // AthenaK-style (following suggestion by Peter Hammond): bisect for the logT-grid interval
+    // Following a suggestion by Peter Hammond: bisect for the logT-grid interval
     // [il, ih=il+1] that brackets leps at fixed (lrho, ye), then recover
     // logT from the linear relation implied by the trilinear interpolator.
     // Fixing the logT axis to an exact grid value collapses its weights to
@@ -961,11 +977,58 @@ class tabulated_eos_t
         return ltl + (entropy - sl) * (lth - ltl) / (sh - sl) ;
     }
     /**************************************************************************************/
+    // Same bisect-then-linear strategy as ltemp__eps_lrho_ye, on TABPRESS
+    // instead of TABEPS.  Used by the P-recon path when GRACE_RECON_THERMO
+    // is PRESS — invert P(rho, T, Ye) = press_target along the T-axis at
+    // fixed (rho, Ye).  Assumes dP/dT > 0 at fixed (rho, Ye), which holds
+    // for physical nuclear EOS (the dependence is weak near the cold
+    // sequence but monotone).  Clamps press to the table's [T_min, T_max]
+    // range at this (rho, Ye) on out-of-range input.
+    double KOKKOS_INLINE_FUNCTION
+    ltemp__press_lrho_ye(double& press, double& lrho, double& ye, err_t& err) const
+    {
+        auto lpress    = Kokkos::log(press) ;
+        auto lpressmin = tables.interp(lrho, ltempmin, ye, TABPRESS) ;
+        auto lpressmax = tables.interp(lrho, ltempmax, ye, TABPRESS) ;
+        if ( lpress <= lpressmin ) {
+            press = Kokkos::exp(lpressmin) ;
+            err.set(EOS_PRESS_TOO_LOW) ;
+            return ltempmin ;
+        }
+        if ( lpress >= lpressmax ) {
+            press = Kokkos::exp(lpressmax) ;
+            err.set(EOS_PRESS_TOO_HIGH) ;
+            return ltempmax ;
+        }
+        /************************************************/
+        // Bisect.  Invariant: pl <= lpress <= ph, with
+        //   pl = bilin(lrho, logT(il), ye) in TABPRESS,
+        //   ph = bilin(lrho, logT(ih), ye) in TABPRESS.
+        int il = 0, ih = nT - 1 ;
+        double pl = lpressmin, ph = lpressmax ;
+        while ( (ih - il) > 1 ) {
+            int im = (il + ih) / 2 ;
+            double pm = tables.interp(lrho, tables.ltemp(im), ye, TABPRESS) ;
+            if ( pm > lpress ) {
+                ih = im ;
+                ph = pm ;
+            } else {
+                il = im ;
+                pl = pm ;
+            }
+        }
+        /************************************************/
+        // Linear interpolation in logT across the bracketing slab.
+        double ltl = tables.ltemp(il) ;
+        double lth = tables.ltemp(ih) ;
+        return ltl + (lpress - pl) * (lth - ltl) / (ph - pl) ;
+    }
+    /**************************************************************************************/
     /**************************************************************************************/
     double KOKKOS_INLINE_FUNCTION
-    press__lrho_ltemp_ye(double const lrho, double const ltemp, double const ye) const 
+    press__lrho_ltemp_ye(double const lrho, double const ltemp, double const ye) const
     {
-        return Kokkos::exp(tables.interp(lrho,ltemp,ye,TABPRESS)) ; 
+        return Kokkos::exp(tables.interp(lrho,ltemp,ye,TABPRESS)) ;
     }
     /**************************************************************************************/
     /**************************************************************************************/

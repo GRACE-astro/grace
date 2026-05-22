@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -68,9 +68,8 @@ struct bondi_params_t {
     double B0; 
 } ; 
 
-//! Find temperature where residual sign changes 
-//! inspired by Athena !!! 
-static double KOKKOS_INLINE_FUNCTION 
+//! Find temperature where residual sign changes.
+static double KOKKOS_INLINE_FUNCTION
 find_temp_range(double r, bondi_params_t const& par) 
 {
     double t_min{par.t_min}, t_max{par.t_max} ; 

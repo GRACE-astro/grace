@@ -206,25 +206,33 @@ IO:
       Size of chunking for HDF5 output 
 
   xy_plane_offset:
-    type: double 
+    type: double
     range: "(*,*)"
     default: 0.0
     description: >
-      Z offset 
+      Perpendicular-axis (z) coordinate at which the xy-plane HDF5 slice
+      is taken.  Default 0.0 selects the cell whose lower face is at z=0
+      (the half-open intersection rule biases upward at exact face matches,
+      and the runtime adds a tiny +1e-12 to guarantee this under FP
+      roundoff).  Each cell in the output is positioned at its cell-center
+      z, which depends on the local AMR level; the per-vertex coords in
+      the HDF5 /points dataset are authoritative.
 
   xz_plane_offset:
-    type: double 
+    type: double
     range: "(*,*)"
     default: 0.0
     description: >
-      Y offset 
+      Perpendicular-axis (y) coordinate for the xz-plane HDF5 slice.
+      See xy_plane_offset for the cell-selection semantics.
 
   yz_plane_offset:
-    type: double 
+    type: double
     range: "(*,*)"
     default: 0.0
     description: >
-      X offset 
+      Perpendicular-axis (x) coordinate for the yz-plane HDF5 slice.
+      See xy_plane_offset for the cell-selection semantics.
 
   n_output_spheres:
     type: int 

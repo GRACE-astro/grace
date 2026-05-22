@@ -1,0 +1,29 @@
+name: "grace"
+amr: {
+  npoints_block_x: 6,
+  npoints_block_y: 6,
+  npoints_block_z: 6,
+  xmin: -32,
+  xmax: 32,
+  ymin: -32,
+  ymax: 32,
+  zmin: -32,
+  zmax: 32,
+  n_ghostzones: 2,
+  initial_refinement_level: 2,
+  regrid_every: -1,
+  regrid_at_postinitial: true,
+  postinitial_regrid_depth: 3
+}
+IO: {
+  info_output_every: 1,
+  info_output_max_reductions: ["alp", "eps","rho","press"],
+  info_output_min_reductions: ["alp", "eps","rho","press"],
+}
+system: {
+  console_log_level: "info",
+  n_device_streams: 3
+}
+checkpoints: {
+  checkpoint_at_termination: false
+}

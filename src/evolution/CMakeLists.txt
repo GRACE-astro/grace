@@ -1,6 +1,14 @@
 register_grace_object(grace_evolution auxiliaries.cpp evolve.cpp find_stable_timestep.cpp refluxing.cpp)
 register_grace_object(grace_initial_data initial_data.cpp)
 
+# Opt-in diagnostics for the EMF reflux apply kernel — gates the printf in
+# reflux_emf_apply_coarse_face that traces the data flow per descriptor.
+# Toggle with cmake -DGRACE_DEBUG_REFLUX=ON ...
+option(GRACE_DEBUG_REFLUX "Enable printf diagnostics in reflux apply + comm-pattern build" OFF)
+if(GRACE_DEBUG_REFLUX)
+    target_compile_definitions(grace_evolution PRIVATE DEBUG_REFLUX_FACE)
+endif()
+
 # Optional: print VGPR/scratch/occupancy per device kernel (and optionally dump
 # GCN asm) for the Z4c kernels, which live in evolve.cpp.  Toggle with
 #   cmake -DGRACE_DUMP_GPU_RESOURCE_USAGE=ON ...

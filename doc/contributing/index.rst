@@ -3,25 +3,40 @@
 Contribution Guidelines
 ==========================================
 
-Thank you for your interest in contributing to GRACE! 
+Thank you for your interest in contributing to GRACE!
+
+GRACE is maintained by a single principal author who reviews all
+contributions and sets project direction.  Pull requests are reviewed on a
+best-effort basis and may be declined if they don't fit the project's
+direction or quality bar — opening an issue first to discuss a non-trivial
+change is the most efficient path for both sides.
 
 Workflow / Branching
 ------------------------------
 
-- **Protected main branch**: Only the project owner can push directly to `main`. All contributions must go through pull requests (PRs).
-- **Feature branches**: Create a branch off `main` for new features, bug fixes, or documentation changes:
+- **Fork-and-PR**: External contributions land via the standard
+  fork-and-pull-request workflow.  Fork the repository to your own GitHub
+  account, branch off ``main`` in your fork, and open a pull request
+  against ``GRACE-astro/grace:main``.
+- **Protected main branch**: Only the project maintainer can push directly
+  to ``main`` or merge pull requests.
+- **Feature branches**: Create a branch off ``main`` in your fork for new
+  features, bug fixes, or documentation changes:
 
   .. code-block:: bash
 
       git checkout -b feature/add-xdmf-support
 
-- **Pull Requests**: Open a PR targeting `main` when your changes are ready. Include a clear title and description.
+- **Pull Requests**: Open a PR targeting ``main`` when your changes are
+  ready.  Include a clear title and description of what changes and why,
+  and link any related issues.
 
 Code Review
 -----------
 
-- Every PR should be reviewed by at least one collaborator with admin status
-- Keep PRs focused and small; it's easier to review and test.
+- All pull requests are reviewed and merged by the project maintainer.
+- Keep PRs focused and small; it's easier to review and test.  PRs that
+  bundle many unrelated changes are likely to be asked to split.
 - Address review comments before merging.
 
 Coding Standards

@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -91,7 +91,14 @@ struct cartesian_device_coordinate_system_impl_t{
                  + 4.0*SQR(bh_spin)*SQR(xyz[2])) ) / sqrt(2.0)), 1.0e-6);
         rtp[0] = r ; 
         rtp[1] = (fabs(xyz[2]/r) < 1.0) ? acos(xyz[2]/r) : acos(copysign(1.0, xyz[2]));
-        rtp[2] = atan2(r*xyz[1]-bh_spin*xyz[0], bh_spin*xyz[1]+r*xyz[0]) - bh_spin*r/(SQR(r)-2.0*r+SQR(bh_spin));        
+        // KS-spherical azimuth — exact algebraic inverse of `sph_to_cart`'s
+        // (x + iy) = (r + i·a) sin(θ) e^{iφ} relation.  No BL shift here:
+        // both directions of this pair use KS spherical, so the round-trip
+        // is the identity.  If a caller needs Boyer-Lindquist φ (i.e. a
+        // separate `∫(a/Δ)dr` shift), it should implement that conversion
+        // locally (only relevant when evaluating BL-coordinate
+        // initial-data fields).
+        rtp[2] = atan2(r*xyz[1] - bh_spin*xyz[0], bh_spin*xyz[1] + r*xyz[0]);
     } else {
         rtp[0] = rad ; 
         rtp[1] = acos(xyz[2]/(rad+1e-50));

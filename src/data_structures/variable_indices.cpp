@@ -7,7 +7,7 @@
  * @copyright This file is part of GRACE.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -440,13 +440,13 @@ void register_variables() {
     #endif
     #endif  
 
-    #ifdef GRACE_ENABLE_COWLING_METRIC
+    #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_COWLING
     auto metric_bc = detail::get_bc_type("none") ; 
     register_evolved_tensor({GXX_,GXY_,GXZ_,GYY_,GYZ_,GZZ_}, "gamma", metric_bc, "fourth_order") ; 
     register_evolved_scalar(ALP_,"alp",metric_bc,"fourth_order") ; 
     register_evolved_vector({BETAX_,BETAY_,BETAZ_}, "beta", metric_bc, "fourth_order") ; 
     register_evolved_tensor({KXX_,KXY_,KXZ_,KYY_,KYZ_,KZZ_}, "ext_curv", metric_bc, "fourth_order") ; 
-    #elif defined(GRACE_ENABLE_Z4C_METRIC)
+    #elif (GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4)
     auto metric_bc = detail::get_bc_type(get_param<std::string>("z4c","bc_kind")) ; 
     register_evolved_tensor({GTXX_,GTXY_,GTXZ_,GTYY_,GTYZ_,GTZZ_}, "gamma_tilde", metric_bc, "fourth_order") ; 
     register_evolved_scalar(CHI_,"conf_fact",metric_bc,"fourth_order") ; 
@@ -459,11 +459,25 @@ void register_variables() {
     register_evolved_vector({BDRIVERX_,BDRIVERY_,BDRIVERZ_}, "z4c_Bdriver", metric_bc, "fourth_order") ; 
 
     // aux 
-    register_aux_scalar(PSI4RE_,"Psi4Re") ; 
-    register_aux_scalar(PSI4IM_,"Psi4Im") ; 
-    register_aux_scalar(HAM_,"z4c_H") ; 
-    register_aux_vector({MOMX_,MOMY_,MOMZ_},"z4c_M") ; 
-    #endif 
+    register_aux_scalar(PSI4RE_,"Psi4Re") ;
+    register_aux_scalar(PSI4IM_,"Psi4Im") ;
+    register_aux_scalar(HAM_,"z4c_H") ;
+    register_aux_vector({MOMX_,MOMY_,MOMZ_},"z4c_M") ;
+    #ifdef GRACE_Z4C_DIAG_SYMMETRY
+    // Temporary diagnostic aux for the π_z symmetry audit (see z4c.hh
+    // writes gated on the same macro).  The six Ricci components are
+    // registered with `[i,j]` names so
+    // `check_tensor_symmetry.py --base dbg_ricci` discovers all six.
+    register_aux_scalar(DBG_RTRACE_,    "dbg_Rtrace") ;
+    register_aux_scalar(DBG_DIDIALP_,   "dbg_DiDialp") ;
+    register_aux_scalar(DBG_RICCI_XX_,  "dbg_ricci[0,0]") ;
+    register_aux_scalar(DBG_RICCI_XY_,  "dbg_ricci[0,1]") ;
+    register_aux_scalar(DBG_RICCI_XZ_,  "dbg_ricci[0,2]") ;
+    register_aux_scalar(DBG_RICCI_YY_,  "dbg_ricci[1,1]") ;
+    register_aux_scalar(DBG_RICCI_YZ_,  "dbg_ricci[1,2]") ;
+    register_aux_scalar(DBG_RICCI_ZZ_,  "dbg_ricci[2,2]") ;
+    #endif
+    #endif
 }
 
 }  } /* namespace grace::variables */

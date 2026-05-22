@@ -87,7 +87,7 @@ decide_rebalance_quad_owner(const tracer_container_t<>& tr,
     // and the same should_migrate decision. Must run unconditionally.
     long long lg[2] = { static_cast<long long>(n), local_n_migrating };
     long long gg[2] = { 0, 0 };
-    MPI_Allreduce(lg, gg, 2, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
+    parallel::mpi_allreduce(lg, gg, 2, sc_MPI_SUM);
     d.imbalance      = (gg[0] > 0) ? static_cast<double>(gg[1])
                                      / static_cast<double>(gg[0])
                                    : 0.0;

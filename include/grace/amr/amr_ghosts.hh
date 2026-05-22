@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -168,19 +168,25 @@ struct corner_descriptor_t {
 }; 
 /**************************************************************************************************/
 struct quad_neighbors_descriptor_t {
-    std::array< face_descriptor_t, P4EST_FACES > faces ; //!< Faces 
-    #ifdef GRACE_3D 
-    std::array< edge_descriptor_t, 12 > edges ; //!< edges 
-    #endif 
+    std::array< face_descriptor_t, P4EST_FACES > faces ; //!< Faces
+    #ifdef GRACE_3D
+    std::array< edge_descriptor_t, 12 > edges ; //!< edges
+    #endif
     std::array< corner_descriptor_t, P4EST_CHILDREN> corners; //!< Corners
-    std::size_t quad_id ; //!< Quadrant id 
-    std::size_t cbuf_id ; //!< For fine quads only: index into coarse buffer array 
+    std::size_t quad_id ; //!< Quadrant id
+    std::size_t cbuf_id ; //!< For fine quads only: index into coarse buffer array
+    //! Quadrant's child id within its parent in p4est Morton ordering
+    //! (bit 0 = x-half, bit 1 = y-half, bit 2 = z-half; 0=lower, 1=upper).
+    //! Used by the ghost-zone restriction to flip the interior Lagrange
+    //! stencil per direction so that the restriction stays symmetric across
+    //! the parent midplane. Only meaningful when needs_cbuf(desc)==true.
+    int8_t local_child_id {0} ;
 
     //! Debug information
-    int8_t n_registered_faces {0} ; 
-    int8_t n_registered_edges {0} ; 
-    int8_t n_registered_corners {0} ; 
-}  ;  
+    int8_t n_registered_faces {0} ;
+    int8_t n_registered_edges {0} ;
+    int8_t n_registered_corners {0} ;
+}  ;
 /**************************************************************************************************/
 /**************************************************************************************************/
 // For hanging faces: we need to record them separately for refluxing 
@@ -311,10 +317,30 @@ struct hanging_edge_reflux_device_desc_t {
     // edge id per siee
     Kokkos::View<int*[4]> edge_id ; 
 
-    // offsets 
-    Kokkos::View<int*[4]> off_i ; 
-    Kokkos::View<int*[4]> off_j ; 
-} ; 
+    // offsets
+    Kokkos::View<int*[4]> off_i ;
+    Kokkos::View<int*[4]> off_j ;
+} ;
+/**************************************************************************************************/
+/**
+ * @brief Flat device descriptor list for outer-boundary face cells.
+ *
+ * Populated during ghost-layer construction in `grace_iterate_faces`: every
+ * face that p4est reports with only ONE side (i.e., no neighbor — the face
+ * lies on the outer physical-domain boundary on a non-periodic axis) appends
+ * one entry here.  Used by the mass-outflux diagnostic kernel
+ * (see `boundary_outflow.hh`) to walk the boundary in one TeamPolicy pass.
+ *
+ * Face index convention (matches p4est + `iterate_faces.cpp:303-304`):
+ *   fidx = 0,1 → ±x (0=low, 1=high) — outward sign = (fidx & 1) ? +1 : -1
+ *   fidx = 2,3 → ±y
+ *   fidx = 4,5 → ±z
+ */
+struct boundary_quads_t {
+    Kokkos::View<int*>    q       ; //!< local quadrant id
+    Kokkos::View<int8_t*> face_id ; //!< 0..5 face index
+    size_t                size {0}; //!< host-side count (length of the views)
+} ;
 /**************************************************************************************************/
 struct p4est_iter_data_t {
     std::vector<quad_neighbors_descriptor_t>* ghost_layer ;
@@ -322,6 +348,10 @@ struct p4est_iter_data_t {
     std::vector<full_face_reflux_desc_t>* reflux_coarse_faces ;
     std::vector<hanging_edge_reflux_desc_t>* reflux_edges ;
     std::vector<hanging_edge_reflux_desc_t>* reflux_coarse_edges ;
+    //! Host-side builder vector for the outer-boundary face list.  Populated
+    //! by the `sides.size() == 1` branch in `grace_iterate_faces`, then
+    //! finalized into `amr_ghosts_impl_t::_boundary_quads` (a device view).
+    std::vector<std::pair<int, int8_t>>* boundary_faces ;
 } ;
 /**************************************************************************************************/
 template < amr::element_kind_t elem_kind > 
@@ -426,7 +456,10 @@ struct amr_ghosts_impl_t {
     /*                                      REFLUX UTILITIES                                          */
     /**************************************************************************************************/
     //! Data buffers
-    amr::reflux_array_t _reflux_snd_buf, _reflux_recv_buf, _reflux_emf_snd_buf, _reflux_emf_recv_buf,_reflux_emf_coarse_snd_buf, _reflux_emf_coarse_recv_buf ; 
+    amr::reflux_array_t _reflux_snd_buf, _reflux_recv_buf, _reflux_emf_snd_buf, _reflux_emf_recv_buf,_reflux_emf_coarse_snd_buf, _reflux_emf_coarse_recv_buf ;
+    #ifdef GRACE_SAME_LEVEL_FACE_AVERAGE
+    amr::reflux_array_t _reflux_coarse_snd_buf, _reflux_coarse_recv_buf ; 
+    #endif 
     amr::reflux_edge_array_t _reflux_emf_edge_snd_buf, _reflux_emf_edge_recv_buf, _reflux_emf_coarse_edge_snd_buf, _reflux_emf_coarse_edge_recv_buf;
     Kokkos::View<double***, grace::default_space> _reflux_emf_edge_accumulation_buf ; 
     Kokkos::View<double**, grace::default_space>_reflux_emf_coarse_edge_accumulation_buf ; 
@@ -444,13 +477,22 @@ struct amr_ghosts_impl_t {
     full_face_reflux_device_desc_t _reflux_coarse_face_descs_d ; 
     hanging_edge_reflux_device_desc_t _reflux_edge_descs_d, _reflux_coarse_edge_descs_d ; 
 
-    hanging_remote_reflux_device_desc_t _reflux_face_snd_d ; 
+    hanging_remote_reflux_device_desc_t _reflux_face_snd_d ;
     hanging_remote_reflux_device_desc_t _reflux_coarse_face_snd_d ;
-    hanging_remote_reflux_device_desc_t _reflux_edge_snd_d; 
-    hanging_remote_reflux_device_desc_t _reflux_coarse_edge_snd_d; 
+    hanging_remote_reflux_device_desc_t _reflux_edge_snd_d;
+    hanging_remote_reflux_device_desc_t _reflux_coarse_edge_snd_d;
+    /**************************************************************************************************/
+    //! Outer-boundary face descriptor list (built once per ghost-layer rebuild).
+    //! Host builder vector — populated by `grace_iterate_faces` during construction.
+    std::vector<std::pair<int, int8_t>> _boundary_faces_host ;
+    //! Device-side flat list used by the mass-outflux kernel.
+    boundary_quads_t _boundary_quads ;
     /**************************************************************************************************/
     //! Offsets and sizes 
     std::vector<size_t> _reflux_snd_off, _reflux_rcv_off, _reflux_snd_size, _reflux_rcv_size ; 
+    #ifdef GRACE_SAME_LEVEL_FACE_AVERAGE
+    std::vector<size_t> _reflux_snd_coarse_off, _reflux_rcv_coarse_off, _reflux_snd_coarse_size, _reflux_rcv_coarse_size ;
+    #endif 
     std::vector<size_t> _reflux_snd_emf_off, _reflux_rcv_emf_off, _reflux_snd_emf_size, _reflux_rcv_emf_size ; 
     std::vector<size_t> _reflux_snd_emf_coarse_off, _reflux_rcv_emf_coarse_off, _reflux_snd_emf_coarse_size, _reflux_rcv_emf_coarse_size ; 
     std::vector<size_t> _reflux_snd_emf_edge_off, _reflux_rcv_emf_edge_off, _reflux_snd_emf_edge_size, _reflux_rcv_emf_edge_size ; 
@@ -475,14 +517,19 @@ struct amr_ghosts_impl_t {
     //**************************************************************************************************
     void reset() {
         // destroy descriptors
-        ghost_layer.clear() ; 
+        ghost_layer.clear() ;
 
-        // destroy. ghost layer if it exists 
+        // Outer-boundary face list — repopulated by `update()` from
+        // grace_iterate_faces.
+        _boundary_faces_host.clear() ;
+        _boundary_quads.size = 0 ;
+
+        // destroy. ghost layer if it exists
         if ( p4est_ghost_layer ) {
-            p4est_ghost_destroy(p4est_ghost_layer) ; 
+            p4est_ghost_destroy(p4est_ghost_layer) ;
         }
-        // explicitly reset 
-        p4est_ghost_layer = nullptr ; 
+        // explicitly reset
+        p4est_ghost_layer = nullptr ;
 
         // empty task list 
         task_list.clear()  ; 
@@ -676,6 +723,12 @@ class amr_ghosts_cont_impl_t {
     /**************************************************************************************************/
     p4est_ghost_t* get_p4est_ghosts() { return _ghosts.p4est_ghost_layer ; }
     /**************************************************************************************************/
+    //! Outer-boundary face descriptor list (one entry per non-periodic face
+    //! of every local quadrant that touches the outer physical-domain edge).
+    //! Built during ghost-layer construction; used by the mass-outflux
+    //! diagnostic kernel.
+    boundary_quads_t const& get_boundary_quads() const { return _ghosts._boundary_quads ; }
+    /**************************************************************************************************/
     auto& get_task_list () {return _ghosts.task_list;}
     /**************************************************************************************************/
     auto& get_task_executor () {return _ghosts.task_queue;}
@@ -722,8 +775,25 @@ class amr_ghosts_cont_impl_t {
         return _ghosts._reflux_recv_buf ; 
     }
     //**************************************************************************************************/
+#ifdef GRACE_SAME_LEVEL_FACE_AVERAGE
+    //! Same-level face-flux reflux buffer (cross-rank pair exchange).
+    //! Sent by the local side of each cross-rank same-level face pair,
+    //! consumed by `reflux_correct_fluxes` when averaging the two sides.
+    //! Compiled only when `GRACE_SAME_LEVEL_FACE_AVERAGE` is defined —
+    //! the underlying View fields are gated by the same macro in
+    //! `amr_ghosts_impl_t`.
+    amr::reflux_array_t get_reflux_coarse_send_buffer() const {
+        return _ghosts._reflux_coarse_snd_buf ;
+    }
+    //**************************************************************************************************/
+    GRACE_ALWAYS_INLINE
+    amr::reflux_array_t get_reflux_coarse_recv_buffer() const {
+        return _ghosts._reflux_coarse_recv_buf ;
+    }
+#endif
+    //**************************************************************************************************/
     amr::reflux_array_t get_reflux_emf_send_buffer() const {
-        return _ghosts._reflux_emf_snd_buf ; 
+        return _ghosts._reflux_emf_snd_buf ;
     }
     //**************************************************************************************************/
     GRACE_ALWAYS_INLINE 
@@ -815,8 +885,34 @@ class amr_ghosts_cont_impl_t {
     //**************************************************************************************************/
     GRACE_ALWAYS_INLINE
     std::vector<size_t> const& get_reflux_buffer_rank_recv_sizes() const {
-        return _ghosts._reflux_rcv_size ; 
+        return _ghosts._reflux_rcv_size ;
     }
+    //**************************************************************************************************/
+#ifdef GRACE_SAME_LEVEL_FACE_AVERAGE
+    //! Same-level face-flux reflux MPI offsets / sizes (per-rank, in elements).
+    //! Compiled only when `GRACE_SAME_LEVEL_FACE_AVERAGE` is enabled — the
+    //! underlying std::vector fields are gated by the same macro in
+    //! `amr_ghosts_impl_t`.
+    GRACE_ALWAYS_INLINE
+    std::vector<size_t> const& get_reflux_buffer_rank_send_coarse_offsets() const {
+        return _ghosts._reflux_snd_coarse_off ;
+    }
+    //**************************************************************************************************/
+    GRACE_ALWAYS_INLINE
+    std::vector<size_t> const& get_reflux_buffer_rank_recv_coarse_offsets() const {
+        return _ghosts._reflux_rcv_coarse_off ;
+    }
+    //**************************************************************************************************/
+    GRACE_ALWAYS_INLINE
+    std::vector<size_t> const& get_reflux_buffer_rank_send_coarse_sizes() const {
+        return _ghosts._reflux_snd_coarse_size ;
+    }
+    //**************************************************************************************************/
+    GRACE_ALWAYS_INLINE
+    std::vector<size_t> const& get_reflux_buffer_rank_recv_coarse_sizes() const {
+        return _ghosts._reflux_rcv_coarse_size ;
+    }
+#endif
     //**************************************************************************************************/
     GRACE_ALWAYS_INLINE
     std::vector<size_t> const& get_reflux_buffer_rank_send_emf_offsets() const {

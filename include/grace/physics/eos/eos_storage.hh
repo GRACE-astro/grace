@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,6 +36,7 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/hybrid_eos.hh>
 #include <grace/physics/eos/piecewise_polytropic_eos.hh>
+#include <grace/physics/eos/tabulated_cold_eos.hh>
 #include <grace/physics/eos/ideal_gas_eos.hh>
 #include <grace/physics/eos/tabulated_eos.hh>
 
@@ -74,16 +75,14 @@ class eos_storage_t {
     }
     //**************************************************************************************************
     /**
-     * @brief Get the hybrid tabulated EOS object.
-     * 
-     * This should only be called if the active EOS type is 
-     * hybrid tabulated.
-     * 
-     * @return decltype(auto) The hybrid tabulated EOS object.
+     * @brief Get the hybrid EOS with a tabulated barotropic cold backbone.
+     *
+     * This should only be called if the active EOS type is hybrid with
+     * cold_eos_type = tabulated.
      */
-    decltype(auto) GRACE_ALWAYS_INLINE 
+    decltype(auto) GRACE_ALWAYS_INLINE
     get_hybrid_tabulated() {
-        ERROR("Not implemented yet.") ;  
+        return _hybrid_tabulated ;
     }
     //**************************************************************************************************
     /**
@@ -116,17 +115,19 @@ class eos_storage_t {
      * @tparam eos_t Type of requested eos, always explicit.
      */
     template< typename eos_t >
-    eos_t GRACE_ALWAYS_INLINE 
+    eos_t GRACE_ALWAYS_INLINE
     get_eos() {
         if constexpr ( std::is_same_v<eos_t,hybrid_eos_t<piecewise_polytropic_eos_t>> )
         {
-            return _hybrid_pwpoly; 
+            return _hybrid_pwpoly;
+        } else if constexpr ( std::is_same_v<eos_t,hybrid_eos_t<tabulated_cold_eos_t>> ) {
+            return _hybrid_tabulated;
         } else if constexpr ( std::is_same_v<eos_t,tabulated_eos_t> ) {
-            return _tabulated ; 
+            return _tabulated ;
         } else if constexpr ( std::is_same_v<eos_t,ideal_gas_eos_t> ) {
-            return _gammalaw; 
+            return _gammalaw;
         } else {
-            ERROR("Requested EOS type is not implemented.") ; 
+            ERROR("Requested EOS type is not implemented.") ;
         }
     }
     //**************************************************************************************************
@@ -146,12 +147,14 @@ class eos_storage_t {
      */
     ~eos_storage_t() {}; 
     //**************************************************************************************************
-    //! The hybrid EOS object.
+    //! The hybrid (piecewise-polytropic backbone) EOS object.
     hybrid_eos_t<piecewise_polytropic_eos_t> _hybrid_pwpoly ;
-    //! The tabulated EOS object. 
-    tabulated_eos_t _tabulated ;  
+    //! The hybrid (tabulated barotropic backbone) EOS object.
+    hybrid_eos_t<tabulated_cold_eos_t>       _hybrid_tabulated ;
+    //! The tabulated EOS object.
+    tabulated_eos_t _tabulated ;
     //! The ideal gas EOS object.
-    ideal_gas_eos_t _gammalaw ; 
+    ideal_gas_eos_t _gammalaw ;
     //! Give access.
     friend class utils::singleton_holder<eos_storage_t, memory::default_create>  ;
     //! Give access.

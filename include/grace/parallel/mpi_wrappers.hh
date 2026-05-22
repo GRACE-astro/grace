@@ -8,7 +8,7 @@
  * @copyright This file is part of GRACE.
  * GRACE is an evolution framework that uses Finite Difference 
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -72,7 +72,7 @@
 
 namespace parallel {
 
-enum GRACE_MPI_Tags_t : size_t 
+enum GRACE_MPI_Tags_t : size_t
 {
     GRACE_PARTITION_TAG=0,
     GRACE_HALO_EXCHANGE_TAG_CC=1,
@@ -87,8 +87,12 @@ enum GRACE_MPI_Tags_t : size_t
     GRACE_REGRID_TAG_FX=10,
     GRACE_REGRID_TAG_FY=11,
     GRACE_REGRID_TAG_FZ=12,
-    GRACE_N_MPI_TAGS=13
-} ; 
+    //! Cross-rank exchange tag for same-level face-flux averaging
+    //! (GRACE_SAME_LEVEL_FACE_AVERAGE).  Distinct from the fine-coarse
+    //! face/EMF reflux tags so the two pipelines can be in-flight together.
+    GRACE_REFLUX_COARSE_FACE_TAG=13,
+    GRACE_N_MPI_TAGS=14
+} ;
 
 namespace detail {
     template< typename T >
@@ -287,29 +291,138 @@ void mpi_reduce(T* send_buffer,
             "mpi_reduce call failed.") ; 
 }
 
+/**
+ * @brief Wrapper around MPI_Allreduce.
+ *
+ * Standard mode: passes through to `sc_MPI_Allreduce` directly.
+ *
+ * Deterministic mode (compile-time flag GRACE_ENABLE_DETERMINISTIC_MPI_REDUCTIONS):
+ *   When `op == sc_MPI_SUM`, replace the implementation-defined tree
+ *   reduction (whose floating-point summation order depends on rank count
+ *   and topology) with a canonical-ordered sum:
+ *     1. `MPI_Allgather` each rank's per-element partials into a single
+ *        buffer of size count·nproc, ordered by ascending source rank.
+ *     2. Each rank then accumulates the partials in the SAME ascending-rank
+ *        order, locally.
+ *   The result is bit-identical on every rank AND invariant under MPI
+ *   repartitioning — i.e. the same simulation run at 1, 2, 8, … ranks
+ *   yields exactly the same sum to the last bit.  Required for the
+ *   bit-exact mass-conservation goal (`total_mass + Σ dM_outflux ≡ 0`
+ *   across all partitions).
+ *
+ *   Cost: O(nproc · count) memory + Allgather instead of Allreduce.  For
+ *   the small-count conservation reductions this is negligible; for any
+ *   large-count reduction in the hot path the flag should stay off.
+ *
+ *   Currently intercepts SUM only.  MAX/MIN are FP-deterministic by
+ *   construction (associative + commutative under IEEE comparison for
+ *   non-NaN values), so they fall through to standard Allreduce.  PROD
+ *   could be added symmetrically if a use case appears.
+ */
 template<typename T>
-static inline 
-void mpi_allreduce(T* send_buffer,
-                   T* recv_buffer,
-                   int count,
+static inline
+void mpi_allreduce(T const* send_buffer,
+                   T*       recv_buffer,
+                   int      count,
                    sc_MPI_Op op,
                    sc_MPI_Comm comm=MPI_COMM_WORLD)
 {
-    
-    ASSERT_DBG( (send_buffer != nullptr) or (count == 0), 
+    ASSERT_DBG( (send_buffer != nullptr) or (count == 0),
                 "Trying to reduce more than zero"
                 " data elements via dangling pointer.");
-    ASSERT_DBG( (recv_buffer != nullptr) or (count == 0), 
+    ASSERT_DBG( (recv_buffer != nullptr) or (count == 0),
                 "Trying to store allreduce result from "
                 "more than zero data elements on dangling pointer.") ;
-    int mpi_retval = sc_MPI_Allreduce(static_cast<void*>(send_buffer),
-                                      static_cast<void*>(recv_buffer),
-                                      count,
-                                      detail::mpi_type_utils<T>::get_type(),
-                                      op,
-                                      comm ) ;
-    ASSERT( mpi_retval == sc_MPI_SUCCESS, 
-            "mpi_reduce call failed.") ; 
+
+    // MPI_IN_PLACE handling: the caller indicates "input is in recv_buffer,
+    // recv_buffer also receives the result".  Both the standard path and the
+    // deterministic path treat the recv_buffer as the source in that case.
+    void* const send_ptr = (send_buffer == reinterpret_cast<T const*>(MPI_IN_PLACE))
+                           ? static_cast<void*>(recv_buffer)
+                           : static_cast<void*>(const_cast<T*>(send_buffer)) ;
+
+#ifdef GRACE_ENABLE_DETERMINISTIC_MPI_REDUCTIONS
+    // Intercept SUM, MAX, MIN.  For SUM the issue is FP non-associativity:
+    // different tree topologies → different bit pattern.  For MAX/MIN with
+    // pure-IEEE inputs (no NaN) the result is mathematically unique, but we
+    // still route through the canonical path for two reasons:
+    //   (1) gives users an absolute guarantee that ALL reductions are
+    //       rank-invariant for free, no need to think per-op;
+    //   (2) any downstream arithmetic that follows the MAX (e.g., dt =
+    //       CFL/v_max) is then driven by a bit-identical input across
+    //       ranks, eliminating one source of inter-rank divergence.
+    if (count > 0 &&
+        (op == sc_MPI_SUM || op == sc_MPI_MAX || op == sc_MPI_MIN)) {
+        int nproc = 1 ;
+        sc_MPI_Comm_size(comm, &nproc) ;
+        std::vector<T> gathered(static_cast<size_t>(count)
+                                * static_cast<size_t>(nproc)) ;
+        int ag_retval = sc_MPI_Allgather(
+            send_ptr,
+            count, detail::mpi_type_utils<T>::get_type(),
+            static_cast<void*>(gathered.data()),
+            count, detail::mpi_type_utils<T>::get_type(),
+            comm) ;
+        ASSERT( ag_retval == sc_MPI_SUCCESS,
+                "deterministic mpi_allreduce: Allgather call failed.") ;
+        for (int i = 0; i < count; ++i) {
+            T acc = gathered[i] ;          // rank 0's value
+            if (op == sc_MPI_SUM) {
+                for (int r = 1; r < nproc; ++r)
+                    acc += gathered[static_cast<size_t>(r) * count + i] ;
+            } else if (op == sc_MPI_MAX) {
+                for (int r = 1; r < nproc; ++r) {
+                    T const v = gathered[static_cast<size_t>(r) * count + i] ;
+                    if (v > acc) acc = v ;
+                }
+            } else { // sc_MPI_MIN
+                for (int r = 1; r < nproc; ++r) {
+                    T const v = gathered[static_cast<size_t>(r) * count + i] ;
+                    if (v < acc) acc = v ;
+                }
+            }
+            recv_buffer[i] = acc ;
+        }
+        return ;
+    }
+#endif
+
+    // Standard path.  Pass MPI_IN_PLACE through unchanged to the underlying
+    // implementation when the caller specified it (MPI itself handles the
+    // alias, no buffer copy needed); otherwise the normal send_buffer path.
+    int mpi_retval = sc_MPI_Allreduce(
+        (send_buffer == reinterpret_cast<T const*>(MPI_IN_PLACE))
+            ? MPI_IN_PLACE
+            : static_cast<void*>(const_cast<T*>(send_buffer)),
+        static_cast<void*>(recv_buffer),
+        count,
+        detail::mpi_type_utils<T>::get_type(),
+        op,
+        comm) ;
+    ASSERT( mpi_retval == sc_MPI_SUCCESS,
+            "mpi_reduce call failed.") ;
+}
+
+/**
+ * @brief In-place all-reduce: the same buffer is used for both input and
+ *        output.  Avoids the awkward `reinterpret_cast<T*>(MPI_IN_PLACE)`
+ *        at the call site.  Routes through `mpi_allreduce` so the
+ *        deterministic path applies uniformly.
+ */
+template<typename T>
+static inline
+void mpi_allreduce_inplace(T* buffer,
+                           int count,
+                           sc_MPI_Op op,
+                           sc_MPI_Comm comm = MPI_COMM_WORLD)
+{
+    ASSERT_DBG( (buffer != nullptr) or (count == 0),
+                "mpi_allreduce_inplace called with a dangling pointer.") ;
+    // Snapshot the input into a temporary so the wrapper's two-buffer
+    // contract is preserved.  Cheap for the small-count reductions this
+    // is typically used for (1-element checkpoint / dt aggregates).
+    std::vector<T> tmp(buffer, buffer + count) ;
+    mpi_allreduce(tmp.data(), buffer, count, op, comm) ;
 }
 
 template<typename T>

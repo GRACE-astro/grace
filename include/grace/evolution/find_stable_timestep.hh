@@ -8,7 +8,7 @@
  * @copyright This file is part of GRACE.
  * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -55,6 +55,7 @@ void find_stable_timestep_impl() ;
 extern template                       \
 void find_stable_timestep_impl<EOS>()
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::tabulated_cold_eos_t>) ;
 INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;
 INSTANTIATE_TEMPLATE(grace::ideal_gas_eos_t) ;
 #undef INSTANTIATE_TEMPLATE

@@ -8,7 +8,7 @@
  * @copyright This file is part of GRACE.
  * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -501,18 +501,30 @@ class grace_runtime_impl_t
         if( not std::filesystem::exists( _scalar_io_basepath) and (parallel::mpi_comm_rank() == 0)) {
             std::filesystem::create_directory(_scalar_io_basepath) ; 
         }
-        /* Set output planes and spheres properties      */
+        /* Set output planes and spheres properties.
+         *
+         * Plane slicer uses a half-open [lo, hi) intersection rule: at an
+         * exact cell-face match the cell ABOVE the face is selected.  We
+         * add a small positive bias (1e-12 absolute) to the user-supplied
+         * coordinate so that a face-coincident value remains on the
+         * upper-cell side under floating-point roundoff (e.g. when the user
+         * intends "the equatorial plane just above z = 0" but FP gives the
+         * value as -1e-17).  The bias is far below any physical scale GRACE
+         * resolves and has no observable effect on non-face values.
+         */
+        constexpr double plane_face_bias_eps = 1e-12 ;
         _output_planes_origins.resize(3) ;
-        _output_planes_origins[0] = grace::get_param<double>("IO","xy_plane_offset") ;
-
-        _output_planes_origins[1] = grace::get_param<double>("IO","xz_plane_offset") ; 
-
-        _output_planes_origins[2] = grace::get_param<double>("IO","yz_plane_offset") ; 
+        _output_planes_origins[0] = grace::get_param<double>("IO","xy_plane_offset")
+                                  + plane_face_bias_eps ;
+        _output_planes_origins[1] = grace::get_param<double>("IO","xz_plane_offset")
+                                  + plane_face_bias_eps ;
+        _output_planes_origins[2] = grace::get_param<double>("IO","yz_plane_offset")
+                                  + plane_face_bias_eps ;
         
         _n_output_spheres = grace::get_param<int>("IO", "n_output_spheres") ;
         _output_spheres_names = grace::get_param<std::vector<std::string>>("IO", "output_sphere_names") ; 
         /* Volume and surface output variables */
-        #ifdef GRACE_ENABLE_COWLING_METRIC
+        #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_COWLING
         const std::vector<std::string> metric_vars = {
             "gamma[0,0]", "gamma[0,1]", 
             "gamma[0,2]", "gamma[1,1]", 
@@ -525,7 +537,7 @@ class grace_runtime_impl_t
         } ; 
         const std::vector<std::string> metric_aux = {};
         #endif 
-        #ifdef GRACE_ENABLE_Z4C_METRIC
+        #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
         const std::vector<std::string> metric_vars = {
             "gamma_tilde[0,0]", "gamma_tilde[0,1]", 
             "gamma_tilde[0,2]", "gamma_tilde[1,1]", 

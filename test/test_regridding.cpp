@@ -8,7 +8,7 @@
  * @copyright This file is part of GRACE.
  * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -313,8 +313,7 @@ TEST_CASE("Simple regrid", "[regrid]")
     auto params = grace::config_parser::get()["amr"] ; 
     params["refinement_criterion_var"] = "dens" ; 
     
-    auto& coords = grace::variable_list::get().getcoords() ; 
-    auto& dx     = grace::variable_list::get().getspacings(); 
+    auto& dx     = grace::variable_list::get().getspacings();
     size_t nx,ny,nz; 
     std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
     size_t nq = grace::amr::get_local_num_quadrants() ; 

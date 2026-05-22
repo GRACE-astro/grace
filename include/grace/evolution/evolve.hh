@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -77,12 +77,41 @@ void evolve_impl() ;
  */
 template< typename eos_t >
 void compute_fluxes(
-    double const t, double const dt, double const dtfact 
-    , var_array_t& new_state 
-    , var_array_t& old_state 
-    , staggered_variable_arrays_t & new_stag_state 
-    , staggered_variable_arrays_t & old_stag_state 
-) ; 
+    double const t, double const dt, double const dtfact
+    , var_array_t& new_state
+    , var_array_t& old_state
+    , staggered_variable_arrays_t & new_stag_state
+    , staggered_variable_arrays_t & old_stag_state
+) ;
+//*****************************************************************************************************
+/** @brief FOFC stage 3: flag cells whose tentative high-order-flux update
+ *         would have produced a state that c2p must floor.  Reads the
+ *         flux array computed by compute_fluxes; writes the per-cell
+ *         bad-cell mask consumed by apply_fofc_correction.
+ * \ingroup evol
+ */
+template< typename eos_t >
+void flag_fofc_cells(
+    double const t, double const dt, double const dtfact
+    , var_array_t& new_state
+    , var_array_t& old_state
+    , staggered_variable_arrays_t & new_stag_state
+    , staggered_variable_arrays_t & old_stag_state
+) ;
+//*****************************************************************************************************
+/** @brief FOFC stage 4: at faces of cells flagged by flag_fofc_cells,
+ *         recompute the flux (and adjacent EMFs) with donor-cell
+ *         reconstruction + LLF.
+ * \ingroup evol
+ */
+template< typename eos_t >
+void apply_fofc_correction(
+    double const t, double const dt, double const dtfact
+    , var_array_t& new_state
+    , var_array_t& old_state
+    , staggered_variable_arrays_t & new_stag_state
+    , staggered_variable_arrays_t & old_stag_state
+) ;
 //*****************************************************************************************************
 /** @brief Compute the emf for CT evolution of the B field
  * @param t Time 
@@ -214,7 +243,7 @@ void advance_substep( double const t, double const dt, double const dtfact
                     , grace::var_array_t& state_p 
                     , grace::staggered_variable_arrays_t & sstate 
                     , grace::staggered_variable_arrays_t & sstate_p) ; 
-#ifdef GRACE_ENABLE_Z4C_METRIC
+#if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
 void compute_constraint_violations() ;
 // Fast variant — see compute_constraints_fast() in z4c.hh.  Only valid when
 // _z4c_curv_scratch is consistent with the current state.
@@ -247,6 +276,20 @@ void compute_fluxes<EOS>( double const , double const , double const \
                         , grace::staggered_variable_arrays_t &       \
                         ) ;                                          \
 extern template                                                      \
+void flag_fofc_cells<EOS>( double const , double const , double const \
+                         , grace::var_array_t&                        \
+                         , grace::var_array_t&                        \
+                         , grace::staggered_variable_arrays_t &       \
+                         , grace::staggered_variable_arrays_t &       \
+                         ) ;                                          \
+extern template                                                      \
+void apply_fofc_correction<EOS>( double const , double const , double const \
+                         , grace::var_array_t&                        \
+                         , grace::var_array_t&                        \
+                         , grace::staggered_variable_arrays_t &       \
+                         , grace::staggered_variable_arrays_t &       \
+                         ) ;                                          \
+extern template                                                      \
 void add_fluxes_and_source_terms<EOS>( double const , double const , double const \
                         , grace::var_array_t&                        \
                         , grace::var_array_t&                        \
@@ -257,6 +300,7 @@ extern template                                                       \
 void evolve_impl<EOS>()
 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::tabulated_cold_eos_t>) ;
 INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;
 INSTANTIATE_TEMPLATE(grace::ideal_gas_eos_t) ;
 #undef INSTANTIATE_TEMPLATE

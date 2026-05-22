@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -96,7 +96,29 @@ struct hll_riemann_solver_t
     }
  private:
     static constexpr double speed_eps = 1e-15 ; //!< Speed below which we consider the interface supersonic.
-} ; 
+} ;
+
+/*****************************************************************************/
+/* Riemann-solver dispatch tags.                                              */
+/*                                                                            */
+/* The grmhd flux kernel dispatches on a tag rather than on the build-time    */
+/* GRACE_RIEMANN_SOLVER macro directly.  default_riemann_tag_t maps to        */
+/* whichever solver was selected at build time, so the main flux pass behaves */
+/* identically.  The FOFC pass calls the same kernel with llf_riemann_tag_t   */
+/* to force a Rusanov flux at faces of flagged cells, irrespective of the     */
+/* main-pass choice.                                                          */
+/*****************************************************************************/
+struct hlld_riemann_tag_t {} ;  //!< ADV: HLLD/HLLC with HLLE fallback
+struct hll_riemann_tag_t  {} ;  //!< Plain HLL (HLLE)
+struct llf_riemann_tag_t  {} ;  //!< Local Lax-Friedrichs (Rusanov)
+
+#if   GRACE_RIEMANN_SOLVER == GRACE_RIEMANN_SOLVER_ADV
+using default_riemann_tag_t = hlld_riemann_tag_t ;
+#elif GRACE_RIEMANN_SOLVER == GRACE_RIEMANN_SOLVER_LLF
+using default_riemann_tag_t = llf_riemann_tag_t ;
+#else /* GRACE_RIEMANN_SOLVER_HLL (default) */
+using default_riemann_tag_t = hll_riemann_tag_t ;
+#endif
 
 }
 

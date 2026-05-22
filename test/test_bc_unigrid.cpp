@@ -66,11 +66,7 @@ TEST_CASE("BC bit-exact ghost-zone fill (unigrid)", "[boundaries]")
     using namespace grace;
     using namespace grace::variables;
 
-#if defined(GRACE_ENABLE_BURGERS) || defined(GRACE_ENABLE_SCALAR_ADV)
-    int const DENS = U;
-#else
     int const DENS = DENS_;
-#endif
 
     auto& state = variable_list::get().getstate();
     auto& stag  = variable_list::get().getstaggeredstate();
@@ -86,7 +82,7 @@ TEST_CASE("BC bit-exact ghost-zone fill (unigrid)", "[boundaries]")
               << " nq=" << nq << std::endl;
 
     auto const h_func = [&](VEC(double x, double y, double z)) {
-        return EXPR(8.5 * x, -5.1 * y, +2.0 * z) - 3.14;
+        return 8.5 * x -5.1 * y +2.0 * z - 3.14;
     };
 
     // Physical coordinates of a point inside the cell at index (i,j,k) of
@@ -104,15 +100,40 @@ TEST_CASE("BC bit-exact ghost-zone fill (unigrid)", "[boundaries]")
             static_cast<size_t>(q), cc, /*include_gzs*/ true);
     };
 
-    // Initialise an arbitrary 4-D view (i,j,k,var,q) with `h_func` at every
-    // interior point and NaN at every ghost point. Shape (Nx,Ny,Nz) is the
-    // full extent including ghosts; the interior runs i ∈ [ngz, Nx-ngz),
-    // i.e. Nx - 2*ngz interior cells along x.
+    // Fill the entire 4-D view (interior AND ghost) with the analytic
+    // polynomial evaluated at the cell's physical position.  Shape
+    // (Nx,Ny,Nz) is the full extent including ghosts; the interior is
+    // i ∈ [ngz, Nx-ngz).
     auto init_view = [&](auto& view,
                          std::array<double, GRACE_NSPACEDIM> const& cc,
                          VEC(long Nx, long Ny, long Nz),
                          int var_idx) {
         auto h = Kokkos::create_mirror_view(view);
+        for (long q = 0; q < nq; ++q) {
+        for (long k = 0; k < Nz; ++k) {
+        for (long j = 0; j < Ny; ++j) {
+        for (long i = 0; i < Nx; ++i) {
+            auto p = phys(VEC(i, j, k), q, cc);
+            h(VEC(i, j, k), var_idx, q) =
+                h_func(VEC(p[0], p[1], p[2]));
+        }}}}
+        Kokkos::deep_copy(view, h);
+    };
+
+    // Overwrite every GHOST slot of the view with NaN.  Run after init_view
+    // so the test's invariant is explicit:
+    //   1. init_view  fills everything with the polynomial.
+    //   2. invalidate_ghosts NaN-poisons the ghost slots.
+    //   3. apply_boundary_conditions() refills the ghost slots.
+    //   4. check_view verifies every ghost slot equals the polynomial.
+    // Any ghost slot the BC pipeline failed to write stays NaN, and the
+    // bit-exact == compare in check_view catches it (NaN == anything is
+    // always false).
+    auto invalidate_ghosts = [&](auto& view,
+                                 VEC(long Nx, long Ny, long Nz),
+                                 int var_idx) {
+        auto h = Kokkos::create_mirror_view(view);
+        Kokkos::deep_copy(h, view);
         for (long q = 0; q < nq; ++q) {
         for (long k = 0; k < Nz; ++k) {
         for (long j = 0; j < Ny; ++j) {
@@ -126,10 +147,6 @@ TEST_CASE("BC bit-exact ghost-zone fill (unigrid)", "[boundaries]")
             if (ghost) {
                 h(VEC(i, j, k), var_idx, q) =
                     std::numeric_limits<double>::quiet_NaN();
-            } else {
-                auto p = phys(VEC(i, j, k), q, cc);
-                h(VEC(i, j, k), var_idx, q) =
-                    h_func(VEC(p[0], p[1], p[2]));
             }
         }}}}
         Kokkos::deep_copy(view, h);
@@ -176,11 +193,10 @@ TEST_CASE("BC bit-exact ghost-zone fill (unigrid)", "[boundaries]")
                   << " cells, " << n_failed << " mismatches" << std::endl;
     };
 
-    // ===== Initialise =====
+    // ===== Initialise (polynomial fill EVERYWHERE) =====
     init_view(state, {VEC(0.5, 0.5, 0.5)},
               VEC(nx + 2*ngz, ny + 2*ngz, nz + 2*ngz), DENS);
 
-#if defined(GRACE_ENABLE_GRMHD)
     init_view(stag.face_staggered_fields_x, {VEC(0.0, 0.5, 0.5)},
               VEC(nx + 2*ngz + 1, ny + 2*ngz, nz + 2*ngz), BSX_);
     init_view(stag.face_staggered_fields_y, {VEC(0.5, 0.0, 0.5)},
@@ -189,6 +205,20 @@ TEST_CASE("BC bit-exact ghost-zone fill (unigrid)", "[boundaries]")
     init_view(stag.face_staggered_fields_z, {VEC(0.5, 0.5, 0.0)},
               VEC(nx + 2*ngz, ny + 2*ngz, nz + 2*ngz + 1), BSZ_);
 #endif
+
+    // ===== Invalidate ghostzones (NaN-poison) =====
+    // Explicit separate step so the test's invariant is crystal clear:
+    // the only way a ghost slot ends up matching the polynomial after
+    // apply_boundary_conditions() is if BC wrote it.
+    invalidate_ghosts(state,
+                      VEC(nx + 2*ngz, ny + 2*ngz, nz + 2*ngz), DENS);
+    invalidate_ghosts(stag.face_staggered_fields_x,
+                      VEC(nx + 2*ngz + 1, ny + 2*ngz, nz + 2*ngz), BSX_);
+    invalidate_ghosts(stag.face_staggered_fields_y,
+                      VEC(nx + 2*ngz, ny + 2*ngz + 1, nz + 2*ngz), BSY_);
+#ifdef GRACE_3D
+    invalidate_ghosts(stag.face_staggered_fields_z,
+                      VEC(nx + 2*ngz, ny + 2*ngz, nz + 2*ngz + 1), BSZ_);
 #endif
 
     // ===== Apply BC =====
@@ -198,7 +228,6 @@ TEST_CASE("BC bit-exact ghost-zone fill (unigrid)", "[boundaries]")
     check_view(state, "CENTER", {VEC(0.5, 0.5, 0.5)},
                VEC(nx + 2*ngz, ny + 2*ngz, nz + 2*ngz), DENS);
 
-#if defined(GRACE_ENABLE_GRMHD)
     check_view(stag.face_staggered_fields_x, "FACEX", {VEC(0.0, 0.5, 0.5)},
                VEC(nx + 2*ngz + 1, ny + 2*ngz, nz + 2*ngz), BSX_);
     check_view(stag.face_staggered_fields_y, "FACEY", {VEC(0.5, 0.0, 0.5)},
@@ -206,6 +235,5 @@ TEST_CASE("BC bit-exact ghost-zone fill (unigrid)", "[boundaries]")
 #ifdef GRACE_3D
     check_view(stag.face_staggered_fields_z, "FACEZ", {VEC(0.5, 0.5, 0.0)},
                VEC(nx + 2*ngz, ny + 2*ngz, nz + 2*ngz + 1), BSZ_);
-#endif
 #endif
 }

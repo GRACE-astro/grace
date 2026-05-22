@@ -146,19 +146,23 @@ TEST_CASE("Hermite convergence rates on a smooth function",
     SECTION("cubic: error ~ dx^4 as dx -> 0") {
         double const e_coarse = max_error(2, 0.4);
         double const e_fine   = max_error(2, 0.2);
-        // Halving dx should cut error by ~16x for O(dx^4).
+        // Halving dx should cut error by ~16x for O(dx^4).  Upper bound is
+        // looser than the ideal 16 because on smooth functions like sin(2x)
+        // the next-order term can give super-convergence, and bouncing
+        // FMA/optimisation flags can shift the ratio by 1–2 either way.
         double const ratio = e_coarse / e_fine;
         REQUIRE(ratio > 12.0);
-        REQUIRE(ratio < 20.0);
+        REQUIRE(ratio < 24.0);
     }
 
     SECTION("quintic: error ~ dx^6 as dx -> 0") {
         double const e_coarse = max_error(3, 0.4);
         double const e_fine   = max_error(3, 0.2);
-        // Halving dx should cut error by ~64x for O(dx^6).
+        // Halving dx should cut error by ~64x for O(dx^6).  Same caveat as
+        // the cubic case — super-convergence on smooth f is normal.
         double const ratio = e_coarse / e_fine;
         REQUIRE(ratio > 50.0);
-        REQUIRE(ratio < 80.0);
+        REQUIRE(ratio < 100.0);
     }
 }
 

@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -44,14 +44,14 @@
 #include <grace/utils/reconstruction.hh>
 #include <grace/utils/weno_reconstruction.hh>
 #include <grace/utils/riemann_solvers.hh>
+#include <grace/utils/rootfinding.hh>
 #include "grmhd_subexpressions.hh"
-//#include "hllc_subexpressions.hh"
+#include "tetrad_subexpressions.hh"
 #include "fd_subexpressions.hh"
 #include "z4c_subexpressions.hh"
 #include <Kokkos_Core.hpp>
 
 #include <type_traits>
-#define GRMHD_USE_PPLIM
 //**************************************************************************************************/
 /**
  * \defgroup physics Physics Modules.
@@ -74,26 +74,25 @@ struct grmhd_equations_system_t
     using base_t = hrsc_evolution_system_t<grmhd_equations_system_t<eos_t>>;
 
  public:
-
     /**
      * @brief Constructor
-     * 
+     *
      * @param eos_ eos object.
      * @param state_ State array.
      * @param aux_ Auxiliary array.
      */
-    grmhd_equations_system_t( eos_t eos_ 
+    grmhd_equations_system_t( eos_t eos_
                             , grace::var_array_t state_
                             , grace::staggered_variable_arrays_t stag_state_
-                            , grace::var_array_t aux_ ) 
+                            , grace::var_array_t aux_ )
      : base_t(state_,stag_state_,aux_), _eos(eos_)
-    { 
-        excision_params = get_excision_params() ; 
-        atmo_params = get_atmo_params() ; 
-        c2p_params = get_c2p_params() ; 
+    {
+        excision_params = get_excision_params() ;
+        atmo_params = get_atmo_params() ;
+        c2p_params = get_c2p_params() ;
         dcoords = grace::coordinate_system::get().get_device_coord_system();
     } ;
-    
+
     /**
      * @brief Compute GRMHD fluxes in direction \f$x^1\f$
      * 
@@ -107,19 +106,19 @@ struct grmhd_equations_system_t
      * @param ngz  Number of ghost cells.
      * @param fluxes Flux array.
      */
-    template< typename recon_t >
-    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_x_flux_impl( int const q 
-                       , VEC( const int i 
-                       ,      const int j 
+    template< typename recon_t, typename riemann_t = default_riemann_tag_t >
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    compute_x_flux_impl( int const q
+                       , VEC( const int i
+                       ,      const int j
                        ,      const int k)
                        , grace::flux_array_t const  fluxes
                        , grace::flux_array_t const  vbar
                        , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
-                       , double const dt 
-                       , double const dtfact ) const 
+                       , double const dt
+                       , double const dtfact ) const
     {
-        getflux<0,recon_t>(VEC(i,j,k),q,fluxes,vbar,dx,dt,dtfact);
+        getflux<0,recon_t,riemann_t>(VEC(i,j,k),q,fluxes,vbar,dx,dt,dtfact);
     }
     /**
      * @brief Compute GRMHD fluxes in direction \f$x^2\f$
@@ -134,19 +133,19 @@ struct grmhd_equations_system_t
      * @param ngz  Number of ghost cells.
      * @param fluxes Flux array.
      */
-    template< typename recon_t >
-    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_y_flux_impl( int const q 
-                       , VEC( const int i 
-                       ,      const int j 
+    template< typename recon_t, typename riemann_t = default_riemann_tag_t >
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    compute_y_flux_impl( int const q
+                       , VEC( const int i
+                       ,      const int j
                        ,      const int k)
                        , grace::flux_array_t const  fluxes
                        , grace::flux_array_t const  vbar
                        , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
-                       , double const dt 
+                       , double const dt
                        , double const dtfact ) const
     {
-        getflux<1,recon_t>(VEC(i,j,k),q,fluxes,vbar,dx,dt,dtfact);
+        getflux<1,recon_t,riemann_t>(VEC(i,j,k),q,fluxes,vbar,dx,dt,dtfact);
     }
     /**
      * @brief Compute GRMHD fluxes in direction \f$x^3\f$
@@ -161,19 +160,19 @@ struct grmhd_equations_system_t
      * @param ngz  Number of ghost cells.
      * @param fluxes Flux array.
      */
-    template< typename recon_t >
-    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_z_flux_impl( int const q 
-                       , VEC( const int i 
-                       ,      const int j 
+    template< typename recon_t, typename riemann_t = default_riemann_tag_t >
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    compute_z_flux_impl( int const q
+                       , VEC( const int i
+                       ,      const int j
                        ,      const int k)
                        , grace::flux_array_t const  fluxes
                        , grace::flux_array_t const  vbar
                        , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
-                       , double const dt 
+                       , double const dt
                        , double const dtfact ) const
     {
-        getflux<2,recon_t>(VEC(i,j,k),q,fluxes,vbar,dx,dt,dtfact);
+        getflux<2,recon_t,riemann_t>(VEC(i,j,k),q,fluxes,vbar,dx,dt,dtfact);
     }
     /**
      * @brief Compute geometric source terms for GRMHD equations.
@@ -225,26 +224,26 @@ struct grmhd_equations_system_t
         double W ; 
         grmhd_get_W(gdd,z,&W) ; 
         double b2, smallb[4] ; 
-        grmhd_get_smallbu_smallb2(betau,gdd,B,z,W,alp,&smallb,&b2) ; 
+        grmhd_get_smallbu_smallb2(alp,betau,gdd,B,z,W,&smallb,&b2) ;
         /**************************************************************************************************/
         /* Metric derivatives                                                                             */
         /**************************************************************************************************/
         double dalpha_dx[3], dgdd_dx[18], dbetau_dx[9]; 
-        fill_deriv_scalar_4(this->_state, i,j,k, ALP_, q, dalpha_dx, idx(0,q)) ; 
-        fill_deriv_vector_4(this->_state, i,j,k, BETAX_, q, dbetau_dx, idx(0,q)) ;
-        #ifdef GRACE_ENABLE_COWLING_METRIC
-        fill_deriv_tensor_4(this->_state, i,j,k, GXX_, q, dgdd_dx, idx(0,q)) ;
-        #else 
+        fill_deriv_scalar<MATTER_METRIC_DER_ORDER>(this->_state, i,j,k, ALP_, q, dalpha_dx, idx(0,q)) ;
+        fill_deriv_vector<MATTER_METRIC_DER_ORDER>(this->_state, i,j,k, BETAX_, q, dbetau_dx, idx(0,q)) ;
+        #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_COWLING
+        fill_deriv_tensor<MATTER_METRIC_DER_ORDER>(this->_state, i,j,k, GXX_, q, dgdd_dx, idx(0,q)) ;
+        #else
         // conformal factor W = 1/gamma^{1/6}
-        double Wt  = s(CHI_) ; 
-        // 1/W 
-        double ooW = 1./Wt ; 
+        double Wt  = s(CHI_) ;
+        // 1/W
+        double ooW = 1./Wt ;
         // 1/W^2
-        double ooWsqr = SQR(ooW) ; 
-        // dW_dx/y/z 
-        double dchi_dx[3] ; 
-        fill_deriv_scalar_4(this->_state, i,j,k, CHI_, q, dchi_dx, idx(0,q)) ;
-        fill_deriv_tensor_4(this->_state, i,j,k, GTXX_, q, dgdd_dx, idx(0,q)) ;
+        double ooWsqr = SQR(ooW) ;
+        // dW_dx/y/z
+        double dchi_dx[3] ;
+        fill_deriv_scalar<MATTER_METRIC_DER_ORDER>(this->_state, i,j,k, CHI_, q, dchi_dx, idx(0,q)) ;
+        fill_deriv_tensor<MATTER_METRIC_DER_ORDER>(this->_state, i,j,k, GTXX_, q, dgdd_dx, idx(0,q)) ;
         // gdd = gtdd/W^2
         // dgdd/dx = d gtdd / dx / W^2 - 2 gtdd d W / dx / W^3 
         for( int idir=0; idir<3; ++idir) {
@@ -259,21 +258,18 @@ struct grmhd_equations_system_t
         /* Extrinsic curvature                                                                            */
         /**************************************************************************************************/
         double Kdd[6] ; 
-        #ifdef GRACE_ENABLE_COWLING_METRIC
+        #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_COWLING
         Kdd[0] = s(KXX_) ; Kdd[1] = s(KXY_) ; Kdd[2] = s(KXZ_) ; 
         Kdd[3] = s(KYY_) ; Kdd[4] = s(KYZ_) ; Kdd[5] = s(KZZ_) ; 
         #else
+        // K_{ij} = \tilde{A}_{ij} / \tilde{W}^2 + 1/3 (Khat + 2 \Theta) gamma_{ij}
         double Atdd[6] = { 
               s(ATXX_), s(ATXY_), s(ATXZ_),
               s(ATYY_), s(ATYZ_), s(ATZZ_)
         } ;
-        #ifdef GRACE_ENABLE_Z4C_METRIC
         double const Khat  = s(KHAT_);
         double const theta = s(THETA_);
-        double const Ktr = Khat + 2. * theta ; 
-        #elif defined(GRACE_ENABLE_BSSN_METRIC)
-        double const Ktr = s(KTR_) ; 
-        #endif 
+        double const Ktr = Khat + 2. * theta ;
         for( int a=0; a<6; ++a ) {
             Kdd[a] = ooWsqr * Atdd[a] + (Ktr) * gdd[a] / 3. ; 
         }
@@ -283,8 +279,10 @@ struct grmhd_equations_system_t
         /**************************************************************************************************/
         double tau_src, stilde_src[3] ; 
         grmhd_get_geom_sources(
-            betau, z, Kdd, dalpha_dx, guu, B, gdd, eps, alp, W, rho, p, dgdd_dx, dbetau_dx, &tau_src, &stilde_src
-        ) ; 
+            alp, betau, gdd, guu, Kdd, dalpha_dx, dgdd_dx, dbetau_dx,
+            rho, p, eps, B, z, W,
+            &tau_src, &stilde_src
+        ) ;
         /**************************************************************************************************/
         /* Add energy source terms                                                                        */
         /**************************************************************************************************/
@@ -377,7 +375,6 @@ struct grmhd_equations_system_t
         aux(BZ_) = cons[BSZL] / metric.sqrtg() ;
         c2p_err_t c2p_errors ;
         grmhd_prims_array_t prims ;
-        double D_old = vars(DENS_) ;
         conservs_to_prims<eos_t>(
             cons, prims, metric, this->_eos,
             this->atmo_params, this->excision_params, this->c2p_params, rtp,
@@ -395,28 +392,44 @@ struct grmhd_equations_system_t
         aux(ZVECY_)   = prims[ZYL]     ;
         aux(ZVECZ_)   = prims[ZZL]     ;
 
-        aux(C2P_ERR_)=0;
+        // Conservative rewrites driven by the err's reset bits.
         if ( c2p_errors.test(c2p_err_enum_t::C2P_RESET_DENS) ) {
+            // Signed mass-error accumulator (separate diagnostic — see
+            // C2P_DENS_ERR_, reset once per timestep in evolve.cpp).
             aux(C2P_DENS_ERR_) += vars(DENS_) - cons[DENSL] ;
-            aux(C2P_ERR_) += Kokkos::fabs(vars(DENS_) - cons[DENSL])/(1e-50+Kokkos::fabs(cons[DENSL])) ; ;
-            vars(DENS_) = cons[DENSL] ;   
+            vars(DENS_) = cons[DENSL] ;
         }
         if ( c2p_errors.test(c2p_err_enum_t::C2P_RESET_STILDE) ) {
             for( int ii=0; ii<3; ++ii) {
-                aux(C2P_ERR_) += Kokkos::fabs(vars(SX_+ii) - cons[STXL+ii])/(1e-50+Kokkos::fabs(cons[STXL+ii])) ;
                 vars(SX_+ii)=cons[STXL+ii] ;
             }
         }
         if ( c2p_errors.test(c2p_err_enum_t::C2P_RESET_TAU) ) {
-            aux(C2P_ERR_) += Kokkos::fabs(vars(TAU_) - cons[TAUL])/(1e-50+Kokkos::fabs(cons[TAUL])) ;
             vars(TAU_)=cons[TAUL];
         }
         if ( c2p_errors.test(c2p_err_enum_t::C2P_RESET_ENTROPY) ) {
             vars(ENTROPYSTAR_) = cons[ENTSL] ;
         }
         if ( c2p_errors.test(c2p_err_enum_t::C2P_RESET_YE) ) {
-            aux(C2P_ERR_) += Kokkos::fabs(vars(YESTAR_) - cons[YESL])/(1e-50+Kokkos::fabs(cons[YESL])) ;
             vars(YESTAR_) = cons[YESL] ;
+        }
+
+        // Pack the c2p_err bits (reset + diagnostic SIG_* + outcome) into
+        // aux(C2P_ERR_) with sticky-OR semantics over the timestep. Reset
+        // to 0 once per step at the top of evolve(), then OR-accumulated
+        // here on every RK substep so the value at step end is the union
+        // of failure modes seen across all substages.
+        //
+        // Storage: c2p_err_t is a bitset_t<C2P_N_ERR=21>, kWords=1, so the
+        // full bit pattern lives in words[0]. Reinterpret existing aux
+        // value as uint64_t (it was either 0 from the per-step reset or a
+        // previously-stored bit pattern from an earlier substep), OR with
+        // the new bits, cast back to double. All values stay integer-valued
+        // and ≤ 2^21, so the double<->uint64 round-trip is exact.
+        {
+            uint64_t const prev = static_cast<uint64_t>(aux(C2P_ERR_)) ;
+            uint64_t const curr = c2p_errors.words[0] ;
+            aux(C2P_ERR_) = static_cast<double>(prev | curr) ;
         }
     };
     /**
@@ -476,27 +489,27 @@ struct grmhd_equations_system_t
         double smallbu[4] ; 
         double b2;
         grmhd_get_smallbu_smallb2(
-            betau,gdd,B,z,W,alp,
+            alp,betau,gdd,B,z,W,
             &smallbu,&b2
-        ) ; 
+        ) ;
 
         /* Compute vtilde */
-        double vt[3] ; 
+        double vt[3] ;
         grmhd_get_vtildeu(
-            betau, W, z, alp, &vt
+            alp, betau, z, W, &vt
         ) ;
         /****************************************************/
         /* Find maximum eigenvalue (amongst all directions) */
-        double cmax {0}; 
-        std::array<unsigned int, 3> const metric_comp{ 0, 3, 5 } ; 
-        for( int idir=0; idir<3; ++idir){ 
-            double cp, cm ; 
+        double cmax {0};
+        std::array<unsigned int, 3> const metric_comp{ 0, 3, 5 } ;
+        for( int idir=0; idir<3; ++idir){
+            double cp, cm ;
             grmhd_get_cm_cp(
-                csnd2, vt, b2, betau, W, eps, rho, 
+                alp, betau, rho, press, eps, csnd2, W, b2, vt,
                 metric.invgamma(metric_comp[idir]),
-                alp, press, idir, 
+                idir,
                 &cm, &cp
-            ) ; 
+            ) ;
             cmax = math::max(cmax,math::abs(cp),math::abs(cm)) ; 
         }
         /****************************************************/
@@ -533,18 +546,19 @@ struct grmhd_equations_system_t
      * @param ngz Number of ghost-zones.
      * @param fluxes Flux array.
      */
-    template< int idir 
-            , typename recon_t   >
-    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    getflux(  VEC( const int i 
-            ,      const int j 
+    template< int idir
+            , typename recon_t
+            , typename riemann_t = default_riemann_tag_t >
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    getflux(  VEC( const int i
+            ,      const int j
             ,      const int k)
-            , const int64_t q 
+            , const int64_t q
             , grace::flux_array_t const fluxes
             , grace::flux_array_t const vbar /* this is actually eface for GS */
             , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
-            , double const dt 
-            , double const dtfact ) const 
+            , double const dt
+            , double const dtfact ) const
     {
         /***********************************************************************/
         /* Initialize reconstructor and riemann solver                         */
@@ -564,10 +578,11 @@ struct grmhd_equations_system_t
                               , j
                               , k )) ;
         /***********************************************************************/
-        /* 3rd order interpolation at cell interface                           */
+        /* 4-point Lagrange interpolation of the metric at the cell interface, */
+        /* with pair-symmetric summation so the face values are bit-mirror     */
+        /* under the discrete symmetries (see grmhd_helpers.hh).               */
         /***********************************************************************/
-        metric_array_t metric_face ; 
-        COMPUTE_FCVAL(metric_face,this->_state,i,j,k,q,idir) ; 
+        auto const metric_face = compute_face_metric(this->_state, VEC(i,j,k), q, idir);
         /***********************************************************************/
         /*              Reconstruct primitive variables                        */
         /***********************************************************************/
@@ -576,6 +591,17 @@ struct grmhd_equations_system_t
         /*     to avoid getting acausal velocities at the                      */
         /*     interface.                                                      */
         /***********************************************************************/
+        /* Thermo primitive reconstructed at faces is selected at configure   */
+        /* time via GRACE_RECON_THERMO (TEMP|PRESS).  TEMP is the GRACE       */
+        /* default (cold-K-preserving on polytropic equilibria); PRESS is     */
+        /* continuous across contact discontinuities.                         */
+        #if defined(GRACE_RECON_THERMO_PRESS)
+        constexpr int recon_thermo_idx_aux   = PRESS_ ;
+        constexpr int recon_thermo_idx_local = PRESSL ;
+        #else
+        constexpr int recon_thermo_idx_aux   = TEMP_ ;
+        constexpr int recon_thermo_idx_local = TEMPL ;
+        #endif
         std::array<int, GRMHD_NUM_RECON_VARS>
             recon_indices{
                   RHO_
@@ -583,12 +609,12 @@ struct grmhd_equations_system_t
                 , ZVECY_
                 , ZVECZ_
                 , YE_
-                , TEMP_
+                , recon_thermo_idx_aux
                 , ENTROPY_
-                , BX_ 
+                , BX_
                 , BY_
                 , BZ_
-            } ; 
+            } ;
         /* Local indices in prims array (note z^k -> v^k) */
         std::array<int, GRMHD_NUM_RECON_VARS>
             recon_indices_loc{
@@ -597,24 +623,45 @@ struct grmhd_equations_system_t
                 , ZYL
                 , ZZL
                 , YEL
-                , TEMPL
+                , recon_thermo_idx_local
                 , ENTL
-                , BXL 
-                , BYL 
+                , BXL
+                , BYL
                 , BZL
             } ;
         /* Reconstruction                                  */
-        grmhd_prims_array_t primL, primR ; 
+        grmhd_prims_array_t primL, primR ;
         #pragma unroll GRMHD_NUM_RECON_VARS
         for( int ivar=0; ivar<GRMHD_NUM_RECON_VARS; ++ivar) {
             auto u = Kokkos::subview( this->_aux
-                                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()) 
-                                    , recon_indices[ivar] 
+                                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                                    , recon_indices[ivar]
                                     , q ) ;
             reconstructor( u, VEC(i,j,k)
                          , primL[recon_indices_loc[ivar]]
                          , primR[recon_indices_loc[ivar]]
                          , idir) ;
+        }
+        /***********************************************************************/
+        /* Donor-cell override near excised cells.                             *
+         * If either of the two cells adjacent to the face sits in the         *
+         * excised region (α ≤ α_ex), discard the high-order reconstruction    *
+         * and use the cell-center primitives on each side. Recon stencils     *
+         * reading inside the horizon return sentinel/garbage state; donor     *
+         * cell from the live side is the standard cure.                       *
+         ***********************************************************************/
+        if ( metric_l.alp() <= excision_params.alp_ex
+          || metric_r.alp() <= excision_params.alp_ex ) {
+            int const i_L = i - utils::delta(idir, 0) ;
+            int const j_L = j - utils::delta(idir, 1) ;
+            int const k_L = k - utils::delta(idir, 2) ;
+            #pragma unroll GRMHD_NUM_RECON_VARS
+            for (int ivar = 0; ivar < GRMHD_NUM_RECON_VARS; ++ivar) {
+                primL[recon_indices_loc[ivar]] =
+                    this->_aux(VEC(i_L, j_L, k_L), recon_indices[ivar], q) ;
+                primR[recon_indices_loc[ivar]] =
+                    this->_aux(VEC(i,   j,   k  ), recon_indices[ivar], q) ;
+            }
         }
         /***********************************************************************/
         /* Replace B^d_L/R with face staggered                                 */
@@ -626,90 +673,81 @@ struct grmhd_equations_system_t
         } else {
             primL[BZL] = primR[BZL] = this->_stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) / metric_face.sqrtg(); 
         }
-        // Compute HLL fluxes
-        grmhd_cons_array_t f_HLL ; 
-        #ifdef GRACE_GRMHD_USE_GS 
+        /***********************************************************************/
+        /* EOS: derive remaining thermo state from the reconstructed thermo   */
+        /* primitive.  T-recon path uses press_eps_csnd2__temp_rho_ye (forward */
+        /* hook, returns P from T).  P-recon path uses                         */
+        /* eps_h_csnd2_temp_entropy__press_rho_ye (inverse hook, returns eps   */
+        /* from P and fills T).  Tabulated EOS currently aborts in the inverse */
+        /* hook — switch to TEMP recon if you need tabulated EOS.              */
+        /***********************************************************************/
+        eos_err_t eos_err;
+        #if defined(GRACE_RECON_THERMO_PRESS)
+        {
+            /* Dummies for outputs the recon path doesn't consume.  Entropy   */
+            /* in particular is *reconstructed*; we must not let the EOS      */
+            /* clobber primL/R[ENTL] with the EOS-derived value, since        */
+            /* grmhd_get_fluxes consumes the reconstructed entropy for the    */
+            /* ENTSL flux (same as the T-recon path).                         */
+            double h_dummy_L, h_dummy_R, ent_dummy_L, ent_dummy_R ;
+            primL[EPSL] = _eos.eps_h_csnd2_temp_entropy__press_rho_ye(
+                h_dummy_L, primL[CS2L], primL[TEMPL], ent_dummy_L,
+                primL[PRESSL], primL[RHOL], primL[YEL], eos_err
+            );
+            primR[EPSL] = _eos.eps_h_csnd2_temp_entropy__press_rho_ye(
+                h_dummy_R, primR[CS2L], primR[TEMPL], ent_dummy_R,
+                primR[PRESSL], primR[RHOL], primR[YEL], eos_err
+            );
+        }
+        #else
+        {
+            primL[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(
+                primL[EPSL], primL[CS2L], primL[TEMPL], primL[RHOL], primL[YEL], eos_err
+            );
+            primR[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(
+                primR[EPSL], primR[CS2L], primR[TEMPL], primR[RHOL], primR[YEL], eos_err
+            );
+        }
+        #endif
+        // Compute Riemann-solver fluxes.
+        grmhd_cons_array_t f_HLL ;
+        #if GRACE_EMF_SCHEME == GRACE_EMF_SCHEME_GS
         std::array<double,2> vb_HLL  ;
-        #else 
-        std::array<double,4> vb_HLL ; 
-        #endif 
-        compute_mhd_fluxes<idir,true>( primL, primR, metric_face, f_HLL, vb_HLL, 1, 1) ;
-        #ifdef GRMHD_USE_PPLIM
+        #else
+        std::array<double,4> vb_HLL ;
+        #endif
         /***********************************************************************/
-        /* Positivity-preserving limiter: gated on HLL alone threatening the   */
-        /* density floor.  In the common smooth-flow case HLL is positivity-   */
-        /* preserving and the LLF mix is skipped entirely, killing the second  */
-        /* Riemann call and the scratch traffic that parks f_LLF / consL,R /   */
-        /* re-filled primL,R across it.                                        */
+        /* Riemann solver dispatch on tag.  default_riemann_tag_t matches the  */
+        /* build-time GRACE_GRMHD_USE_* choice, so the main flux pass is       */
+        /* unchanged.  FOFC calls this kernel with llf_riemann_tag_t to force  */
+        /* a Rusanov flux at faces of flagged cells, irrespective of build.    */
         /***********************************************************************/
-        double const a2CFL = 6. * (dt*dtfact/dx(idir,q)) ;
-        double const rho_atm = fmin(atmo_params.rho_fl, excision_params.rho_ex) ;
-        double const dens_min_r = rho_atm * metric_r.sqrtg() ;
-        double const dens_min_l = rho_atm * metric_l.sqrtg() ;
-        double const dens_L = this->_state(VEC(i-utils::delta(idir,0)
-                                              ,j-utils::delta(idir,1)
-                                              ,k-utils::delta(idir,2)),DENS_,q) ;
-        double const dens_R = this->_state(VEC(i,j,k),DENS_,q) ;
-        double const dens_m = dens_R + a2CFL * f_HLL[DENSL] ;
-        double const dens_p = dens_L - a2CFL * f_HLL[DENSL] ;
-
-        double theta = 1. ;
-        if ( dens_m < dens_min_r || dens_p < dens_min_l ) {
-            /* Slow path: HLL would drive density below floor.  Compute LLF   */
-            /* flux with the cell-centered zvec-based primitives and blend.   */
-            FILL_PRIMS_ARRAY_ZVEC( primL, this->_aux, q
-                            , VEC( i-utils::delta(idir,0)
-                                 , j-utils::delta(idir,1)
-                                 , k-utils::delta(idir,2) )) ;
-            FILL_PRIMS_ARRAY_ZVEC( primR, this->_aux, q
-                            , VEC( i , j , k )) ;
-            if constexpr ( idir == 0 ) {
-                primL[BXL] = primR[BXL] = this->_stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) / metric_face.sqrtg() ;
-            } else if constexpr ( idir == 1 ) {
-                primL[BYL] = primR[BYL] = this->_stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) / metric_face.sqrtg() ;
-            } else {
-                primL[BZL] = primR[BZL] = this->_stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) / metric_face.sqrtg() ;
+        if constexpr (std::is_same_v<riemann_t, hlld_riemann_tag_t>) {
+            /* ADV: HLLD (MHD) / HLLC (hydro) with HLLE fallback.              */
+            int solver_used = 0;
+            bool flux_computed = compute_mhd_fluxes_hlld<idir>(
+                primL, primR, metric_face, f_HLL, vb_HLL, &solver_used
+            );
+            if (!flux_computed) {
+                compute_mhd_fluxes<idir>(primL, primR, metric_face, f_HLL, vb_HLL);
             }
-            grmhd_cons_array_t f_LLF ;
-            #ifdef GRACE_GRMHD_USE_GS
-            std::array<double,2> dummy ;
-            #else
-            std::array<double,4> dummy ;
-            #endif
-            compute_mhd_fluxes<idir,false>( primL, primR, metric_face, f_LLF, dummy, 1., 1.) ;
-
-            double const dens_LLF_m = dens_R + a2CFL * f_LLF[DENSL] ;
-            double const dens_LLF_p = dens_L - a2CFL * f_LLF[DENSL] ;
-
-            double theta_m = 1., theta_p = 1. ;
-            if (dens_m < dens_min_r) {
-                theta_m = math::min(1., math::max(0., (dens_min_r-dens_LLF_m)/(a2CFL*(f_HLL[DENSL]-f_LLF[DENSL])))) ;
-            }
-            if (dens_p < dens_min_l) {
-                theta_p = math::min(1., math::max(0., -(dens_min_l-dens_LLF_p)/(a2CFL*(f_HLL[DENSL]-f_LLF[DENSL])))) ;
-            }
-            theta = math::min(theta_m, theta_p) ;
-            if ( std::isnan(theta) ) theta = 1. ;
-
-            fluxes(VEC(i,j,k),DENS_,idir,q)        = theta * f_HLL[DENSL] + (1.-theta) * f_LLF[DENSL] ;
-            fluxes(VEC(i,j,k),YESTAR_,idir,q)      = theta * f_HLL[YESL]  + (1.-theta) * f_LLF[YESL]  ;
-            fluxes(VEC(i,j,k),ENTROPYSTAR_,idir,q) = theta * f_HLL[ENTSL] + (1.-theta) * f_LLF[ENTSL] ;
-            fluxes(VEC(i,j,k),TAU_,idir,q)         = theta * f_HLL[TAUL]  + (1.-theta) * f_LLF[TAUL]  ;
-            fluxes(VEC(i,j,k),SX_,idir,q)          = theta * f_HLL[STXL]  + (1.-theta) * f_LLF[STXL]  ;
-            fluxes(VEC(i,j,k),SY_,idir,q)          = theta * f_HLL[STYL]  + (1.-theta) * f_LLF[STYL]  ;
-            fluxes(VEC(i,j,k),SZ_,idir,q)          = theta * f_HLL[STZL]  + (1.-theta) * f_LLF[STZL]  ;
+        } else if constexpr (std::is_same_v<riemann_t, llf_riemann_tag_t>) {
+            /* Local Lax-Friedrichs (Rusanov): symmetric HLL with              *
+             * cmin = cmax = max(|c±_L|, |c±_R|) — the largest local fast-     *
+             * magnetosonic speed.                                             */
+            compute_mhd_fluxes<idir, /*rusanov=*/true>(
+                primL, primR, metric_face, f_HLL, vb_HLL
+            ) ;
         } else {
-            /* Fast path: HLL is positivity-preserving, write it directly.    */
-            fluxes(VEC(i,j,k),DENS_,idir,q)        = f_HLL[DENSL] ;
-            fluxes(VEC(i,j,k),YESTAR_,idir,q)      = f_HLL[YESL]  ;
-            fluxes(VEC(i,j,k),ENTROPYSTAR_,idir,q) = f_HLL[ENTSL] ;
-            fluxes(VEC(i,j,k),TAU_,idir,q)         = f_HLL[TAUL]  ;
-            fluxes(VEC(i,j,k),SX_,idir,q)          = f_HLL[STXL]  ;
-            fluxes(VEC(i,j,k),SY_,idir,q)          = f_HLL[STYL]  ;
-            fluxes(VEC(i,j,k),SZ_,idir,q)          = f_HLL[STZL]  ;
+            /* hll_riemann_tag_t — plain HLLE.                                 */
+            compute_mhd_fluxes<idir>( primL, primR, metric_face, f_HLL, vb_HLL ) ;
         }
         /***********************************************************************/
-        #else
+        /* Direct write of the Riemann-solver flux into the persistent fluxes  */
+        /* buffer. Positivity is no longer enforced here at recon time         */
+        /* (the old GRMHD_USE_PPLIM blend was retired in favour of FOFC); the  */
+        /* FOFC pass downstream catches cells that would need flooring and    */
+        /* recomputes the relevant face fluxes with donor+LLF.                 */
         /***********************************************************************/
         fluxes(VEC(i,j,k),DENS_,idir,q)        = f_HLL[DENSL] ;
         fluxes(VEC(i,j,k),YESTAR_,idir,q)      = f_HLL[YESL] ;
@@ -719,33 +757,31 @@ struct grmhd_equations_system_t
         fluxes(VEC(i,j,k),SY_,idir,q)          = f_HLL[STYL] ;
         fluxes(VEC(i,j,k),SZ_,idir,q)          = f_HLL[STZL] ;
         /***********************************************************************/
-        #endif
-        #ifdef GRACE_GRMHD_USE_GS 
-        // fill emf array 
-        vbar(VEC(i,j,k),0,idir,q) = vb_HLL[0] ; 
-        vbar(VEC(i,j,k),1,idir,q) = vb_HLL[1] ; 
-        #else 
+        #if GRACE_EMF_SCHEME == GRACE_EMF_SCHEME_GS
+        // fill emf array
+        vbar(VEC(i,j,k),0,idir,q) = vb_HLL[0] ;
+        vbar(VEC(i,j,k),1,idir,q) = vb_HLL[1] ;
+        #else
 	    // fill vbar and cmin/max for later
-        vbar(VEC(i,j,k),0,idir,q) = vb_HLL[0] ; 
-        vbar(VEC(i,j,k),1,idir,q) = vb_HLL[1] ; 
-        vbar(VEC(i,j,k),2,idir,q) = vb_HLL[2] ; 
-        vbar(VEC(i,j,k),3,idir,q) = vb_HLL[3] ; 
-        #endif 
+        vbar(VEC(i,j,k),0,idir,q) = vb_HLL[0] ;
+        vbar(VEC(i,j,k),1,idir,q) = vb_HLL[1] ;
+        vbar(VEC(i,j,k),2,idir,q) = vb_HLL[2] ;
+        vbar(VEC(i,j,k),3,idir,q) = vb_HLL[3] ;
+        #endif
     }
     template< size_t idir
-            , bool recompute_cp_cm >
+            , bool use_rusanov_speeds = false >
     GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE
     void compute_mhd_fluxes( grmhd_prims_array_t& primL
-                           , grmhd_prims_array_t& primR 
-                           , metric_array_t const& metric_face 
+                           , grmhd_prims_array_t& primR
+                           , metric_array_t const& metric_face
                            , grmhd_cons_array_t& f
-                           #ifdef GRACE_GRMHD_USE_GS
+                           #if GRACE_EMF_SCHEME == GRACE_EMF_SCHEME_GS
                            , std::array<double,2>& emf
-                           #else 
+                           #else
                            , std::array<double,4>& vbar
-                           #endif 
-                           , double const cmin_loc = 1
-                           , double const cmax_loc = 1 ) const 
+                           #endif
+                           ) const
     {
         /***********************************************************************/
         hll_riemann_solver_t solver     {} ;
@@ -769,8 +805,9 @@ struct grmhd_equations_system_t
         double& tr            = primR[TEMPL]  ;
         double& yel           = primL[YEL]    ;
         double& yer           = primR[YEL]    ;
-
-        
+        double const epsl = primL[EPSL], epsr = primR[EPSL];
+        double const pl   = primL[PRESSL], pr = primR[PRESSL] ; 
+        double const cs2l = primL[CS2L], cs2r = primR[CS2L] ;  
         /***********************************************************************/
         /* Compute W on both sides                                             */
         /***********************************************************************/
@@ -778,67 +815,67 @@ struct grmhd_equations_system_t
         grmhd_get_W(gdd, zl, &wl) ; 
         grmhd_get_W(gdd, zr, &wr) ; 
         /***********************************************************************/
-        /* Compute press and cs2 on both sides                                 */
-        /***********************************************************************/
-        double epsl,epsr,pl,pr,cs2l,cs2r ; 
-        eos_err_t eos_err ; 
-        pl = _eos.press_eps_csnd2__temp_rho_ye(epsl, cs2l, tl, rhol, yel, eos_err) ; 
-        pr = _eos.press_eps_csnd2__temp_rho_ye(epsr, cs2r, tr, rhor, yer, eos_err) ; 
-        /***********************************************************************/
         /* Compute b and b2 on both sides                                      */
         /***********************************************************************/
         double smallbl[4], smallbr[4] ; 
         double b2l, b2r ;
         grmhd_get_smallbu_smallb2(
-            betau, gdd, Bl, zl, wl, alp, &smallbl, &b2l
+            alp, betau, gdd, Bl, zl, wl, &smallbl, &b2l
         ) ;
         grmhd_get_smallbu_smallb2(
-            betau, gdd, Br, zr, wr, alp, &smallbr, &b2r
+            alp, betau, gdd, Br, zr, wr, &smallbr, &b2r
         ) ;
         /***********************************************************************/
         /* Compute vtilde on both sides                                        */
         /***********************************************************************/
-        double vtildel[3], vtilder[3] ; 
+        double vtildel[3], vtilder[3] ;
         grmhd_get_vtildeu(
-            betau, wl, zl, alp, &vtildel
-        ) ; 
+            alp, betau, zl, wl, &vtildel
+        ) ;
         grmhd_get_vtildeu(
-            betau, wr, zr, alp, &vtilder
-        ) ; 
+            alp, betau, zr, wr, &vtilder
+        ) ;
         /***********************************************************************/
-        /* Compute cm/cp if needed                                             */
+        /* Compute cm/cp                                                       */
         /***********************************************************************/
-        double cmin, cmax ; 
-        if constexpr ( recompute_cp_cm ) {
+        double cmin, cmax ;
+        {
             double cpr, cmr, cpl, cml;
-            int metric_comps[3] {0, 3, 5} ; 
-            int jk[3][2] = {
-                {1,2},
-                {0,2},
-                {0,1}
-            } ; 
-            grmhd_get_cm_cp( 
-                cs2l, vtildel, b2l, betau, wl, epsl, rhol, guu[metric_comps[idir]],
-                alp, pl, idir, &cml, &cpl
+            int metric_comps[3] {0, 3, 5} ;
+            grmhd_get_cm_cp(
+                alp, betau, rhol, pl, epsl, cs2l, wl, b2l, vtildel,
+                guu[metric_comps[idir]], idir, &cml, &cpl
             ) ;
-            grmhd_get_cm_cp( 
-                cs2r, vtilder, b2r, betau, wr, epsr, rhor, guu[metric_comps[idir]],
-                alp, pr, idir, &cmr, &cpr
+            grmhd_get_cm_cp(
+                alp, betau, rhor, pr, epsr, cs2r, wr, b2r, vtilder,
+                guu[metric_comps[idir]], idir, &cmr, &cpr
             ) ;
-            cmin = -Kokkos::min(0., Kokkos::min(cml,cmr)) ; 
-            cmax =  Kokkos::max(0., Kokkos::max(cpl,cpr)) ; 
+            if constexpr ( use_rusanov_speeds ) {
+                /* LLF / Rusanov: symmetric diffusion with the largest local  *
+                 * |fast magnetosonic speed| of either state. Matches the     *
+                 * GRMHD literature. The result is less diffusive than the    *
+                 * fixed-c LLF and more diffusive than upwind HLL.            */
+                cmax = Kokkos::max(
+                    Kokkos::max(Kokkos::fabs(cml), Kokkos::fabs(cmr)),
+                    Kokkos::max(Kokkos::fabs(cpl), Kokkos::fabs(cpr))
+                ) ;
+                cmin = cmax ;
+            } else {
+                cmin = -Kokkos::min(0., Kokkos::min(cml,cmr)) ;
+                cmax =  Kokkos::max(0., Kokkos::max(cpl,cpr)) ;
+            }
             /* Add some diffusion in weakly hyperbolic limit */
             if( cmin < 1e-12 and cmax < 1e-12 ) { cmin=1; cmax=1; }
-            #ifndef GRACE_GRMHD_USE_GS
-            /* Store cmin/cmax and vtilde for EMF            */
-            vbar[0] = solver(vtildel[jk[idir][0]],vtilder[jk[idir][0]],0,0,cmin,cmax) ;
-            vbar[1] = solver(vtildel[jk[idir][1]],vtilder[jk[idir][1]],0,0,cmin,cmax) ; 
-            vbar[2] = cmin; vbar[3] = cmax ; 
-            #endif
-        } else {
-            cmin = cmin_loc ; 
-            cmax = cmax_loc ; 
         }
+        #if GRACE_EMF_SCHEME != GRACE_EMF_SCHEME_GS
+        /* Fill vbar with HLL-averaged vtildes and cmin/cmax for the EMF.    */
+        {
+            int const jk[3][2] = { {1,2}, {0,2}, {0,1} } ;
+            vbar[0] = solver(vtildel[jk[idir][0]],vtilder[jk[idir][0]],0,0,cmin,cmax) ;
+            vbar[1] = solver(vtildel[jk[idir][1]],vtilder[jk[idir][1]],0,0,cmin,cmax) ;
+            vbar[2] = cmin; vbar[3] = cmax ;
+        }
+        #endif
         /***********************************************************************/
         /* Compute fluxes and conserved on both sides                          */
         /***********************************************************************/
@@ -848,15 +885,13 @@ struct grmhd_equations_system_t
         double fdr, ftr, fer, fstr[3] ;
 
         grmhd_get_fluxes(
-            wl, rhol, smallbl, b2l, alp, epsl, pl,
-            betau, zl, gdd, sl, vtildel, idir,
+            alp, betau, gdd, rhol, pl, epsl, zl, sl, wl, b2l, smallbl, vtildel, idir,
             &densl, &taul, &stl, &entsl,
             &fdl, &ftl, &fstl, &fel
-        ) ; 
+        ) ;
 
         grmhd_get_fluxes(
-            wr, rhor, smallbr, b2r, alp, epsr, pr,
-            betau, zr, gdd, sr, vtilder, idir,
+            alp, betau, gdd, rhor, pr, epsr, zr, sr, wr, b2r, smallbr, vtilder, idir,
             &densr, &taur, &str, &entsr,
             &fdr, &ftr, &fstr, &fer
         ) ;
@@ -875,7 +910,7 @@ struct grmhd_equations_system_t
         /***********************************************************************/
         f[YESL] = sqrtg * solver(yel*fdl,yer*fdr,yel*densl,yer*densr,cmin,cmax) ;
         /***********************************************************************/
-        #ifdef GRACE_GRMHD_USE_GS 
+        #if GRACE_EMF_SCHEME == GRACE_EMF_SCHEME_GS 
         if constexpr ( idir == 0 ) {
             // cross directions are y, z
             // Ey = Fx(Bz)
@@ -910,293 +945,36 @@ struct grmhd_equations_system_t
         #endif 
     }
     /***********************************************************************/
+    /* HLLD/HLLC ADV Riemann solver: not implemented in this build.         */
+    /*                                                                      */
+    /* Dispatch harness is present (cmake selector, riemann tag, dispatch   */
+    /* arm in getflux) but the implementation will land in a follow-up      */
+    /* release.  Build with -DGRACE_RIEMANN_SOLVER=HLL or =LLF; ADV will    */
+    /* compile but `Kokkos::abort` at the first face flux evaluation.       */
     /***********************************************************************/
-    #if 0
-    template< size_t idir
-            , bool recompute_cp_cm >
+    template< size_t idir >
     GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE
-    void compute_mhd_fluxes_hllc( grmhd_prims_array_t& primL
-                                , grmhd_prims_array_t& primR 
-                                , metric_array_t const& metric_face 
-                                , grmhd_cons_array_t& f
-                                , std::array<double,4>& vbar
-                                , double const cmin_loc = 1
-                                , double const cmax_loc = 1 ) const 
+    bool compute_mhd_fluxes_hlld( [[maybe_unused]] grmhd_prims_array_t& primL
+                                , [[maybe_unused]] grmhd_prims_array_t& primR
+                                , [[maybe_unused]] metric_array_t const& metric_face
+                                , [[maybe_unused]] grmhd_cons_array_t& f
+                                #if GRACE_EMF_SCHEME == GRACE_EMF_SCHEME_GS
+                                , [[maybe_unused]] std::array<double,2>& emf
+                                #else
+                                , [[maybe_unused]] std::array<double,4>& emf
+                                #endif
+                                , [[maybe_unused]] int* out_solver = nullptr
+                                ) const
     {
-        /***********************************************************************/
-        hll_riemann_solver_t hlle_solver     {} ;
-        /***********************************************************************/
-        /* Get some pointers                                                   */
-        /***********************************************************************/
-        double const * const gdd   = metric_face._g.data();
-        double const * const guu   = metric_face._ginv.data();
-        double const * const betau = metric_face._beta.data(); 
-        double const alp           = metric_face.alp() ; 
-        double const sqrtg         = metric_face.sqrtg() ; 
-        double const * const zl    = &(primL[ZXL]) ; 
-        double const * const zr    = &(primR[ZXL]) ; 
-        double const * const Bl    = &(primL[BXL]) ; 
-        double const * const Br    = &(primR[BXL]) ; 
-        double& rhol          = primL[RHOL]   ; 
-        double& rhor          = primR[RHOL]   ; 
-        double& sl            = primL[ENTL]   ; 
-        double& sr            = primR[ENTL]   ;
-        double& tl            = primL[TEMPL]  ;
-        double& tr            = primR[TEMPL]  ;
-        #ifdef GRACE_EVOLVE_YE
-        double& yel           = primL[YEL]    ;
-        double& yer           = primR[YEL]    ;
-        #else 
-        double yel            = 0.0           ;
-        double yer            = 0.0           ;
-        #endif
-        
-        /***********************************************************************/
-        /* Compute W on both sides                                             */
-        /***********************************************************************/
-        double wl,wr ;
-        double vl[3],vr[3];
-        hllc_get_W_vel(gdd, zl, &wl, &vl) ; 
-        hllc_get_W_vel(gdd, zr, &wr, &vr) ; 
-        /***********************************************************************/
-        /* Compute press and cs2 on both sides                                 */
-        /***********************************************************************/
-        double epsl,epsr,pl,pr,cs2l,cs2r ; 
-        unsigned int eos_err; 
-        pl = _eos.press_eps_csnd2__temp_rho_ye(epsl, cs2l, tl, rhol, yel, eos_err) ; 
-        pr = _eos.press_eps_csnd2__temp_rho_ye(epsr, cs2r, tr, rhor, yer, eos_err) ; 
-        /***********************************************************************/
-        /* Get tetrad                                                          */
-        /***********************************************************************/
-        int jdir = idir == 0 ? 1 : 0 ; 
-        int kdir = idir == 2 ? 1 : 2 ;
-        double gamma_dd[3][3] = {
-            {gdd[0], gdd[1], gdd[2]},
-            {gdd[1], gdd[3], gdd[4]},
-            {gdd[2], gdd[4], gdd[5]}
-        } ; 
-        double gamma_uu[3][3] = {
-            {guu[0], guu[1], guu[2]},
-            {guu[1], guu[3], guu[4]},
-            {guu[2], guu[4], guu[5]}
-        } ; 
-        double betad[3] = {0.0, 0.0, 0.0} ; 
-        for( int a=0; a<3; ++a) {
-            for( int b=0; b<3; ++b){
-                betad[a] += gamma_dd[a][b] * betau[b] ; 
-            }
-        }
-
-        double eUU[4][4], edd[4][4] ; 
-        hllc_get_tetrad(
-            idir,jdir,kdir,
-            gamma_uu, gamma_dd,
-            betau, betad,
-            &(eUU[0]),
-            &(eUU[idir+1]),
-            &(eUU[jdir+1]),
-            &(eUU[kdir+1]),
-            &(edd[0]),
-            &(edd[idir+1]),
-            &(edd[jdir+1]),
-            &(edd[kdir+1])
-        ) ; 
-
-        /***********************************************************************/
-        /* Transform vectors to tetrad frame                                   */
-        /***********************************************************************/
-        double vhatl[3], Bhatl[3], uhatl[3] ; 
-        hllc_transform_vectors(
-            alp, betau, Bl, zl, wl,
-            edd[0], edd[1], edd[2], edd[3],
-            &uhatl, &vhatl, &Bhatl
-        ) ;
-        double vhatr[3], Bhatr[3], uhatr[3] ; 
-        hllc_transform_vectors(
-            alp, betau, Br, zr, wr,
-            edd[0], edd[1], edd[2], edd[3],
-            &uhatr, &vhatr, &Bhatr
-        ) ;
-        /***********************************************************************/
-        /* Get L/R states and fluxes                                           */
-        /***********************************************************************/
-        double densl, taul, stildel[3], entsl, yesl ; 
-        double fdensl, ftaul, fstildel[3], fentsl, fyesl ; 
-        hllc_get_state_and_fluxes(
-            rhol, pl, epsl, wl, idir,
-            vhatl, uhatl, Bhatl,
-            &densl, &stildel, &taul,
-            &fdensl, &fstildel, &ftaul
-        ) ; 
-        entsl  = densl * sl   ; 
-        yesl   = densl * yel  ; 
-        fentsl = fdensl * sl  ; 
-        fyesl  = fdensl * yel ; 
-
-        double densr, taur, stilder[3], entsr, yesr ; 
-        double fdensr, ftaur, fstilder[3], fentsr, fyesr ; 
-        hllc_get_state_and_fluxes(
-            rhor, pr, epsr, wr, idir,
-            vhatr, uhatr, Bhatr,
-            &densr, &stilder, &taur,
-            &fdensr, &fstilder, &ftaur
-        ) ; 
-        entsr  = densr * sr   ; 
-        yesr   = densr * yer  ; 
-        fentsr = fdensr * sr  ; 
-        fyesr  = fdensr * yer ; 
-
-        /***********************************************************************/
-        /* Get wavespeeds cmax/cmin                                            */
-        /***********************************************************************/
-        double cpl, cml ;
-        hllc_get_wavespeeds(
-            rhol, pl, epsl, cs2l, wl,
-            vhatl, uhatl, Bhatl,
-            &cml, &cpl
-        ) ;
-        double cpr, cmr ;
-        hllc_get_wavespeeds(
-            rhor, pr, epsr, cs2r, wr,
-            vhatr, uhatr, Bhatr,
-            &cmr, &cpr
-        ) ;
-        double cmin = - Kokkos::fmin(0.0,Kokkos::fmin(cml,cmr)) ; 
-        double cmax =   Kokkos::fmax(0.0,Kokkos::fmax(cpl,cpr)) ; 
-
-        /***********************************************************************/
-        /* Get contact speed                                                   */
-        /***********************************************************************/
-        double fdenshlle = hlle_solver(fdensl,fdensr,densl,densr,cmin,cmax) ;
-        double denshlle  = hlle_solver.get_state(fdensl,fdensr,densl,densr,cmin,cmax) ; 
-        double ftauhlle  = hlle_solver(ftaul,ftaur,taul,taur,cmin,cmax) ;
-        double tauhlle   = hlle_solver.get_state(ftaul,ftaur,taul,taur,cmin,cmax) ; 
-        double fstildehlle[3], stildehlle[3] ; 
-        for( int a=0; a<3; ++a ) {
-            fstildehlle[a] = hlle_solver(fstildel[a],fstilder[a],stildel[a],stilder[a],cmin,cmax) ; 
-            stildehlle[a]  = hlle_solver.get_state(fstildel[a],fstilder[a],stildel[a],stilder[a],cmin,cmax) ; 
-        }
-        double lambda_c ; 
-        hllc_get_contact_speed(fstildehlle,stildehlle,ftauhlle,fdenshlle,tauhlle,denshlle,&lambda_c) ; 
-
-        /***********************************************************************/
-        /* Get interface speed                                                 */
-        /***********************************************************************/
-        double lambda_i ; 
-        hllc_get_interface_velocity(
-            alp, gamma_uu, betau, &lambda_i
-        ) ; 
-
-        /***********************************************************************/
-        /* Get cL/cR state and fluxes                                          */
-        /***********************************************************************/
-        double fdenscl, ftaucl, fstildecl[3], fentscl, fyescl ; 
-        double denscl, taucl, stildecl[3], entscl, yescl ; 
-        hllc_get_central_state_and_fluxes(
-            idir, fstildehll, fdenshll, lambda_c, -cmin,
-            densl, taul, stildel, vhatl, pl, fdensl, ftaul, fstildel,
-            &denscl, &stildecl, &taucl, &fdenscl, &fstildecl, &ftaucl
-        ) ; 
-        entscl  = entsl * denscl   ; 
-        yescl   = yesl * denscl    ; 
-        fentscl = entscl * fdenscl ; 
-        fyescl  = yescl * fyescl   ; 
-
-        double fdenscr, ftaucr, fstildecr[3], fentscr, fyescr ; 
-        double denscr, taucr, stildecr[3], entscr, yescr ; 
-        hllc_get_central_state_and_fluxes(
-            idir, fstildehll, fdenshll, lambda_c, cmax,
-            densr, taur, stilder, vhatr, pr, fdensr, ftaur, fstilder,
-            &denscr, &stildecr, &taucr, &fdenscr, &fstildecr, &ftaucr
-        ) ; 
-        entscr  = entsr * denscr   ; 
-        yescr   = yesr * denscr    ; 
-        fentscr = entscr * fdenscr ; 
-        fyescr  = yescr * fyescr   ; 
-        
-        /***********************************************************************/
-        /* Assemble HLLC fluxes                                                */
-        /***********************************************************************/
-        double fdens, fstilde[3], ftau, fents, fyes ; 
-        double dens, stilde[3], tau, ents, yes ;
-        if ( (-cmin) > lambda_i ) {
-            // left 
-            fdens      = fdensl      ;
-            fstilde[0] = fstildel[0] ; 
-            fstilde[1] = fstildel[1] ; 
-            fstilde[2] = fstildel[2] ;
-            ftau       = ftaul       ;
-            fents      = fentsl      ; 
-            fyes       = fyesl       ;
-            dens       = densl       ; 
-            stilde[0]  = stildel[0]  ; 
-            stilde[1]  = stildel[1]  ; 
-            stilde[2]  = stildel[2]  ;
-            tau        = taul        ;
-            ents       = entsl       ; 
-            yes        = yesl        ;
-        } else if ( ((-cmin) <= lambda_i) and ( lambda_i < lambda_c )) {
-            // center-left 
-            fdens      = fdenscl      ;
-            fstilde[0] = fstildecl[0] ; 
-            fstilde[1] = fstildecl[1] ; 
-            fstilde[2] = fstildecl[2] ;
-            ftau       = ftaucl       ;
-            fents      = fentscl      ; 
-            fyes       = fyescl       ;
-            dens       = denscl       ; 
-            stilde[0]  = stildecl[0]  ; 
-            stilde[1]  = stildecl[1]  ; 
-            stilde[2]  = stildecl[2]  ;
-            tau        = taucl        ;
-            ents       = entscl       ; 
-            yes        = yescl        ;
-        } else if ( (lambda_c <= lambda_i) and (lambda_i < lambda_r) ) {
-            // center-right 
-            fdens      = fdenscr      ;
-            fstilde[0] = fstildecr[0] ; 
-            fstilde[1] = fstildecr[1] ; 
-            fstilde[2] = fstildecr[2] ;
-            ftau       = ftaucr       ;
-            fents      = fentscr      ; 
-            fyes       = fyescr       ;
-            dens       = denscr       ; 
-            stilde[0]  = stildecr[0]  ; 
-            stilde[1]  = stildecr[1]  ; 
-            stilde[2]  = stildecr[2]  ;
-            tau        = taucr        ;
-            ents       = entscr       ; 
-            yes        = yescr        ;
-        } else {
-            // right 
-            fdens      = fdensr      ;
-            fstilde[0] = fstilder[0] ; 
-            fstilde[1] = fstilder[1] ; 
-            fstilde[2] = fstilder[2] ;
-            ftau       = ftaur       ;
-            fents      = fentsr      ; 
-            fyes       = fyesr       ;
-            dens       = densr       ; 
-            stilde[0]  = stilder[0]  ; 
-            stilde[1]  = stilder[1]  ; 
-            stilde[2]  = stilder[2]  ;
-            tau        = taur        ;
-            ents       = entsr       ; 
-            yes        = yesr        ;
-        }
-        /***********************************************************************/
-        /* Transform back                                                      */
-        /***********************************************************************/
-        hllc_transform_fluxes_to_grid_frame(
-            alp, idir, eUU, edd, 
-            dens, fdens, stilde, fstilde, tau, ftau,
-            &(f[DENSL]), &(f[STXL]), &(f[TAUL])
-        ) ;
-        f[ENTSL] = f[DENSL] * ents ; 
-        f[YESL]  = f[DENSL] * yes  ;
+        Kokkos::abort(
+            "compute_mhd_fluxes_hlld: ADV (HLLD/HLLC) Riemann solver is not "
+            "implemented in this build.  Rebuild with "
+            "-DGRACE_RIEMANN_SOLVER=HLL or =LLF."
+        );
+        return false;
     }
-    #endif 
-} ; 
+    /***********************************************************************/
+} ;
 /***********************************************************************/
 template< typename eos_t >
 void set_grmhd_initial_data() ; 
@@ -1209,6 +987,7 @@ extern template                          \
 void set_grmhd_initial_data<EOS>( )
 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::tabulated_cold_eos_t>) ;
 INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;
 INSTANTIATE_TEMPLATE(grace::ideal_gas_eos_t) ;
 #undef INSTANTIATE_TEMPLATE

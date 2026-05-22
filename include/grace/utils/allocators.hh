@@ -13,7 +13,7 @@
  * @copyright This file is part of GRACE.
  * GRACE is an evolution framework that uses Finite Difference 
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

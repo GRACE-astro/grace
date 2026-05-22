@@ -8,7 +8,7 @@
  * @copyright This file is part of GRACE.
  * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -46,6 +46,8 @@
 /* xmf */
 #include <grace/IO/xmf_utilities.hh>
 /* stl */
+#include <algorithm>
+#include <limits>
 #include <string>
 #include <filesystem>
 #include <sstream>
@@ -128,13 +130,56 @@ void write_plane_cell_data_impl(amr::plane_desc_t const& plane) {
     parallel::mpi_allreduce(
         &sliced_nq, &glob_sliced_nq, 1, mpi_sum 
     ) ; 
-    // write back some info for later use 
-    octree_slicer.ncells = sliced_cells ; 
-    octree_slicer.glob_ncells = glob_sliced_nq * nx * nx ; 
-    octree_slicer.glob_nq = glob_sliced_nq ;  
+    // write back some info for later use
+    octree_slicer.ncells = sliced_cells ;
+    octree_slicer.glob_ncells = glob_sliced_nq * nx * nx ;
+    octree_slicer.glob_nq = glob_sliced_nq ;
     if( chunk_size > octree_slicer.glob_ncells ) {
-        GRACE_WARN("Chunk size {} < number of cells {} will be overridden." , chunk_size, octree_slicer.glob_ncells) ; 
-        chunk_size = math::max(1UL,octree_slicer.glob_ncells); 
+        GRACE_WARN("Chunk size {} < number of cells {} will be overridden." , chunk_size, octree_slicer.glob_ncells) ;
+        chunk_size = math::max(1UL,octree_slicer.glob_ncells);
+    }
+
+    // Diagnostic: report the global range of sampled cell-center coords along
+    // the perpendicular axis.  Cell centers vary with the local AMR level
+    // (cells of width dx_L have centers at qc + (k+0.5)*dx_L), so a slice
+    // through an AMR layout where plane.coord doesn't align with a face
+    // shared by all levels produces a stair-step output (Δ > 0 below).  We
+    // emit this once per output so the user can verify what the file actually
+    // represents.
+    {
+        int const _perp_axis = (plane.axis == amr::plane_axis::YZ) ? 0
+                             : (plane.axis == amr::plane_axis::XZ) ? 1 : 2 ;
+        double _local_z_min =  std::numeric_limits<double>::infinity() ;
+        double _local_z_max = -std::numeric_limits<double>::infinity() ;
+        for ( size_t _i = 0; _i < octree_slicer.sliced_quads.size(); ++_i ) {
+            auto const _iq     = octree_slicer.sliced_quads[_i] ;
+            auto const _offset = octree_slicer.sliced_cell_offsets[_i] ;
+            auto const _qc     = amr::detail::get_quad_coord_lbounds(_iq) ;
+            double const _dx   = 1.0 / amr::detail::get_inv_cell_spacing(_iq, _perp_axis) ;
+            double const _zc   = _qc[_perp_axis] + (static_cast<double>(_offset) + 0.5) * _dx ;
+            _local_z_min = std::min(_local_z_min, _zc) ;
+            _local_z_max = std::max(_local_z_max, _zc) ;
+        }
+        double _global_z_min, _global_z_max ;
+        parallel::mpi_allreduce(&_local_z_min, &_global_z_min, 1, mpi_min) ;
+        parallel::mpi_allreduce(&_local_z_max, &_global_z_max, 1, mpi_max) ;
+        if ( parallel::mpi_comm_rank() == 0
+             && _global_z_max >= _global_z_min /* skip if no slice data */ ) {
+            double const _spread = _global_z_max - _global_z_min ;
+            if ( _spread > 1e-12 ) {
+                GRACE_WARN("Plane {} (requested perp coord {:.6e}): sampled "
+                           "cell-center range [{:.6e}, {:.6e}] (Δ={:.3e}) — "
+                           "stair-step across AMR levels.  Align "
+                           "plane offset to a face shared by all refinement "
+                           "levels for a true planar slice.",
+                           plane.name, plane.coord,
+                           _global_z_min, _global_z_max, _spread) ;
+            } else {
+                GRACE_INFO("Plane {} (requested perp coord {:.6e}): sampled "
+                           "cell-center coord {:.6e} (consistent across levels).",
+                           plane.name, plane.coord, _global_z_min) ;
+            }
+        }
     }
 
     auto comm = parallel::get_comm_world() ; 
@@ -161,8 +206,8 @@ void write_plane_cell_data_impl(amr::plane_desc_t const& plane) {
     // Close the attribute and dataspace
     HDF5_CALL(err,H5Aclose(attr_id));
     HDF5_CALL(err,H5Sclose(attr_dataspace_id));
-    file_attr_name = "Iteration" ; 
-    const unsigned int iter = grace::get_iteration(); 
+    file_attr_name = "Iteration" ;
+    const unsigned int iter = grace::get_iteration();
     HDF5_CALL(attr_dataspace_id,H5Screate(H5S_SCALAR));
     // Create the attribute
     HDF5_CALL(attr_id,H5Acreate2(file_id, file_attr_name.c_str(), H5T_NATIVE_UINT, attr_dataspace_id, H5P_DEFAULT, H5P_DEFAULT));
@@ -171,6 +216,50 @@ void write_plane_cell_data_impl(amr::plane_desc_t const& plane) {
     // Close the attribute and dataspace
     HDF5_CALL(err,H5Aclose(attr_id));
     HDF5_CALL(err,H5Sclose(attr_dataspace_id));
+    // Plane metadata: let downstream tools identify which plane this file
+    // represents without parsing the filename, and record the user-requested
+    // perpendicular-axis coordinate (the actual per-cell coordinates lie at
+    // the cell center along the perpendicular axis and may vary across
+    // refinement levels — the per-vertex coords in /points are authoritative).
+    {
+        // PlaneAxis: "XY" / "XZ" / "YZ"
+        std::string const axis_name = plane.name ;
+        hid_t str_type ;
+        HDF5_CALL(str_type, H5Tcopy(H5T_C_S1)) ;
+        HDF5_CALL(err, H5Tset_size(str_type, axis_name.size())) ;
+        HDF5_CALL(err, H5Tset_strpad(str_type, H5T_STR_NULLPAD)) ;
+        HDF5_CALL(attr_dataspace_id, H5Screate(H5S_SCALAR)) ;
+        HDF5_CALL(attr_id, H5Acreate2(file_id, "PlaneAxis", str_type,
+                                      attr_dataspace_id, H5P_DEFAULT, H5P_DEFAULT)) ;
+        HDF5_CALL(err, H5Awrite(attr_id, str_type, axis_name.c_str())) ;
+        HDF5_CALL(err, H5Aclose(attr_id)) ;
+        HDF5_CALL(err, H5Sclose(attr_dataspace_id)) ;
+        HDF5_CALL(err, H5Tclose(str_type)) ;
+    }
+    {
+        // PlaneRequestedCoord: the value the user requested for the
+        // perpendicular axis (xy_plane_offset / xz_plane_offset / yz_plane_offset).
+        double const requested_coord = plane.coord ;
+        HDF5_CALL(attr_dataspace_id, H5Screate(H5S_SCALAR)) ;
+        HDF5_CALL(attr_id, H5Acreate2(file_id, "PlaneRequestedCoord",
+                                      H5T_NATIVE_DOUBLE, attr_dataspace_id,
+                                      H5P_DEFAULT, H5P_DEFAULT)) ;
+        HDF5_CALL(err, H5Awrite(attr_id, H5T_NATIVE_DOUBLE, &requested_coord)) ;
+        HDF5_CALL(err, H5Aclose(attr_id)) ;
+        HDF5_CALL(err, H5Sclose(attr_dataspace_id)) ;
+    }
+    {
+        // PerpendicularAxisIndex: 0=YZ (perp=x), 1=XZ (perp=y), 2=XY (perp=z).
+        int const perp_axis_index = (plane.axis == amr::plane_axis::YZ) ? 0
+                                  : (plane.axis == amr::plane_axis::XZ) ? 1 : 2 ;
+        HDF5_CALL(attr_dataspace_id, H5Screate(H5S_SCALAR)) ;
+        HDF5_CALL(attr_id, H5Acreate2(file_id, "PerpendicularAxisIndex",
+                                      H5T_NATIVE_INT, attr_dataspace_id,
+                                      H5P_DEFAULT, H5P_DEFAULT)) ;
+        HDF5_CALL(err, H5Awrite(attr_id, H5T_NATIVE_INT, &perp_axis_index)) ;
+        HDF5_CALL(err, H5Aclose(attr_id)) ;
+        HDF5_CALL(err, H5Sclose(attr_dataspace_id)) ;
+    }
     /* Write grid structure to hdf5 file      */
     write_grid_structure_sliced_hdf5(file_id, compression_level,chunk_size, octree_slicer) ;
     /* Write requested variables to hdf5 file */
@@ -265,31 +354,45 @@ void write_grid_structure_sliced_hdf5(hid_t file_id, size_t compression_level, s
         }
     }
 
-    // coordinates 
-    //#pragma omp parallel for 
+    // Cell-corner offsets in the in-plane directions, cell-CENTER offset
+    // along the perpendicular axis.  The output is cell-centered data
+    // (metric, prims, ...) sliced at a single perpendicular index per quad;
+    // placing the vertex perp-coord at the cell center keeps the geometric
+    // position of each output cell consistent with where its data value
+    // physically lives.
+    std::array<double,3> vertex_offset{VEC(0.0, 0.0, 0.0)} ;
+    if ( octree_slicer._plane.axis == amr::plane_axis::YZ ) {
+        vertex_offset[0] = 0.5 ;
+    } else if ( octree_slicer._plane.axis == amr::plane_axis::XZ ) {
+        vertex_offset[1] = 0.5 ;
+    } else { /* XY */
+        vertex_offset[2] = 0.5 ;
+    }
+    // coordinates
+    //#pragma omp parallel for
     for( int iq = 0; iq<octree_slicer.sliced_quads.size(); ++iq) {
         for( int i=0; i<nx+1; ++i) for( int j=0; j<nx+1; ++j) {
-            auto const q = octree_slicer.sliced_quads[iq] ; 
-            auto const ipoint = get_point_index(i,j,iq) ; 
-            std::array<size_t,3> ijk ; 
+            auto const q = octree_slicer.sliced_quads[iq] ;
+            auto const ipoint = get_point_index(i,j,iq) ;
+            std::array<size_t,3> ijk ;
             if ( octree_slicer._plane.axis == amr::plane_axis::YZ ) {
-                ijk[0] = octree_slicer.sliced_cell_offsets[iq] ; 
+                ijk[0] = octree_slicer.sliced_cell_offsets[iq] ;
                 ijk[1] = i ; ijk[2] = j ;
             } else if ( octree_slicer._plane.axis == amr::plane_axis::XZ ) {
-                ijk[1] = octree_slicer.sliced_cell_offsets[iq] ; 
+                ijk[1] = octree_slicer.sliced_cell_offsets[iq] ;
                 ijk[0] = i ; ijk[2] = j ;
             } else {
-                ijk[2] = octree_slicer.sliced_cell_offsets[iq] ; 
+                ijk[2] = octree_slicer.sliced_cell_offsets[iq] ;
                 ijk[0] = i ; ijk[1] = j ;
             }
-            auto const pcoords = 
+            auto const pcoords =
                         coord_system.get_physical_coordinates( ijk
                                                              , q /* note! */
-                                                             , {VEC( 0,0,0 )}
+                                                             , vertex_offset
                                                              , false) ;
-            points[GRACE_NSPACEDIM*ipoint + 0 ] = pcoords[0] ; 
+            points[GRACE_NSPACEDIM*ipoint + 0 ] = pcoords[0] ;
             points[GRACE_NSPACEDIM*ipoint + 1 ] = pcoords[1] ;
-            points[GRACE_NSPACEDIM*ipoint + 2 ] = pcoords[2] ; 
+            points[GRACE_NSPACEDIM*ipoint + 2 ] = pcoords[2] ;
         }
     }
 

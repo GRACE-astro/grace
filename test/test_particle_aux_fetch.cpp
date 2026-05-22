@@ -92,12 +92,12 @@ TEST_CASE("particle_aux_fetch: trilinear round-trip on aux[RHO_]",
         gylo = std::min(gylo, g.bbox.ylo); gyhi = std::max(gyhi, g.bbox.yhi);
         gzlo = std::min(gzlo, g.bbox.zlo); gzhi = std::max(gzhi, g.bbox.zhi);
     }
-    MPI_Allreduce(MPI_IN_PLACE, &gxlo, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &gylo, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &gzlo, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &gxhi, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &gyhi, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &gzhi, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    parallel::mpi_allreduce_inplace(&gxlo, 1, sc_MPI_MIN);
+    parallel::mpi_allreduce_inplace(&gylo, 1, sc_MPI_MIN);
+    parallel::mpi_allreduce_inplace(&gzlo, 1, sc_MPI_MIN);
+    parallel::mpi_allreduce_inplace(&gxhi, 1, sc_MPI_MAX);
+    parallel::mpi_allreduce_inplace(&gyhi, 1, sc_MPI_MAX);
+    parallel::mpi_allreduce_inplace(&gzhi, 1, sc_MPI_MAX);
 
     // Avoid the half-open hi-face ambiguity.
     const double pad = 1e-9 * std::max({gxhi-gxlo, gyhi-gylo, gzhi-gzlo});

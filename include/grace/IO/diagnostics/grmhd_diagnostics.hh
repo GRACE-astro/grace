@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -47,6 +47,7 @@
 #include <grace/utils/reductions.hh>
 
 #include <grace/physics/grmhd_helpers.hh>
+#include <grace/evolution/boundary_outflow.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -58,11 +59,11 @@ namespace grace {
 struct grmhd_diagnostics {
     grmhd_diagnostics() {
         out_every = get_param<int>("mhd_diagnostics", "compute_other_diagnostics_every") ;
-        disk_rho_thresh = get_param<double>("mhd_diagnostics", "disk_mass_rho_threshold") ; 
-        auto& grace_runtime = grace::runtime::get() ; 
-        std::filesystem::path bdir = grace_runtime.scalar_io_basepath() ;  
-        std::string pfname = "grmhd_diagnostics.dat"; 
-        fpath = bdir / pfname ; 
+        disk_rho_thresh = get_param<double>("mhd_diagnostics", "disk_mass_rho_threshold") ;
+        auto& grace_runtime = grace::runtime::get() ;
+        std::filesystem::path bdir = grace_runtime.scalar_io_basepath() ;
+        std::string pfname = "grmhd_diagnostics.dat";
+        fpath = bdir / pfname ;
     }
     //**************************************************************************************************
     void compute_and_write() {
@@ -80,9 +81,11 @@ struct grmhd_diagnostics {
         if ( !std::filesystem::exists(fpath) and (proc == 0) and (out_every>0)) {
             std::ofstream outfile(fpath.string());
             outfile << std::fixed << std::setprecision(15) ; 
-            outfile << std::left << std::setw(width) << "Iteration" 
-                    << std::left << std::setw(width) << "Time" 
-                    << std::left << std::setw(width) << "disk_mass" << '\n' ;  
+            outfile << std::left << std::setw(width) << "Iteration"
+                    << std::left << std::setw(width) << "Time"
+                    << std::left << std::setw(width) << "disk_mass"
+                    << std::left << std::setw(width) << "total_mass"
+                    << std::left << std::setw(width) << "dM_outflux" << '\n' ;
         }
         
         parallel::mpi_barrier() ; 
@@ -102,73 +105,78 @@ struct grmhd_diagnostics {
 
         double thresh = disk_rho_thresh;
 
-        double disk_mass_loc ; 
+        // Volume integrals:
+        //   disk_mass_loc : ∫ D · dV  for cells with ρ > thresh
+        //   total_mass_loc: ∫ D · dV  over all cells (no threshold)
+        double disk_mass_loc  = 0.0 ;
+        double total_mass_loc = 0.0 ;
 
         MDRangePolicy<Rank<4>> policy(
             {ngz,ngz,ngz,0},
             {nx+ngz,ny+ngz,nz+ngz,nq}
-        ) ; 
+        ) ;
         parallel_reduce(
             GRACE_EXECUTION_TAG("DIAG", "compute_grmhd_diagnostics"),
             policy,
-            KOKKOS_LAMBDA(int const i, int const j, int const k, int q, double& intloc) {
-                metric_array_t metric ; 
-                FILL_METRIC_ARRAY(metric,state,q,VEC(i,j,k)) ;
+            KOKKOS_LAMBDA(int const i, int const j, int const k, int q,
+                          double& disk_acc, double& total_acc) {
+                grmhd_prims_array_t prims ;
+                FILL_PRIMS_ARRAY_ZVEC(prims, aux, q, i, j, k) ;
 
-                grmhd_prims_array_t prims ;     
-                FILL_PRIMS_ARRAY_ZVEC(
-                    prims, aux, q, i,j,k
-                ) ; 
+                double const densL    = state(i,j,k,DENS_,q) ;
+                double const cell_vol = dx(0,q) * dx(1,q) * dx(2,q) ;
 
-                double xyz[3] ; 
-                dc.get_physical_coordinates(i,j,k,q,xyz) ; 
-
-
-                double densL = state(i,j,k,DENS_,q) ; 
-
-                double cell_vol = dx(0,q) * dx(1,q) * dx(2,q) ; 
-                if ( prims[RHOL] > thresh ) {
-                    intloc += densL * cell_vol ; 
-                }
-            }, disk_mass_loc
+                if (prims[RHOL] > thresh) disk_acc += densL * cell_vol ;
+                total_acc += densL * cell_vol ;
+            },
+            disk_mass_loc, total_mass_loc
         ) ;
 
-        MPI_Allreduce(
-            &disk_mass_loc,             // sendbuf
-            &disk_mass,                 // recvbuf
-            1,                          // count
-            MPI_DOUBLE,                 // datatype
-            MPI_SUM,                    // op
-            MPI_COMM_WORLD              // comm
-        );
-        // Scalar volume integral; report full-domain physical value.
-        disk_mass *= scalar_symmetry_multiplier();
+        double reduced[2] = {disk_mass_loc, total_mass_loc} ;
+        double summed[2]  = {0.0, 0.0} ;
+        parallel::mpi_allreduce(reduced, summed, 2, sc_MPI_SUM) ;
+        disk_mass  = summed[0] * scalar_symmetry_multiplier() ;
+        total_mass = summed[1] * scalar_symmetry_multiplier() ;
+
+        // dM_outflux: mass that has left the grid through the outer
+        // (non-periodic) boundary since the previous diagnostic output.
+        // Read from the boundary_outflow_t singleton, which accumulates the
+        // DENS face flux at the boundary descriptor list after each RK
+        // substep's reflux pass.  `flush_to_host()` MPI-reduces and resets
+        // the device scalar, so each diagnostic line reports the outflux
+        // for the elapsed interval.
+        dM_outflux = boundary_outflow_t::get().flush_to_host() ;
     }
     //**************************************************************************************************
     private: 
     //**************************************************************************************************
     void output() {
-        int proc = parallel::mpi_comm_rank() ; 
-        if ( proc == 0 ) { 
-            auto& grace_runtime = grace::runtime::get() ; 
-            size_t const iter = grace_runtime.iteration() ; 
+        int proc = parallel::mpi_comm_rank() ;
+        if ( proc == 0 ) {
+            auto& grace_runtime = grace::runtime::get() ;
+            size_t const iter = grace_runtime.iteration() ;
             double const time = grace_runtime.time()      ;
             std::ofstream outfile(fpath.string(), std::ios::app) ;
-            outfile << std::fixed << std::setprecision(15) ; 
-            outfile << std::left << iter << '\t'
-                << std::left << time << '\t' 
-                << std::left << disk_mass << '\n' ;
-            
+            outfile << std::fixed << std::setprecision(15) ;
+            outfile << std::left << iter        << '\t'
+                    << std::left << time        << '\t'
+                    << std::left << disk_mass   << '\t'
+                    << std::left << total_mass  << '\t'
+                    << std::left << dM_outflux  << '\n' ;
         }
-        parallel::mpi_barrier() ; 
+        parallel::mpi_barrier() ;
     }
     //**************************************************************************************************
-    double disk_rho_thresh      ; //!< Only integrate for rho > thresh 
-    double disk_mass            ; //!< Disk mass diagnostic 
-    int out_every               ; //!< Output frequency 
+    double disk_rho_thresh  ; //!< Only integrate for rho > thresh
+    double disk_mass        ; //!< ∫_{ρ > thresh} D dV
+    double total_mass {0.0} ; //!< ∫ D dV  over all cells (no threshold)
+    double dM_outflux {0.0} ; //!< Mass crossing outer boundary since last output
+                              //!< (populated by the evolution-loop outflow kernel
+                              //!<  once wired; see boundary_outflow_accumulator)
+    int out_every               ; //!< Output frequency
     std::filesystem::path fpath ; //!< Output file path
     //**************************************************************************************************
-} ; 
+} ;
 
 
 }

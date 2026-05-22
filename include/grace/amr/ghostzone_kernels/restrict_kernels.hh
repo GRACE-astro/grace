@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -40,19 +40,21 @@
 
 namespace grace { namespace amr {
 
-template< typename interp_t, typename view_t > 
+template< typename interp_t, typename view_t >
 struct restrict_op {
 
-    view_t src_view, dest_view ; 
-    readonly_view_t<size_t> src_q, dest_q, var_idx ; 
+    view_t src_view, dest_view ;
+    readonly_view_t<size_t> src_q, dest_q, var_idx ;
+    readonly_view_t<uint8_t> child_id ; //!< Per-iq Morton child id (3 bits packed)
     size_t ngz ;
     interp_t op ;
 
     restrict_op(
         view_t _src_view, view_t _dest_view,
-        Kokkos::View<size_t*> _src_q, 
-        Kokkos::View<size_t*> _dest_q, 
-        Kokkos::View<size_t*> _var_idx, 
+        Kokkos::View<size_t*> _src_q,
+        Kokkos::View<size_t*> _dest_q,
+        Kokkos::View<size_t*> _var_idx,
+        Kokkos::View<uint8_t*> _child_id,
         interp_t _op,
         size_t _ngz
     ) : src_view(_src_view)
@@ -60,28 +62,37 @@ struct restrict_op {
       , src_q(_src_q)
       , dest_q(_dest_q)
       , var_idx(_var_idx)
+      , child_id(_child_id)
       , ngz(_ngz)
       , op(_op)
     {}
 
     template< var_staggering_t stag >
-    void set_data_ptr(view_alias_t alias) 
+    void set_data_ptr(view_alias_t alias)
     {
-        src_view = alias.get<stag>() ; 
+        src_view = alias.get<stag>() ;
     }
 
     KOKKOS_INLINE_FUNCTION
-    void operator() (size_t i, size_t j, size_t k, size_t vidx, size_t iq) const 
+    void operator() (size_t i, size_t j, size_t k, size_t vidx, size_t iq) const
     {
-        using namespace Kokkos ; 
+        using namespace Kokkos ;
 
-        auto src_qid = src_q(iq) ; 
-        auto dst_qid = dest_q(iq) ; 
-        auto iv = var_idx(vidx) ; 
+        auto src_qid = src_q(iq) ;
+        auto dst_qid = dest_q(iq) ;
+        auto iv = var_idx(vidx) ;
 
-        auto u = subview(src_view,ALL(),ALL(),ALL(),iv,src_qid) ; 
+        auto u = subview(src_view,ALL(),ALL(),ALL(),iv,src_qid) ;
 
-        dest_view(i+ngz,j+ngz,k+ngz,iv,dst_qid) = op(u,2*i+ngz,2*j+ngz,2*k+ngz) ; 
+        // Flip the interior Lagrange stencil per direction based on the local
+        // quad's position within its parent (p4est Morton child id). This
+        // makes the ghost-zone restriction L↔R symmetric across the parent
+        // midplane.  No-op for second_order_restrict_op.
+        uint8_t cid = child_id(iq) ;
+        int hx = (cid     ) & 1 ;
+        int hy = (cid >> 1) & 1 ;
+        int hz = (cid >> 2) & 1 ;
+        dest_view(i+ngz,j+ngz,k+ngz,iv,dst_qid) = op(u,2*i+ngz,2*j+ngz,2*k+ngz, hx,hy,hz) ;
         #if 0
         dest_view(i+ngz,j+ngz,k+ngz,iv,dst_qid) = 0.125 * (
             src_view(2*i+ngz  ,2*j+ngz  ,2*k+ngz  ,iv,src_qid) + 

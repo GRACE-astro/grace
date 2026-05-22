@@ -119,14 +119,14 @@ namespace grace {
       double const a = press/(rho*(1+eps)) ; 
       double const h = (1+eps) * (1+a) ; 
 
-      double const hbw     = h/w      ; 
+      double const hbw     = h/w      ;
       double const newmu   = 1. / (hbw + rfsqr * mu) ;
 
-      return mu - newmu;
+      return (mu - newmu);
     }
 
 
-    eos_t eos ; 
+    eos_t eos ;
 
     double d, s, ye ; 
 
@@ -187,24 +187,23 @@ namespace grace {
      */
     double  GRACE_HOST_DEVICE
     invert(grmhd_prims_array_t& prims, c2p_sig_t& err) {
-      
-      static constexpr double tolerance = 1e-15 ; 
 
-      // initial bracket 
-      double mu0 = 1/h0 ; 
+      // initial bracket
+      double mu0 = 1/h0 ;
       if ( r2 >= h0*h0 ) {
-        fbrack_t g(r2,Btilde2,r_dot_Btilde2,h0) ; 
-        int rerr ; 
-        mu0 = utils::rootfind_newton_raphson(0,1./h0,g,30,1e-10,rerr) ; 
+        fbrack_t g(r2,Btilde2,r_dot_Btilde2,h0) ;
+        int rerr ;
+        mu0 = utils::rootfind_newton_raphson(0,1./h0,g,30,1e-10,rerr) ;
         if ( rerr == 0 ) {
-          mu0 *= 1+1e-10 ; 
+          mu0 *= 1+1e-10 ;
         } else {
-          mu0 = utils::brent(g,0,1./h0,tolerance)*(1+1e-10) ;
+          mu0 = utils::brent(g,0,1./h0,1e-10)*(1+1e-10) ;
         }
       }
 
-      ent_froot_t fmu(eos,D,r2,r_dot_Btilde2,Btilde2,s,ye,h0) ; 
-      double mu = utils::brent(fmu, 0, mu0, tolerance) ; 
+      ent_froot_t fmu(eos,D,r2,r_dot_Btilde2,Btilde2,s,ye,h0) ;
+
+      double mu = utils::brent(fmu, 0, mu0, 1e-15) ;
 
       double x, w, eps, rho, press, temp, entropy ; 
       double residual = fmu.compute_primitives(

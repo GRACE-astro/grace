@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -195,15 +195,8 @@ struct em_energy_diagnostic {
                 intloc.data[2] += cell_vol * metric.sqrtg() * W * 0.5 * SQR(smallbphi) ; 
             }, Kokkos::Sum<array_sum_t<double,3>>(em_integrals)
         ) ;
-        double em_integrals_glob[3] ; 
-        MPI_Allreduce(
-            em_integrals.data,          // sendbuf
-            em_integrals_glob,          // recvbuf
-            3,                          // count
-            MPI_DOUBLE,                 // datatype
-            MPI_SUM,                    // op
-            MPI_COMM_WORLD              // comm
-        );
+        double em_integrals_glob[3] ;
+        parallel::mpi_allreduce(em_integrals.data, em_integrals_glob, 3, sc_MPI_SUM) ;
         // Scalar volume integrals; report full-domain physical values.
         int const sym_mult = scalar_symmetry_multiplier();
         E     = em_integrals_glob[0] * sym_mult ;

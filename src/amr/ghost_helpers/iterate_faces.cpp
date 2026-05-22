@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -292,21 +292,32 @@ void grace_iterate_faces(
         &(info->sides)
     } ;
     
-    auto const& s0 = sides[0] ; 
+    auto const& s0 = sides[0] ;
     /* Grid boundary case first */
     if (sides.size() == 1) {
-        auto offset = amr::get_local_quadrants_offset(s0.treeid) ; 
-        auto& desc = ghosts->at(s0.is.full.quadid + offset); 
+        auto offset = amr::get_local_quadrants_offset(s0.treeid) ;
+        int const local_qid = static_cast<int>(s0.is.full.quadid + offset) ;
+        auto& desc = ghosts->at(local_qid);
         uint8_t f = s0.face ;
         auto& face = desc.faces[f];
         face.kind = interface_kind_t::PHYS ;
         face.data.phys.dir[0] = face.data.phys.dir[1] = face.data.phys.dir[2] = 0;
         face.data.phys.dir[static_cast<size_t>(f/2)] = f%2 ? +1 : -1 ;
-        face.data.phys.type = amr::element_kind_t::FACE ; 
+        face.data.phys.type = amr::element_kind_t::FACE ;
         face.data.phys.in_cbuf = false ;
         face.data.phys.task_id.fill(UNSET_TASK_ID);
-        desc.n_registered_faces ++ ; 
-        return ; 
+        desc.n_registered_faces ++ ;
+
+        // Append (quadrant_id, face_id) to the boundary-face builder list.
+        // p4est invokes this branch ONLY for faces with no neighbor on the
+        // other side — i.e. faces on the outer domain boundary that aren't
+        // periodic.  Periodic wrap-around faces have a neighbor and follow
+        // the sides.size() == 2 path below, so they're naturally excluded.
+        if (iter_data->boundary_faces != nullptr) {
+            iter_data->boundary_faces->emplace_back(local_qid,
+                                                     static_cast<int8_t>(f)) ;
+        }
+        return ;
     }
     auto const& s1 = sides[1] ; 
     register_face(s0,s1,*ghosts) ; 

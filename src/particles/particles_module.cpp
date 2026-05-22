@@ -23,11 +23,9 @@
 #include <grace/system/runtime_functions.hh>
 #include <grace/system/print.hh>
 
-#ifdef GRACE_ENABLE_GRMHD
 #include <grace/data_structures/variables.hh>
 #include <grace/data_structures/variable_indices.hh>
 #include <grace/amr/amr_functions.hh>
-#endif
 
 #include <Kokkos_Core.hpp>
 
@@ -148,7 +146,6 @@ void seed_local(tracer_container_t<>& tr, std::size_t n_per_rank) {
     Kokkos::deep_copy(tr.owner_local_quad, h_owner_quad);
 }
 
-#ifdef GRACE_ENABLE_GRMHD
 /// Density-weighted seed: oversample Halton candidates per local quad,
 /// trilinear-interp AUX rho at each, accept those above the threshold.
 /// Designed for nucleosynthesis post-processing where uniform seeding
@@ -319,7 +316,6 @@ void seed_density_weighted(tracer_container_t<>& tr,
     Kokkos::deep_copy(tr.owner_rank,       h_owner_rank);
     Kokkos::deep_copy(tr.owner_local_quad, h_owner_quad);
 }
-#endif // GRACE_ENABLE_GRMHD
 
 /// Read global domain bounds and BC flags from the parser. Bounds live in
 /// amr.{xmin,xmax,ymin,ymax,zmin,zmax} and are authoritative — no Allreduce
@@ -362,7 +358,7 @@ double compute_min_quad_width() {
     for (const auto& g : geom) {
         m = std::min(m, g.dx_cell);
     }
-    MPI_Allreduce(MPI_IN_PLACE, &m, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+    parallel::mpi_allreduce_inplace(&m, 1, sc_MPI_MIN);
     return m;
 }
 
@@ -394,8 +390,7 @@ void assert_no_regime3_drift(const tracer_container_t<>& tr,
     // Allreduce must run on every rank, regardless of local n: a sibling
     // rank with non-empty tr would otherwise hang here.
     int global_violations = 0;
-    MPI_Allreduce(&n_violations, &global_violations, 1, MPI_INT, MPI_SUM,
-                  MPI_COMM_WORLD);
+    parallel::mpi_allreduce(&n_violations, &global_violations, 1, sc_MPI_SUM);
     if (global_violations > 0) {
         ERROR("Particles: " << global_violations
               << " tracer(s) drifted > 0.5 * min_quad_width="
@@ -531,12 +526,9 @@ void rebalance(tracer_container_t<>& tr, const std::string& strategy,
     double    global_lo[3], global_hi[3];
     double    neg_local_lo[3] = { -local.bbox_lo[0], -local.bbox_lo[1], -local.bbox_lo[2] };
     double    neg_global_lo[3];
-    MPI_Allreduce(&local.n_flagged, &global_culled, 1, MPI_LONG_LONG,
-                  MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(neg_local_lo,    neg_global_lo, 3, MPI_DOUBLE,
-                  MPI_MAX, MPI_COMM_WORLD);
-    MPI_Allreduce(local.bbox_hi,   global_hi,     3, MPI_DOUBLE,
-                  MPI_MAX, MPI_COMM_WORLD);
+    parallel::mpi_allreduce(&local.n_flagged, &global_culled, 1, sc_MPI_SUM);
+    parallel::mpi_allreduce(neg_local_lo,     neg_global_lo,  3, sc_MPI_MAX);
+    parallel::mpi_allreduce(local.bbox_hi,    global_hi,      3, sc_MPI_MAX);
     for (int d = 0; d < 3; ++d) global_lo[d] = -neg_global_lo[d];
 
     if (global_culled > 0) {
@@ -614,16 +606,11 @@ void particles_module_t::initialize(hid_t restore_file_id) {
         if (_impl->seeding_mode == "uniform") {
             seed_local(_impl->tracers, static_cast<std::size_t>(n_per_rank));
         } else if (_impl->seeding_mode == "density_weighted") {
-#ifdef GRACE_ENABLE_GRMHD
             seed_density_weighted(
                 _impl->tracers,
                 static_cast<std::size_t>(n_per_rank),
                 _impl->seeding_rho_threshold,
                 static_cast<std::size_t>(_impl->seeding_oversample));
-#else
-            ERROR("particles: seeding_mode=density_weighted requires "
-                  "GRACE_ENABLE_GRMHD (rho is a GRMHD primitive).");
-#endif
         } else {
             ERROR("Unknown particles.seeding_mode: " << _impl->seeding_mode);
         }

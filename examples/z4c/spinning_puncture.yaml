@@ -91,7 +91,7 @@ amr: {
 }
 
 IO: {
-  plane_surface_output_cell_variables: ["z4c_H", "z4c_M[0]", "beta[0]", "z4c_Khat", "gamma_tilde[0,0]", "gamma_tilde[0,1]", "gamma_tilde[0,2]", "gamma_tilde[1,1]", "gamma_tilde[1,2]", "gamma_tilde[2,2]", "z4c_theta", "conf_fact", "z4c_Gamma[0]","A_tilde[0,0]","A_tilde[0,1]","A_tilde[0,2]", "A_tilde[1,1]", "A_tilde[1,2]", "A_tilde[2,2]", "alp", "Psi4Re", "Psi4Im"],
+  plane_surface_output_cell_variables: ["metric", "Psi4Re", "Psi4Im"],
   plane_surface_output_every: 1000,
 
   info_output_every: 2,
@@ -109,7 +109,6 @@ IO: {
   hdf5_chunk_size: 8192,
   output_extra_quantities: true,
 
-  output_plane_z_origin_0: 1e-5,
   # This is to match dt_out with EinsteinToolkit
   # config I was running 
   diagnostic_output_every: 2 
@@ -168,40 +167,17 @@ z4c: {
 
 spherical_surfaces: {
 
-  n_surfaces: 2,
-
-  spherical_surface_0: {
+  n_surfaces: 1,
+  spherical_detectors: [
+    {
     name: "GW_1",
-    tracking: "none",
     radius: 60.0,
-    x_c: 0.0,
-    y_c: 0.0,
-    z_c: 0.0,
-    
-    sampling_policy: "uniform",
     resolution: 181
-  },
-
-  spherical_surface_1: {
-    name: "GW_2",
-    tracking: "none",
-    radius: 60.0,
-    x_c: 0.0,
-    y_c: 0.0,
-    z_c: 0.0,
-    
-    sampling_policy: "uniform",
-    resolution: 31
-  }
+    }
+  ]
 }
 
 gw_integrals: {
-  detector_names: ["GW_1","GW_2"],
+  detector_names: ["GW_1"],
   detector_indices: []
-}
-
-checkpoints: {
-  checkpoint_dir: "../checkpoints",
-  max_n_checkpoints: 4,
-  checkpoint_at_startup: true
 }

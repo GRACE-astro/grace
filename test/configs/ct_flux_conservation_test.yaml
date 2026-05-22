@@ -1,0 +1,58 @@
+name: "grace"
+amr: {
+  npoints_block_x: 8,
+  npoints_block_y: 8,
+  npoints_block_z: 8,
+  xmin: -1.,
+  xmax: 1.,
+  ymin: -1.,
+  ymax: 1.,
+  zmin: -1.,
+  zmax: 1.,
+
+  # Periodic BCs in all directions so the global outer-boundary B-flux
+  # integral vanishes identically. That makes the CT-flux conservation
+  # check assert against exactly zero with no separate boundary
+  # bookkeeping.
+  periodic_x: true,
+  periodic_y: true,
+  periodic_z: true,
+
+  n_ghostzones: 2,
+  initial_refinement_level: 2,
+
+  max_refinement_level: 3,
+  regrid_every: -1,
+  regrid_at_postinitial: false,
+
+  # FMR box covering an interior region, well inside the periodic
+  # domain, to force genuine fine-coarse interfaces on which the CT
+  # reflux has to do real work. Without this the descriptor list is
+  # empty and the test self-skips.
+  n_fmr_boxes: 1,
+  fmr_boxes: [
+  {
+    target_level_delta: 1,
+    x_min: -0.5,
+    x_max:  0.5,
+    y_min: -0.5,
+    y_max:  0.5,
+    z_min: -0.5,
+    z_max:  0.5
+  }
+  ]
+}
+IO: {
+  volume_output_cell_variables: [],
+  output_extra_quantities: false
+}
+system: {
+  console_log_level: "verbose",
+  file_log_level: "trace",
+  flush_logs_based_on_severity: true,
+  n_device_streams: 4
+}
+
+checkpoints: {
+  checkpoint_at_termination: false
+}

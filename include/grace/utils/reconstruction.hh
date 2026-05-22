@@ -8,7 +8,7 @@
  * @copyright This file is part of GRACE.
  * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,13 +38,48 @@
 
 namespace grace {
 /**
+ * @brief Donor-cell (piecewise-constant, first-order) reconstruction.
+ *
+ * \ingroup numerics
+ *
+ * Trivially L/R-symmetric: at the face between cells `im` and `i`,
+ * `uL = u(im)` and `uR = u(i)`.  No arithmetic between cell values,
+ * no slopes, no limiters — useful for ruling out the reconstructor
+ * as a source of FP-asymmetry when investigating solver-side issues.
+ * Diffusive (1st-order accurate); not for production runs.
+ */
+struct donor_cell_reconstructor_t
+{
+    template< typename ViewT >
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    operator() (
+          ViewT& u
+        , VEC( int const i
+             , int const j
+             , int const k)
+        , double& uL
+        , double& uR
+        , int8_t idir )
+    {
+        int const im = i - utils::delta(0,idir) ;
+        int const jm = j - utils::delta(1,idir) ;
+        #ifdef GRACE_3D
+        int const km = k - utils::delta(2,idir) ;
+        #endif
+
+        uL = u(VEC(im,jm,km)) ;
+        uR = u(VEC(i ,j ,k )) ;
+    }
+} ;
+
+/**
  * @brief Class for slope-limited, second order accurate
  *        reconstruction.
  * \ingroup numerics
  * @tparam limiter_t Limiter type.
  */
 template< typename limiter_t >
-struct slope_limited_reconstructor_t  
+struct slope_limited_reconstructor_t
 {
     /**
      * @brief Compute reconstruction of state 

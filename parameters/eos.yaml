@@ -45,12 +45,19 @@ eos:
       description: >
         For hybrid_eos: kind of cold eos 
 
-    gamma_th: 
-      type: double 
-      default: 1.8 
+    gamma_th:
+      type: double
+      default: 1.8
       range: "(*,*)"
       description: >
-        Thermal Gamma for hybrid eos 
+        Thermal Gamma for hybrid eos
+
+    cold_table_filename:
+      type: string
+      default: "cold.grace"
+      description: >
+        Path to the GRACE cold EOS table (v2 format), used when
+        cold_eos_type == "tabulated".  Ignored otherwise.
 
   piecewise_polytrope:
     type: schema 

@@ -280,7 +280,7 @@ void fetch_at_positions(
                 const double Zx = trilin_aux(ZVECX_);
                 const double Zy = trilin_aux(ZVECY_);
                 const double Zz = trilin_aux(ZVECZ_);
-#ifdef GRACE_ENABLE_COWLING_METRIC
+#if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_COWLING
                 // γ_ij is in the state array directly.
                 const double gxx = trilin_state(GXX_);
                 const double gxy = trilin_state(GXY_);
@@ -288,7 +288,7 @@ void fetch_at_positions(
                 const double gyy = trilin_state(GYY_);
                 const double gyz = trilin_state(GYZ_);
                 const double gzz = trilin_state(GZZ_);
-#elif defined(GRACE_ENABLE_Z4C_METRIC) || defined(GRACE_ENABLE_BSSN_METRIC)
+#elif (GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4)
                 // γ_ij = γ̃_ij / χ.
                 const double chi  = trilin_state(CHI_);
                 const double inv_chi = (chi > 0.0) ? 1.0 / chi : 1.0;

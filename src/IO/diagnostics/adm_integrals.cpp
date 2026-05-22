@@ -9,7 +9,7 @@
  * @copyright This file is part of GRACE.
  * GRACE is an evolution framework that uses Finite Difference / Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -51,7 +51,7 @@
 
 namespace grace {
 
-#ifdef GRACE_ENABLE_Z4C_METRIC
+#if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
 
 namespace {
 
@@ -350,7 +350,7 @@ void adm_integrals::compute_and_write() {
     }
 }
 
-#else  // !GRACE_ENABLE_Z4C_METRIC
+#else  // GRACE_METRIC_EVOL != GRACE_METRIC_EVOL_Z4
 
 // The diagnostic is only meaningful for an evolved spacetime metric; with
 // the Cowling stub built in, leave the methods as no-ops so the symbol is
@@ -362,6 +362,6 @@ double adm_integrals::compute_local(size_t) { return 0.0; }
 std::vector<double> adm_integrals::compute() { return {}; }
 void adm_integrals::compute_and_write() {}
 
-#endif  // GRACE_ENABLE_Z4C_METRIC
+#endif  // GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
 
 }  // namespace grace

@@ -2,3 +2,18 @@
 	path = extern/doxygen-awesome-css
 	url = git@github.com:jothepro/doxygen-awesome-css.git
 
+[submodule "extern/kokkos"]
+	path = extern/kokkos
+	url = https://github.com/kokkos/kokkos.git
+[submodule "extern/p4est"]
+	path = extern/p4est
+	url = https://github.com/cburstedde/p4est.git
+[submodule "extern/Catch2"]
+	path = extern/Catch2
+	url = https://github.com/catchorg/Catch2.git
+[submodule "extern/spdlog"]
+	path = extern/spdlog
+	url = https://github.com/gabime/spdlog.git
+[submodule "extern/yaml-cpp"]
+	path = extern/yaml-cpp
+	url = https://github.com/jbeder/yaml-cpp.git

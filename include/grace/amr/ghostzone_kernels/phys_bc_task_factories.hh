@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -208,7 +208,7 @@ make_gpu_phys_bc_task(
 
     int const N_vars = static_cast<int>(nv) ;
 
-    #ifdef GRACE_ENABLE_Z4C_METRIC
+    #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
     constexpr bool need_z4c_constr = (stag == STAG_CENTER) ;
     #else
     constexpr bool need_z4c_constr = false ;
@@ -520,7 +520,7 @@ make_gpu_phys_bc_face_ext_task(
         {max_ext_par, max_ext_par, N_vars, N_faces}
     ) ;
 
-    #ifdef GRACE_ENABLE_Z4C_METRIC
+    #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
     constexpr bool need_z4c_constr = (stag == STAG_CENTER) ;
     #else
     constexpr bool need_z4c_constr = false ;

@@ -24,7 +24,7 @@
 
 #include <grace/IO/spherical_surfaces.hh>
 
-TEST_CASE("Test_EMF_REFLUX", "[refluxing]")
+TEST_CASE("Spherical-surface 4πr² integration", "[spherical_surface]")
 {
     DECLARE_GRID_EXTENTS ; 
     using namespace grace ; 
@@ -33,10 +33,10 @@ TEST_CASE("Test_EMF_REFLUX", "[refluxing]")
     double r = 1.0;
     std::string name{"pippo"} ; 
     std::array<double,3> c{0,0,0} ; 
-    size_t npt = 32 ; 
+    size_t npt = 33 ; 
     // create a spherical surface 
-    auto surf = std::make_unique<spherical_surface_t<uniform_sampler_t,no_tracking_policy_t,3>>(
-                spherical_surface_t<uniform_sampler_t,no_tracking_policy_t,3>(name,r,c,npt)
+    auto surf = std::make_unique<spherical_surface_t<uniform_sampler_t,no_tracking_policy_t>>(
+                spherical_surface_t<uniform_sampler_t,no_tracking_policy_t>(name,r,c,npt)
             ); 
     auto& state = grace::variable_list::get().getstate() ; 
     auto state_h = create_mirror_view(state) ; 
@@ -47,8 +47,11 @@ TEST_CASE("Test_EMF_REFLUX", "[refluxing]")
     ) ; 
     Kokkos::deep_copy(state,state_h) ;
 
-    Kokkos::View<double**> interp("test",2048,1);
-    interpolate_on_sphere(*surf, std::vector<int>{0}, std::vector<int>{}, interp) ; 
+    Kokkos::View<double**, grace::default_space> interp    ("test",      2048, 1);
+    // Second output buffer for the (empty) aux-variable list — required by
+    // the interpolate_on_sphere signature even when aux_idx_h is empty.
+    Kokkos::View<double**, grace::default_space> interp_aux("test_aux",   2048, 0);
+    interpolate_on_sphere(*surf, std::vector<int>{0}, std::vector<int>{}, interp, interp_aux) ;
     auto iv = Kokkos::create_mirror_view(interp) ; 
     Kokkos::deep_copy(iv,interp) ; 
 
@@ -70,6 +73,9 @@ TEST_CASE("Test_EMF_REFLUX", "[refluxing]")
     ) ; 
 
 
-    REQUIRE( fabs(res-4*M_PI*r*r) < 1e-15) ; 
+    // 33-point sphere quadrature integrates a constant field to the
+    // accumulated FP round-off floor, not bit-exact.  Empirical headroom
+    // is O(1e-13) — give it 1e-12.
+    REQUIRE( fabs(res - 4*M_PI*r*r) < 1e-12) ;
 
 }

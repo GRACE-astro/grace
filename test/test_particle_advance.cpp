@@ -80,7 +80,7 @@ void fill_uniform_state(std::size_t ncells, long nx, long ny, long nz, int ngz)
         h_aux(i, j, k, BY_, q)      = 0.0;
         h_aux(i, j, k, BZ_, q)      = 0.0;
 
-#ifdef GRACE_ENABLE_COWLING_METRIC
+#if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_COWLING
         // Flat metric: gamma_ij = delta_ij, alpha = 1, beta = 0.
         h_state(i, j, k, GXX_, q)   = 1.0;
         h_state(i, j, k, GYY_, q)   = 1.0;
@@ -130,12 +130,12 @@ TEST_CASE("particle_advance: uniform-Z push tracks v = Z/sqrt(1+Z^2)",
         gylo = std::min(gylo, g.bbox.ylo); gyhi = std::max(gyhi, g.bbox.yhi);
         gzlo = std::min(gzlo, g.bbox.zlo); gzhi = std::max(gzhi, g.bbox.zhi);
     }
-    MPI_Allreduce(MPI_IN_PLACE, &gxlo, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &gylo, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &gzlo, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &gxhi, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &gyhi, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &gzhi, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    parallel::mpi_allreduce_inplace(&gxlo, 1, sc_MPI_MIN);
+    parallel::mpi_allreduce_inplace(&gylo, 1, sc_MPI_MIN);
+    parallel::mpi_allreduce_inplace(&gzlo, 1, sc_MPI_MIN);
+    parallel::mpi_allreduce_inplace(&gxhi, 1, sc_MPI_MAX);
+    parallel::mpi_allreduce_inplace(&gyhi, 1, sc_MPI_MAX);
+    parallel::mpi_allreduce_inplace(&gzhi, 1, sc_MPI_MAX);
 
     const double pad = 1e-9 * std::max({gxhi-gxlo, gyhi-gylo, gzhi-gzlo});
     // Pull in further along x so the post-push dst stays inside too.

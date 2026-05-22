@@ -1,0 +1,101 @@
+name: "grace"
+amr: {
+  npoints_block_x: 8,
+  npoints_block_y: 8,
+  npoints_block_z: 8,
+  xmin: -1.,
+  xmax: 1.,
+  ymin: -1.,
+  ymax: 1.,
+  zmin: -1.,
+  zmax: 1.,
+
+  # Periodic BCs in all directions so the global outer-boundary contribution
+  # vanishes identically — the conservation check then asserts against exactly
+  # the integrated state, with any drift coming from the FOFC+reflux composition.
+  periodic_x: true,
+  periodic_y: true,
+  periodic_z: true,
+
+  # ngz >= 4 required by FOFC (widened flag range needs 4-deep ghost zone
+  # for PPM/WENO5/WENOZ reconstruction at the widened boundary face).
+  n_ghostzones: 4,
+  initial_refinement_level: 2,
+
+  max_refinement_level: 3,
+  regrid_every: -1,
+  regrid_at_postinitial: false,
+
+  # FMR box covering an interior region so the descriptor list is non-empty
+  # and we have fine-coarse interfaces to exercise.  Without this the test
+  # falls back to interior-cells flagging (still useful but doesn't cover
+  # the FOFC × reflux composition at the AMR boundary).
+  n_fmr_boxes: 1,
+  fmr_boxes: [
+  {
+    target_level_delta: 1,
+    x_min: -0.5,
+    x_max:  0.5,
+    y_min: -0.5,
+    y_max:  0.5,
+    z_min: -0.5,
+    z_max:  0.5
+  }
+  ]
+}
+
+IO: {
+  volume_output_cell_variables: [],
+  output_extra_quantities: false
+}
+
+system: {
+  console_log_level: "info",
+  file_log_level: "info",
+  flush_logs_based_on_severity: false,
+  n_device_streams: 4
+}
+
+# Constant-primitive flat-space background — keeps the test focused on the
+# FOFC + reflux orchestration rather than on physics gradients.  A small
+# non-zero velocity along x gives non-trivial fluxes (otherwise apply_fofc
+# would be evaluating donor + LLF on identical L/R states everywhere).
+grmhd: {
+  id_type: "minkowski_vacuum",
+  vacuum: {
+    rho_floor: 1e-20,
+    press_floor: 1e-30,
+    velocity_x: 0.1,
+    velocity_y: 0.,
+    velocity_z: 0.
+  },
+  atmosphere: {
+    ye_fl: 0,
+    temp_fl: 0,
+    rho_fl: 1e-50,
+    rho_scaling: 0,
+    temp_scaling: 0
+  }
+}
+
+eos: {
+  eos_type: "hybrid",
+  cold_eos_type: "piecewise_polytrope",
+  ye_atmosphere: 0,
+  temp_atmosphere: 0,
+  rho_atmosphere: 1e-14,
+  eps_maximum: 1e+05,
+  gamma_th: 1.8,
+  atm_is_beta_eq: true,
+  extend_table_high: false,
+  piecewise_polytrope: {
+    n_pieces: 1,
+    gammas: [ 2. ],
+    rhos:   [ ],
+    kappa_0: 1.0
+  }
+}
+
+checkpoints: {
+  checkpoint_at_termination: false
+}

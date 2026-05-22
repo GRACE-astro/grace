@@ -69,20 +69,10 @@ system: {
 }
 
 eos: {
-  eos_type: "hybrid",
+  eos_type: "ideal_gas",
 
-  hybrid_eos: {
-    cold_eos_type: "piecewise_polytrope",
-    gamma_th: 1.66666666667,
-  },
-
-  eps_maximum: 1.e+05,
-
-  piecewise_polytrope: {
-    n_pieces: 1,
-    gammas: [2.],
-    rhos:   [],
-    kappa_0: 0.
+  ideal_gas_eos: {
+    gamma: 1.6666667
   }
 }
 

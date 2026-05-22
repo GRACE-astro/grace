@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build (Serial / Z4 / FOFC) + fast tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout GRACE + submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # ---------------------------------------------------------------------
+      # System deps from apt — everything GRACE needs that ISN'T bundled
+      # via the extern/ submodules.  Kokkos / p4est / Catch2 / spdlog /
+      # yaml-cpp come from the in-tree submodules under
+      # GRACE_USE_BUNDLED_DEPS=ON below.
+      # ---------------------------------------------------------------------
+      - name: Install apt dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build \
+            libopenmpi-dev openmpi-bin \
+            libhdf5-openmpi-dev \
+            libxml2-dev zlib1g-dev \
+            graphviz
+
+      # ---------------------------------------------------------------------
+      # Cache the bundled-deps build outputs (Kokkos, p4est, Catch2, spdlog,
+      # yaml-cpp).  Key on the submodule SHAs so a bump rebuilds.
+      # ---------------------------------------------------------------------
+      - name: Hash submodule SHAs (cache key)
+        id: deps-sha
+        run: |
+          echo "sha=$(git submodule status extern | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache bundled-deps build dir
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/_deps
+            build/extern
+          key: deps-${{ runner.os }}-${{ steps.deps-sha.outputs.sha }}
+
+      # ---------------------------------------------------------------------
+      # Configure + build GRACE with the Serial backend.  Z4 + FOFC are both
+      # ON to exercise the full physics path; the deterministic-MPI and
+      # same-level-flux-averaging flags are also ON so that the
+      # bit-exact-conservation harness compiles and gets shaken out.
+      # `GRACE_USE_BUNDLED_DEPS=ON` builds Kokkos/p4est/Catch2/spdlog/yaml-cpp
+      # from the in-tree submodules — single source of truth for dep versions.
+      # ---------------------------------------------------------------------
+      - name: Configure GRACE
+        run: |
+          cmake -B build -S . -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DGRACE_USE_BUNDLED_DEPS=ON \
+                -DGRACE_ENABLE_SERIAL=ON \
+                -DKokkos_ENABLE_SERIAL=ON \
+                -DKokkos_ENABLE_OPENMP=ON \
+                -DGRACE_METRIC_EVOL=Z4 \
+                -DGRACE_ENABLE_FOFC=ON \
+                -DGRACE_ENABLE_DETERMINISTIC_MPI_REDUCTIONS=ON \
+                -DGRACE_SAME_LEVEL_FLUX_AVERAGE=ON \
+                -DGRACE_ENABLE_TESTING=ON
+
+      - name: Build GRACE
+        run: cmake --build build --parallel
+
+      # ---------------------------------------------------------------------
+      # Run the labelled fast lane.  Tests labelled `fast` are designed to
+      # pass on a modest single-host CPU runner within seconds each; the
+      # heavier `mpi` / `conservation` / `bc` lanes are not exercised by
+      # this workflow and would belong in a separate nightly job.
+      # ---------------------------------------------------------------------
+      - name: Run fast test lane
+        working-directory: build/test
+        env:
+          OMP_NUM_THREADS: 2
+        run: ctest -L fast --output-on-failure --schedule-random
+
+      # ---------------------------------------------------------------------
+      # Upload the CTest log artifacts on failure so the source of any
+      # surprise can be inspected without re-running locally.
+      # ---------------------------------------------------------------------
+      - name: Upload CTest logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctest-logs-${{ github.run_id }}
+          path: |
+            build/test/Testing/Temporary/LastTest.log
+            build/test/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: ignore

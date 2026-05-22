@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -35,29 +35,18 @@
 #include <grace/system/grace_system.hh>
 #include <grace/coordinates/coordinate_systems.hh>
 #include <grace/utils/grace_utils.hh>
-#ifdef GRACE_ENABLE_BURGERS 
-#include <grace/physics/burgers.hh>
-#endif 
-#ifdef GRACE_ENABLE_SCALAR_ADV
-#include <grace/physics/scalar_advection.hh>
-#endif
-#ifdef GRACE_ENABLE_GRMHD
 //#include <grace/physics/admbase.hh>
 #include <grace/physics/grmhd.hh>
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/eos_storage.hh>
-#endif
 #ifdef GRACE_ENABLE_M1
 #include <grace/physics/eas_policies.hh>
 #include <grace/physics/m1_helpers.hh>
 #include <grace/physics/m1.hh>
 #endif 
-#ifdef GRACE_ENABLE_Z4C_METRIC
+#if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
 #include <grace/physics/z4c.hh>
-#endif 
-#ifdef GRACE_ENABLE_BSSN_METRIC
-#include <grace/physics/bssn.hh>
-#endif 
+#endif
 #include <grace/utils/reconstruction.hh>
 #include <grace/utils/weno_reconstruction.hh>
 #include <grace/utils/riemann_solvers.hh>
@@ -77,9 +66,9 @@ void compute_auxiliary_quantities() {
         auto const cold_eos_type = 
             grace::get_param<std::string>("eos", "hybrid_eos", "cold_eos_type") ;
         if( cold_eos_type == "piecewise_polytrope" ) {
-            compute_auxiliary_quantities<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>(state,sstate,aux) ; 
+            compute_auxiliary_quantities<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>(state,sstate,aux) ;
         } else if ( cold_eos_type == "tabulated" ) {
-            ERROR("Not implemented yet.") ;
+            compute_auxiliary_quantities<grace::hybrid_eos_t<grace::tabulated_cold_eos_t>>(state,sstate,aux) ;
         }
     } else if ( eos_type == "tabulated" ) {
         compute_auxiliary_quantities<grace::tabulated_eos_t>(state,sstate,aux) ; 
@@ -108,18 +97,13 @@ void compute_auxiliary_quantities(
     int64_t nq = amr::get_local_num_quadrants() ;
     auto& idx     = grace::variable_list::get().getinvspacings() ;  
 
-    #ifdef GRACE_ENABLE_GRMHD
-    auto eos = eos::get().get_eos<eos_t>() ;  
+    auto eos = eos::get().get_eos<eos_t>() ;
     grmhd_equations_system_t<eos_t>
-        grmhd_eq_system(eos,state,sstate,aux) ; 
-    #endif 
+        grmhd_eq_system(eos,state,sstate,aux) ;
     #ifdef GRACE_ENABLE_M1 
     m1_excision_params_t m1_excision_params = get_m1_excision_params() ; 
     m1_atmo_params_t m1_atmo_params = get_m1_atmo_params() ; 
     m1_equations_system_t m1_eq_system(state,sstate,aux,m1_atmo_params,m1_excision_params) ; 
-    #endif 
-    #ifdef GRACE_ENABLE_BSSN_METRIC
-    bssn_system_t bssn_eq_system(state,aux,sstate) ; 
     #endif 
     auto& coord_system = grace::coordinate_system::get() ; 
     auto dev_coords = coord_system.get_device_coord_system() ; 
@@ -127,9 +111,8 @@ void compute_auxiliary_quantities(
     MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
         policy({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq}) ;
      
-    #ifdef GRACE_ENABLE_GRMHD 
-    #ifndef GRACE_FREEZE_HYDRO 
-    parallel_for(GRACE_EXECUTION_TAG("EVOL","conservs_to_prims"), policy 
+    #ifndef GRACE_FREEZE_HYDRO
+    parallel_for(GRACE_EXECUTION_TAG("EVOL","conservs_to_prims"), policy
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
     {   
         grmhd_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, dev_coords);
@@ -145,7 +128,7 @@ void compute_auxiliary_quantities(
                                   + (By(VEC(i,j+1,k)) - By(VEC(i,j,k))) * idx(1,q)
                                   + (Bz(VEC(i,j,k+1)) - Bz(VEC(i,j,k))) * idx(2,q))/metric.sqrtg() ;         
     } ) ;
-    #ifdef GRACE_GRMHD_USE_GS 
+    #if GRACE_EMF_SCHEME == GRACE_EMF_SCHEME_GS 
     auto& Ec = grace::variable_list::get().getecarray() ; 
     parallel_for(GRACE_EXECUTION_TAG("EVOL","compute_E_center"), policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
@@ -175,12 +158,11 @@ void compute_auxiliary_quantities(
         // NB sqrtg is contained in B 
         Ec(i,j,k,0,q) = By * vtilde[2] - Bz * vtilde[1] ; 
         Ec(i,j,k,1,q) = - Bx * vtilde[2] + Bz * vtilde[0] ; 
-        Ec(i,j,k,2,q) = Bx * vtilde[1] - By * vtilde[0] ; 
-    } ) ; 
-    #endif 
-    #endif 
-    #endif 
-    #ifdef GRACE_ENABLE_M1 
+        Ec(i,j,k,2,q) = Bx * vtilde[1] - By * vtilde[0] ;
+    } ) ;
+    #endif
+    #endif
+    #ifdef GRACE_ENABLE_M1
     parallel_for(GRACE_EXECUTION_TAG("EVOL","m1_get_auxiliaries"), policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
     {
@@ -205,6 +187,7 @@ void compute_auxiliary_quantities<EOS>(                                 \
                          , grace::var_array_t& aux )
 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::tabulated_cold_eos_t>) ;
 INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;
 INSTANTIATE_TEMPLATE(grace::ideal_gas_eos_t) ;
 #undef INSTANTIATE_TEMPLATE

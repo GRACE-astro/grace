@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -46,36 +46,39 @@ struct kelvin_helmholtz_id_t {
     using state_t = grace::var_array_t ; 
     
     kelvin_helmholtz_id_t(
-          eos_t eos 
-        , grace::coord_array_t<GRACE_NSPACEDIM> pcoords )
+          eos_t eos
+        , grace::coord_array_t<GRACE_NSPACEDIM> pcoords
+        , double const sigma_pol )
         : _eos(eos)
         , _pcoords(pcoords)
-    {} 
+        , _sigma_pol(sigma_pol)
+    {}
 
-    grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    operator() (VEC(int const i, int const j, int const k), int const q) const 
+    grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    operator() (VEC(int const i, int const j, int const k), int const q) const
     {
-        grmhd_id_t id ; 
+        grmhd_id_t id ;
 
         double const x = _pcoords(VEC(i,j,k),0,q) ;
         double const y = _pcoords(VEC(i,j,k),1,q) ;
         double const z = _pcoords(VEC(i,j,k),2,q) ;
 
-        double const rho0{1.0} ; 
-        double const vsh = 0.25 ; 
-        double const a = 0.02 ; 
-        double const sigma_pol = 0.01 ; 
+        double const rho0{1.0} ;
+        double const vsh = 0.25 ;
+        double const a = 0.02 ;
 
-        id.rho = rho0 ; 
+        id.rho = rho0 ;
 
-        id.vx = -vsh * tanh(y/a) ; 
-        id.vy = 1/4e04 * sin(2*M_PI*x) * exp(-100*y*y) ; 
-        id.vz = 0 ; 
+        id.vx = -vsh * tanh(y/a) ;
+        id.vy = 1/4e04 * sin(2*M_PI*x) * exp(-100*y*y) ;
+        id.vz = 0 ;
 
-        id.press = 20.0 ; 
+        id.press = 20.0 ;
 
-        id.bx = sqrt(2*sigma_pol*id.press) ; 
-        id.by = id.bz = 0 ; 
+        /* sigma_pol = 0 → pure-hydro KHI (B = 0); the audit harness uses */
+        /* this to test the hydro pipeline under pi-rotation symmetry.   */
+        id.bx = sqrt(2 * _sigma_pol * id.press) ;
+        id.by = id.bz = 0 ;
 
         id.betax = 0; id.betay=0; id.betaz = 0; 
         id.alp = 1 ; 
@@ -94,9 +97,10 @@ struct kelvin_helmholtz_id_t {
         return std::move(id) ; 
     }
 
-    eos_t   _eos         ;                            //!< Equation of state object 
+    eos_t   _eos         ;                            //!< Equation of state object
     grace::coord_array_t<GRACE_NSPACEDIM> _pcoords ;  //!< Physical coordinates of cell centers
-} ; 
+    double  _sigma_pol   ;                            //!< Magnetization Bx^2/(2 p); 0 = pure hydro
+} ;
 
 }
 #endif /* GRACE_PHYSICS_ID_KHI_HH */

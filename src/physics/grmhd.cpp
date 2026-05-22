@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,27 +33,19 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/c2p.hh>
 #include <grace/physics/grmhd_helpers.hh>
-#ifdef GRACE_ENABLE_Z4C_METRIC
+#if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
 #include <grace/physics/z4c_helpers.hh>
 #endif
-#ifdef GRACE_ENABLE_BSSN_METRIC
-#include <grace/physics/bssn_helpers.hh>
-#endif
-#ifdef GRACE_ENABLE_GRMHD
 #include <grace/physics/grmhd_subexpressions.hh>
-#endif 
 #ifdef GRACE_ENABLE_LORENE
 #include <grace/physics/id/lorene_bns.hh>
 #endif 
 #ifdef GRACE_ENABLE_TWO_PUNCTURES
 #include <grace/physics/id/twopuncture.hh>
 #endif 
-#ifdef GRACE_ENABLE_Z4C_METRIC
+#if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
 #include <grace/physics/z4c.hh>
 #endif
-#ifdef GRACE_ENABLE_BSSN_METRIC
-#include <grace/physics/bssn.hh>
-#endif 
 #include <grace/physics/id/shocktube.hh>
 #include <grace/physics/id/vacuum.hh>
 #include <grace/physics/id/blastwave.hh>
@@ -61,6 +53,7 @@
 #include <grace/physics/id/cloud.hh>
 #include <grace/physics/id/tov.hh>
 #include <grace/physics/id/magnetic_rotor.hh>
+#include <grace/physics/id/cylindrical_blast.hh>
 #include <grace/physics/id/orszag_tang_vortex.hh>
 #include <grace/physics/id/bondi_accretion.hh>
 #include <grace/physics/id/puncture.hh>
@@ -91,9 +84,9 @@ namespace grace{
 // current sheet ID, separate from rest. Hardcodes flat ADM
 // (alpha=1, beta=0, gamma=delta, K=0) directly into the cell-center state
 // slots GXX_, ..., KZZ_, so this only makes sense under a Cowling build.
-// Under Z4c/BSSN, those slot ids are not the storage layout, and the
-// metric would need adm_to_z4c/adm_to_bssn conversion.
-#ifdef GRACE_ENABLE_COWLING_METRIC
+// Under Z4c, those slot ids are not the storage layout, and the
+// metric would need adm_to_z4c conversion.
+#if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_COWLING
 template< typename eos_t >
 static void set_grmhd_initial_data_current_sheet()
 {
@@ -146,7 +139,7 @@ static void set_grmhd_initial_data_current_sheet()
                 {
                     // no need to worry about boundaries cause they are either periodic or reflection 
                     // coords of edge!
-                    double ccoords[3] = {0.5,0.5,0.} ;
+                    double ccoords[3] = {0.,0.,0.5} ;
                     double xyz[3] ;
                     dev_coords.get_physical_coordinates(i,j,k,q,ccoords,xyz,1/*count gzs*/) ;
                     double Az = eps_pert * B0 * Kokkos::cos(Ky*xyz[1] * 0.5) * Kokkos::cos(Kx*xyz[0]) ; 
@@ -169,8 +162,8 @@ static void set_grmhd_initial_data_current_sheet()
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                 {  
                     // B^y = - d/dx A^z
-                    stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) += (
-                        + (emf(VEC(i  ,j  ,k  ),2,q) - emf(VEC(i+1,j  ,k  ),2,q)) * idx(0,q)
+                    stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) = (
+                        (emf(VEC(i  ,j  ,k  ),2,q) - emf(VEC(i+1,j  ,k  ),2,q)) * idx(0,q)
                     ) ; 
                 });
 
@@ -209,7 +202,7 @@ static void set_grmhd_initial_data_current_sheet()
                     // EOSes use them as inputs/seeds, others overwrite); seed
                     // them to deterministic defaults rather than reading
                     // uninitialised memory.
-                    aux(i,j,k,YE_,q)      = 0.5;
+                    aux(i,j,k,YE_,q)      = 0.0;
                     aux(i,j,k,TEMP_,q)    = 0.0;
                     aux(i,j,k,ENTROPY_,q) = 0.0;
 
@@ -242,7 +235,7 @@ static void set_grmhd_initial_data_current_sheet()
                 } );
 
 }
-#endif // GRACE_ENABLE_COWLING_METRIC
+#endif // GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_COWLING
 
 static void rescale_B_field(double max_betam1, double max_press) {
 
@@ -275,10 +268,10 @@ static void rescale_B_field(double max_betam1, double max_press) {
             double smallbu[4];
             double b2;
             grmhd_get_smallbu_smallb2(
-                metric._beta.data(), metric._g.data(),
-                B, &(prims[ZXL]), W, metric.alp(), 
+                metric.alp(), metric._beta.data(), metric._g.data(),
+                B, &(prims[ZXL]), W,
                 &smallbu, &b2
-            ) ; 
+            ) ;
             lres.max_val = lres.max_val < b2 ? b2 : lres.max_val    ; 
         }, MinMax<double>(b2_max_loc)) ; 
     parallel::mpi_allreduce( &b2_max_loc.max_val
@@ -392,7 +385,7 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     
                     aux(VEC(i,j,k),RHO_,q)   = id.rho; 
                     aux(VEC(i,j,k),PRESS_,q) = id.press ; 
-                    #ifdef GRACE_ENABLE_COWLING_METRIC
+                    #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_COWLING
                     state(VEC(i,j,k),ALP_,q) = id.alp ;
 
                     state(VEC(i,j,k),BETAX_,q) = id.betax ;
@@ -412,10 +405,8 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     state(VEC(i,j,k),KYY_,q) = id.kyy ; 
                     state(VEC(i,j,k),KYZ_,q) = id.kyz ;
                     state(VEC(i,j,k),KZZ_,q) = id.kzz ;
-                    #elif defined(GRACE_ENABLE_Z4C_METRIC)
+                    #elif (GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4)
                     adm_to_z4c(id,state,VEC(i,j,k),q);
-                    #elif defined(GRACE_ENABLE_BSSN_METRIC)
-                    adm_to_bssn(id,state,VEC(i,j,k),q);
                     #endif
                     // set z = W v^i = u^i + beta^i / alpha 
                     auto const v2 = id.gxx * id.vx * id.vx +
@@ -448,24 +439,11 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
     Kokkos::fence() ; 
     GRACE_TRACE("Done filling initial data") ; 
     // Evolved metric needs gammatilde, which is a derivative 
-    #ifdef GRACE_ENABLE_Z4C_METRIC 
+    #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4 
     {
         Kokkos::fence(); 
         auto& idx = variable_list::get().getinvspacings() ; 
         parallel_for( GRACE_EXECUTION_TAG("ID","Z4C_fill_Gammatilde")
-                    , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
-                    , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-                    {
-                        std::array<double,3> _idx{idx(0,q),idx(1,q),idx(2,q)} ; 
-                        compute_gamma_tilde<4>(state,VEC(i,j,k),q,_idx,VEC(nx,ny,nz),ngz) ; 
-                    });
-    }
-    #endif 
-    #ifdef GRACE_ENABLE_BSSN_METRIC 
-    {
-        Kokkos::fence(); 
-        auto& idx = variable_list::get().getinvspacings() ; 
-        parallel_for( GRACE_EXECUTION_TAG("ID","BSSN_fill_Gammatilde")
                     , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
                     , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                     {
@@ -607,18 +585,42 @@ void set_grmhd_initial_data() {
         GRACE_TRACE("Done with Magnetized Rotor MHD ID.") ;  
     } else if ( id_type == "orszag_tang_vortex") {
         auto pars = get_param<YAML::Node>("grmhd","orszag_tang_vortex") ;
-        auto const rho  = pars["rho"].as<double>() ; 
-        auto const press = pars["press"].as<double>() ;  
+        auto const rho  = pars["rho"].as<double>() ;
+        auto const press = pars["press"].as<double>() ;
         set_grmhd_initial_data_impl<eos_t,orszag_tang_vortex_mhd_id_t<eos_t>>(rho, press) ;
-        Kokkos::fence() ; 
-        GRACE_TRACE("Done with Orszag-Tang MHD ID.") ;  
+        Kokkos::fence() ;
+        GRACE_TRACE("Done with Orszag-Tang MHD ID.") ;
+    } else if ( id_type == "cylindrical_blast") {
+        /* Komissarov 1999 cylindrical magnetic blast wave.  Used by the      */
+        /* symmetry-audit harness as the Tier-1 MHD test (x-mirror symmetry). */
+        auto pars = get_param<YAML::Node>("grmhd","cylindrical_blast") ;
+        auto const rho_in    = pars["rho_in"].as<double>() ;
+        auto const rho_out   = pars["rho_out"].as<double>() ;
+        auto const press_in  = pars["press_in"].as<double>() ;
+        auto const press_out = pars["press_out"].as<double>() ;
+        auto const r_in      = pars["r_in"].as<double>() ;
+        auto const r_out     = pars["r_out"].as<double>() ;
+        auto const B0        = pars["B0"].as<double>() ;
+        set_grmhd_initial_data_impl<eos_t,cylindrical_blast_id_t<eos_t>>(
+            rho_in, rho_out, press_in, press_out, r_in, r_out, B0) ;
+        Kokkos::fence() ;
+        GRACE_TRACE("Done with cylindrical magnetic blast MHD ID.") ;
     } else if ( id_type == "fmtorus") {
         ERROR("Fishbone-Moncrief / Chakrabarti torus initial data is not "
               "currently implemented. The previous implementation was removed "
               "pending a clean re-implementation; the `fmtorus` configuration "
               "slot and example YAMLs are preserved for that future work.") ;
-    } else if (id_type == "khi") { 
-        set_grmhd_initial_data_impl<eos_t,kelvin_helmholtz_id_t<eos_t>>() ;
+    } else if (id_type == "khi") {
+        /* sigma_pol = Bx^2 / (2 p): magnetization of the uniform poloidal Bx.   */
+        /* Optional; default 0.01 preserves the historical KHI setup.  Setting  */
+        /* sigma_pol = 0 makes the IC pure hydro (used by the symmetry audit    */
+        /* to test the hydro pipeline under pi-rotation symmetry).              */
+        double sigma_pol = 0.01;
+        try {
+            auto pars = get_param<YAML::Node>("grmhd","khi") ;
+            if (pars && pars["sigma_pol"]) sigma_pol = pars["sigma_pol"].as<double>() ;
+        } catch (...) { /* no khi block in YAML — keep default */ }
+        set_grmhd_initial_data_impl<eos_t,kelvin_helmholtz_id_t<eos_t>>(sigma_pol) ;
     } else if ( id_type == "gas_cloud") {
         double const rho0 = get_param<double>("grmhd","gas_cloud","rho0") ; 
         double const r0 = get_param<double>("grmhd","gas_cloud","r0") ; 
@@ -657,12 +659,12 @@ void set_grmhd_initial_data() {
     } else if (id_type == "robust_stability") {
         set_grmhd_initial_data_impl<eos_t,robust_stability_id_t<eos_t>>() ; 
     } else if (id_type == "current_sheet") {
-        #ifdef GRACE_ENABLE_COWLING_METRIC
+        #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_COWLING
         set_grmhd_initial_data_current_sheet<eos_t>() ;
         #else
-        ERROR("current_sheet id is only supported under GRACE_ENABLE_COWLING_METRIC "
+        ERROR("current_sheet id is only supported under GRACE_METRIC_EVOL=COWLING "
               "(it hardcodes flat ADM directly into GXX_/.../KZZ_ slots; would need "
-              "an adm_to_z4c/adm_to_bssn conversion under evolved metric).") ;
+              "an adm_to_z4c conversion under evolved metric).") ;
         #endif
     } else {
         ERROR("Unrecognized id_type " << id_type ) ; 
@@ -689,11 +691,9 @@ void set_conservs_from_prims() {
     auto& aux = variable_list::get().getaux() ;
     auto& csys = grace::coordinate_system::get() ;
     auto dev_coords = csys.get_device_coord_system() ;  
-    #ifdef GRACE_ENABLE_Z4C_METRIC
+    #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
     auto& curv_scratch = grace::variable_list::get().getz4ccurvscratch() ;
     z4c_system_t metric_evol_eq_system(state,aux,sstate,curv_scratch) ;
-    #elif defined(GRACE_ENABLE_BSSN_METRIC)
-    bssn_system_t metric_evol_eq_system(state,aux,sstate) ;
     #endif
 
     parallel_for( GRACE_EXECUTION_TAG("ID","set_conservs_from_prims")
@@ -751,7 +751,7 @@ void set_conservs_from_prims() {
         /*************************************************/
         /* If evolved metric, set constraint violations  */
         /*************************************************/
-        #ifndef GRACE_ENABLE_COWLING_METRIC
+        #if GRACE_METRIC_EVOL != GRACE_METRIC_EVOL_COWLING
         //if (i>=ngz and i<nx+ngz and j>=ngz and j<ny+ngz and k>=ngz and k<nz+ngz) 
         //    metric_evol_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, idx,dev_coords);
         #endif 
@@ -763,6 +763,7 @@ template                                                                \
 void set_grmhd_initial_data<EOS>( )
 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::tabulated_cold_eos_t>) ;
 INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;
 INSTANTIATE_TEMPLATE(grace::ideal_gas_eos_t) ;
 #undef INSTANTIATE_TEMPLATE

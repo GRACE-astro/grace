@@ -8,7 +8,7 @@
  * @copyright This file is part of GRACE.
  * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -147,7 +147,7 @@ public:
     GRACE_ALWAYS_INLINE flux_array_t& 
     getfluxesarray() { return _fluxes ; }
     //*****************************************************************************************************
-    #ifdef GRACE_GRMHD_USE_GS 
+    #if GRACE_EMF_SCHEME == GRACE_EMF_SCHEME_GS 
     /**
      * @brief Get the cell centered electric field 
      * 
@@ -182,7 +182,30 @@ public:
     GRACE_ALWAYS_INLINE emf_array_t&
     getemfarray() { return _emf ; }
     //*****************************************************************************************************
-    #ifdef GRACE_ENABLE_Z4C_METRIC
+    /**
+     * @brief Get the FOFC flagged-cell index lists.
+     *
+     * Compacted (q,i,j,k) of every interior cell whose tentative post-flux
+     * c2p would have floored. Populated atomically by flag_fofc_cells;
+     * consumed by apply_fofc_correction, which iterates [0, count).
+     *
+     * Each list is allocated to nx*ny*nz*nq (worst case = every interior
+     * cell flagged in every quadrant).
+     */
+    GRACE_ALWAYS_INLINE Kokkos::View<int*****, grace::default_space>& getfofcfacetags() { return _fofc_face_tags ; }
+    GRACE_ALWAYS_INLINE Kokkos::View<int*****, grace::default_space>& getfofcedgetags() { return _fofc_edge_tags ; }
+
+    GRACE_ALWAYS_INLINE Kokkos::View<fofc_index_tag_t*, grace::default_space>& getfofcfx() { return _fofc_fx ; }
+    GRACE_ALWAYS_INLINE Kokkos::View<fofc_index_tag_t*, grace::default_space>& getfofcfy() { return _fofc_fy ; }
+    GRACE_ALWAYS_INLINE Kokkos::View<fofc_index_tag_t*, grace::default_space>& getfofcfz() { return _fofc_fz ; }
+    GRACE_ALWAYS_INLINE Kokkos::View<fofc_index_tag_t*, grace::default_space>& getfofceyz() { return _fofc_eyz ; }
+    GRACE_ALWAYS_INLINE Kokkos::View<fofc_index_tag_t*, grace::default_space>& getfofcexz() { return _fofc_exz ; }
+    GRACE_ALWAYS_INLINE Kokkos::View<fofc_index_tag_t*, grace::default_space>& getfofcexy() { return _fofc_exy ; }
+
+    GRACE_ALWAYS_INLINE Kokkos::View<int[3], grace::default_space>& getfofcfcnt() { return _fofc_face_cnt ; }
+    GRACE_ALWAYS_INLINE Kokkos::View<int[3], grace::default_space>& getfofcecnt() { return _fofc_edge_cnt ; }
+    //*****************************************************************************************************
+    #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
     /**
      * @brief Per-cell scratch produced by the Z4c curvature-pre kernel.
      *        Holds Ricci tensor, Ricci trace, and second Christoffel
@@ -244,14 +267,19 @@ private:
     staggered_variable_arrays_t   _staggered_vars_p ; //!< Staggered scratch state
     std::vector<staggered_variable_arrays_t> _stag_staging_buffer ; //!< Additional storage for timestepper 
     flux_array_t   _fluxes              ; //!< Fluxes for time evolution.
-    #ifdef GRACE_GRMHD_USE_GS 
+    #if GRACE_EMF_SCHEME == GRACE_EMF_SCHEME_GS 
     var_array_t  _Ecenter ; //!< Cell centered E field 
     flux_array_t _Eface   ; //!< Face staggered E field
     #else 
     flux_array_t   _vbar              ; //!< Fluxes for time evolution.
     #endif 
     emf_array_t   _emf                  ; //!< EMF for time evolution of ideal MHD.
-    #ifdef GRACE_ENABLE_Z4C_METRIC
+    Kokkos::View<int*****, grace::default_space> _fofc_face_tags ;     //!< Tag faces for fofc, atomically.
+    Kokkos::View<int*****, grace::default_space> _fofc_edge_tags ;     //!< Tag edges for fofc, atomically.
+    Kokkos::View<fofc_index_tag_t*, grace::default_space> _fofc_fx, _fofc_fy, _fofc_fz    ; //!< Unique faces in each direction that need first order correction
+    Kokkos::View<fofc_index_tag_t*, grace::default_space> _fofc_eyz, _fofc_exz, _fofc_exy ; //!< Unique edges in each direction that need first order correction
+    Kokkos::View<int[3], grace::default_space> _fofc_face_cnt, _fofc_edge_cnt ; //!< Count of unique faces/edges where fofc is needed
+    #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
     var_array_t   _z4c_curv_scratch     ; //!< Persistent intermediates between curvature-pre and curvature-update kernels.
     #endif
     //*****************************************************************************************************

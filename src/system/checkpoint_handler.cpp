@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -50,15 +50,12 @@
 #include <grace/amr/p4est_headers.hh>
 
 #include <grace/IO/diagnostics/co_tracker.hh>
-#ifdef GRACE_ENABLE_GRMHD
 #include <grace/physics/b_field_injection.hh>
 #ifdef GRACE_ENABLE_PARTICLES
 #include <grace/particles/particles_module.hh>
 #include <grace/particles/particle_checkpoint.hh>
 #endif
-#endif
-#ifdef GRACE_ENABLE_Z4C_METRIC
-#include <grace/IO/diagnostics/apparent_horizon.hh>
+#if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
 #endif
 
 #include <hdf5.h>
@@ -600,7 +597,6 @@ void checkpoint_handler_impl_t::save_checkpoint()
     }
 
     // persist mid-run B-field injection state
-    #ifdef GRACE_ENABLE_GRMHD
     {
         int has_fired = static_cast<int>(grace::b_field_injection_has_fired()) ;
         hid_t inj_grp ;
@@ -616,100 +612,12 @@ void checkpoint_handler_impl_t::save_checkpoint()
         }
         HDF5_CALL(err, H5Gclose(inj_grp));
     }
-    #endif
 
     // particle subsystem state
     #ifdef GRACE_ENABLE_PARTICLES
     grace::particles::save_particles_to_checkpoint(file_id, dxpl);
     #endif
 
-    // if active, write apparent horizon finder state
-    #ifdef GRACE_ENABLE_Z4C_METRIC
-    {
-        auto& ah_mgr = grace::ah_finder_manager::get() ;
-        if (ah_mgr.is_active()) {
-            int n_horizons = ah_mgr.n_horizons() ;
-            hid_t ah_grp;
-            HDF5_CALL(ah_grp, H5Gcreate2(file_id, "ah_finder", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
-
-            // write n_horizons
-            {
-                hid_t space_id, dset_id;
-                HDF5_CALL(space_id, H5Screate(H5S_SCALAR));
-                HDF5_CALL(dset_id, H5Dcreate2(ah_grp, "n_horizons", H5T_NATIVE_INT,
-                                              space_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
-                HDF5_CALL(err, H5Dwrite(dset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, dxpl, &n_horizons));
-                HDF5_CALL(err, H5Dclose(dset_id));
-                HDF5_CALL(err, H5Sclose(space_id));
-            }
-
-            for (int i = 0; i < n_horizons; ++i) {
-                auto& finder = ah_mgr.get(i) ;
-                std::string grp_name = "ah_" + std::to_string(i) ;
-                hid_t sub_grp;
-                HDF5_CALL(sub_grp, H5Gcreate2(ah_grp, grp_name.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
-
-                // write center (3-vector)
-                {
-                    auto center = finder.get_center() ;
-                    hsize_t dims[1] = {3};
-                    hid_t space_id, dset_id;
-                    HDF5_CALL(space_id, H5Screate_simple(1, dims, NULL));
-                    HDF5_CALL(dset_id, H5Dcreate2(sub_grp, "center", H5T_NATIVE_DOUBLE,
-                                                  space_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
-                    HDF5_CALL(err, H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, dxpl, center.data()));
-                    HDF5_CALL(err, H5Dclose(dset_id));
-                    HDF5_CALL(err, H5Sclose(space_id));
-                }
-
-                // write spectral coefficients
-                {
-                    auto const& coeffs = finder.get_coefficients() ;
-                    hsize_t dims[1] = {coeffs.size()};
-                    hid_t space_id, dset_id;
-                    HDF5_CALL(space_id, H5Screate_simple(1, dims, NULL));
-                    HDF5_CALL(dset_id, H5Dcreate2(sub_grp, "coefficients", H5T_NATIVE_DOUBLE,
-                                                  space_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
-                    HDF5_CALL(err, H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, dxpl, coeffs.data()));
-                    HDF5_CALL(err, H5Dclose(dset_id));
-                    HDF5_CALL(err, H5Sclose(space_id));
-                }
-
-                // write found flag as int
-                {
-                    int found = finder.was_found() ? 1 : 0 ;
-                    hid_t space_id, dset_id;
-                    HDF5_CALL(space_id, H5Screate(H5S_SCALAR));
-                    HDF5_CALL(dset_id, H5Dcreate2(sub_grp, "found", H5T_NATIVE_INT,
-                                                  space_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
-                    HDF5_CALL(err, H5Dwrite(dset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, dxpl, &found));
-                    HDF5_CALL(err, H5Dclose(dset_id));
-                    HDF5_CALL(err, H5Sclose(space_id));
-                }
-
-                // write name as string attribute
-                {
-                    auto name = finder.config().name ;
-                    hid_t aspace_id, atype_id, attr_id;
-                    HDF5_CALL(aspace_id, H5Screate(H5S_SCALAR));
-                    HDF5_CALL(atype_id,  H5Tcopy(H5T_C_S1));
-                    HDF5_CALL(err,       H5Tset_size(atype_id, name.size()+1));
-                    HDF5_CALL(err,       H5Tset_strpad(atype_id, H5T_STR_NULLTERM));
-                    HDF5_CALL(attr_id,   H5Acreate2(sub_grp, "name", atype_id,
-                                                    aspace_id, H5P_DEFAULT, H5P_DEFAULT));
-                    HDF5_CALL(err, H5Awrite(attr_id, atype_id, name.c_str()));
-                    HDF5_CALL(err, H5Aclose(attr_id));
-                    HDF5_CALL(err, H5Tclose(atype_id));
-                    HDF5_CALL(err, H5Sclose(aspace_id));
-                }
-
-                HDF5_CALL(err, H5Gclose(sub_grp));
-            }
-
-            HDF5_CALL(err, H5Gclose(ah_grp));
-        }
-    }
-    #endif
 
     // write state data
     GRACE_TRACE("Writing state.") ; 
@@ -810,9 +718,6 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
     grace::coordinate_system::initialize() ;
     grace::eos::initialize() ;
     grace::co_tracker::initialize() ;
-    #ifdef GRACE_ENABLE_Z4C_METRIC
-    grace::ah_finder_manager::initialize() ;
-    #endif
     /**********************************************************************/
     auto data_fname = detail::get_filename(checkpoint_dir, "checkpoint_data", iter, ".h5") ;
     /**********************************************************************/
@@ -994,7 +899,6 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
     }
 
     // if present, load mid-run B-field injection state
-    #ifdef GRACE_ENABLE_GRMHD
     {
         htri_t exists = H5Lexists(file_id, "b_field_injection", H5P_DEFAULT) ;
         if (exists > 0) {
@@ -1011,7 +915,6 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
             HDF5_CALL(err, H5Gclose(inj_grp));
         }
     }
-    #endif
 
     // if present, restore particle subsystem state. Routed through the
     // module's initialize() so the config + bcs + min_quad_width are set
@@ -1022,64 +925,6 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
     grace::particles::particles_module_t::get().initialize(file_id);
     #endif
 
-    // if present, load apparent horizon finder state
-    #ifdef GRACE_ENABLE_Z4C_METRIC
-    {
-        auto& ah_mgr = grace::ah_finder_manager::get() ;
-        if (ah_mgr.is_active()) {
-            htri_t exists = H5Lexists(file_id, "ah_finder", H5P_DEFAULT) ;
-            if (exists > 0) {
-                hid_t ah_grp;
-                HDF5_CALL(ah_grp, H5Gopen2(file_id, "ah_finder", H5P_DEFAULT));
-
-                int n_horizons_ckpt;
-                {
-                    hid_t dset_id;
-                    HDF5_CALL(dset_id, H5Dopen2(ah_grp, "n_horizons", H5P_DEFAULT));
-                    HDF5_CALL(err, H5Dread(dset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &n_horizons_ckpt));
-                    HDF5_CALL(err, H5Dclose(dset_id));
-                }
-
-                int n_to_load = std::min(n_horizons_ckpt, ah_mgr.n_horizons()) ;
-                for (int i = 0; i < n_to_load; ++i) {
-                    auto& finder = ah_mgr.get(i) ;
-                    std::string grp_name = "ah_" + std::to_string(i) ;
-                    hid_t sub_grp;
-                    HDF5_CALL(sub_grp, H5Gopen2(ah_grp, grp_name.c_str(), H5P_DEFAULT));
-
-                    // read center
-                    {
-                        std::array<double,3> center;
-                        hid_t dset_id;
-                        HDF5_CALL(dset_id, H5Dopen2(sub_grp, "center", H5P_DEFAULT));
-                        HDF5_CALL(err, H5Dread(dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, center.data()));
-                        HDF5_CALL(err, H5Dclose(dset_id));
-                        finder.set_center(center) ;
-                    }
-
-                    // read coefficients
-                    {
-                        hid_t dset_id, space_id;
-                        HDF5_CALL(dset_id, H5Dopen2(sub_grp, "coefficients", H5P_DEFAULT));
-                        HDF5_CALL(space_id, H5Dget_space(dset_id));
-                        hsize_t n_coeffs;
-                        H5Sget_simple_extent_dims(space_id, &n_coeffs, NULL);
-                        std::vector<double> coeffs(n_coeffs);
-                        HDF5_CALL(err, H5Dread(dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, coeffs.data()));
-                        HDF5_CALL(err, H5Dclose(dset_id));
-                        HDF5_CALL(err, H5Sclose(space_id));
-                        finder.set_coefficients(coeffs) ;
-                    }
-
-                    HDF5_CALL(err, H5Gclose(sub_grp));
-                }
-
-                HDF5_CALL(err, H5Gclose(ah_grp));
-                GRACE_INFO("Loaded apparent horizon state from checkpoint ({} horizons).", n_to_load) ;
-            }
-        }
-    }
-    #endif
 
     /**********************************************************************/
     /* Read the state data                                                */
