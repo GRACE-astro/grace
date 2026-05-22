@@ -1,7 +1,7 @@
 /**
  * @file checkpoint_handler.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Singleton driving HDF5 + p4est checkpoint write / restore, including the co-tracker registry for auxiliary state.
  * @version 0.1
  * @date 2024-05-27
  * 

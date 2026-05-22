@@ -1,7 +1,7 @@
 /**
  * @file spherical_coordinate_jacobian_utils.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Convenience header pulling in the 2D and 3D spherical Jacobian and inverse-Jacobian codegen headers.
  * @date 2024-03-26
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

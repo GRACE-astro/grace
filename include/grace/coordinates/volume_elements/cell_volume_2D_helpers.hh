@@ -1,7 +1,7 @@
 /**
  * @file cell_volume_2D_helpers.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Analytic and numerical integrand helpers used to evaluate 2D cell volumes on the spherical (multipatch) grid, including logarithmic-radius variants.
  * @date 2024-04-17
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

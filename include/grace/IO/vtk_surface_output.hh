@@ -1,7 +1,7 @@
 /**
  * @file vtk_surface_output.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief VTK writers for cell-centred data on plane and sphere surfaces (unstructured-grid layout).
  * @date 2024-05-17
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

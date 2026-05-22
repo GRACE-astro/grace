@@ -1,7 +1,7 @@
 /**
  * @file cloud.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Cloud-in-wind initial-data kernel: dense spherical clump embedded in an ambient flow for shock / cloud-crushing tests.
  * @date 2025-12-8
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

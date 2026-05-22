@@ -1,7 +1,7 @@
 /**
  * @file index_helpers.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Tensor index-position enums (UP/DOWN, UPUP/UPDOWN/DOWNDOWN) used to tag covariant vs contravariant slots in GRACE variable metadata.
  * @date 2024-08-20
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

@@ -1,7 +1,7 @@
 /**
- * @file puncture_tracker.hh
+ * @file reductions.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Custom Kokkos reduction reducers (fixed-size array sums and block-distance pairs) used by GRACE diagnostic and tracking kernels.
  * @date 2026-01-27
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

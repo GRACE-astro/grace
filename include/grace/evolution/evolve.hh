@@ -1,7 +1,18 @@
 /**
  * @file evolve.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Top-level entry points for time integration in GRACE:
+ *        Runge-Kutta driver, flux / source assembly, FOFC pass,
+ *        and reflux / ghost-zone bookkeeping for each RK stage.
+ *
+ * \defgroup evolution Evolution loop
+ *
+ * Time integration machinery: the Runge-Kutta driver, flux + source
+ * assembly per RK stage, first-order flux correction (FOFC), refluxing
+ * at coarse-fine interfaces, and the evolution-system template
+ * framework (``hrsc_evolution_system_t``, ``fd_evolution_system_t``)
+ * used by GRMHD and Z4c.
+ *
  * @date 2024-05-13
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics
@@ -42,7 +53,7 @@ namespace grace {
 //*****************************************************************************************************
 /**
  * @brief Perform a timestep.
- * \ingroup evol
+ * \ingroup evolution
  * This function advances all variables in the state array by a full timestep. The timestep size is 
  * controlled by the function \ref find_stable_timestep. The kind of timestepper used is controlled 
  * by the parameter evolution::time_stepper. Coming out of this routine all the variables in the state
@@ -58,7 +69,7 @@ void evolve() ;
 /**
  * @brief Perform a timestep.
  * @tparam eos_t Type of the active EOS.
- * \ingroup evol
+ * \ingroup evolution
  * \cond grace_detail
  * This function implements the actual evolution for a concrete EOS type.
  */
@@ -73,7 +84,7 @@ void evolve_impl() ;
  * @param old_state Old state
  * @param new_stag_state New staggered state 
  * @param old_stag_state Old staggered state 
- * \ingroup evol
+ * \ingroup evolution
  */
 template< typename eos_t >
 void compute_fluxes(
@@ -88,7 +99,7 @@ void compute_fluxes(
  *         would have produced a state that c2p must floor.  Reads the
  *         flux array computed by compute_fluxes; writes the per-cell
  *         bad-cell mask consumed by apply_fofc_correction.
- * \ingroup evol
+ * \ingroup evolution
  */
 template< typename eos_t >
 void flag_fofc_cells(
@@ -102,7 +113,7 @@ void flag_fofc_cells(
 /** @brief FOFC stage 4: at faces of cells flagged by flag_fofc_cells,
  *         recompute the flux (and adjacent EMFs) with donor-cell
  *         reconstruction + LLF.
- * \ingroup evol
+ * \ingroup evolution
  */
 template< typename eos_t >
 void apply_fofc_correction(
@@ -121,7 +132,7 @@ void apply_fofc_correction(
  * @param old_state Old state
  * @param new_stag_state New staggered state 
  * @param old_stag_state Old staggered state 
- * \ingroup evol
+ * \ingroup evolution
 */
 void compute_emfs(
     double const t, double const dt, double const dtfact 
@@ -139,7 +150,7 @@ void compute_emfs(
  * @param old_state Old state
  * @param new_stag_state New staggered state 
  * @param old_stag_state Old staggered state 
- * \ingroup evol
+ * \ingroup evolution
 */
 template< typename eos_t >
 void add_fluxes_and_source_terms(
@@ -158,7 +169,7 @@ void add_fluxes_and_source_terms(
  * @param old_state Old state
  * @param new_stag_state New staggered state 
  * @param old_stag_state Old staggered state 
- * \ingroup evol
+ * \ingroup evolution
 */
 void update_CT(
     double const t, double const dt, double const dtfact 
@@ -176,7 +187,7 @@ void update_CT(
  * @param old_state Old state
  * @param new_stag_state New staggered state 
  * @param old_stag_state Old staggered state 
- * \ingroup evol
+ * \ingroup evolution
 */
 void update_fd(
     double const t, double const dt, double const dtfact 
@@ -188,7 +199,7 @@ void update_fd(
 //*****************************************************************************************************
 /**
  * @brief Advance all variables by an implicit substep.
- * \ingroup evol
+ * \ingroup evolution
  * @tparam eos_t Type of active EOS.
  * @param t Current time.
  * @param dt Timestep size.
@@ -219,7 +230,7 @@ void advance_implicit_substep( double const t, double const dt, double const dtf
 //*****************************************************************************************************
 /**
  * @brief Advance all variables by a substep.
- * \ingroup evol
+ * \ingroup evolution
  * @tparam eos_t Type of active EOS.
  * @param t Current time.
  * @param dt Timestep size.

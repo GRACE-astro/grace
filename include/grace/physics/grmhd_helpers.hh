@@ -1,7 +1,7 @@
 /**
  * @file grmhd_helpers.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Shared GRMHD helpers: atmosphere/c2p/excision parameter structs, pair-symmetric metric face interpolators, and per-cell math primitives.
  * @date 2024-06-17
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

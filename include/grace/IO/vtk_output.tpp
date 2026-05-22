@@ -1,7 +1,7 @@
 /**
- * @file vtk_output_2D.tpp
+ * @file vtk_output.tpp
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Templated 2D VTK cell-data writers shared by the volume and plane outputs.
  * @version 0.1
  * @date 2024-03-18
  * 

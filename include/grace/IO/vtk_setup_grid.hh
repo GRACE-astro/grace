@@ -1,7 +1,7 @@
 /**
- * @file vtk_setup_grid_2D.hh
+ * @file vtk_setup_grid.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Builders that translate the GRACE local AMR forest into a VTK vtkUnstructuredGrid suitable for cell-centred output.
  * @version 0.1
  * @date 2024-05-23
  * 

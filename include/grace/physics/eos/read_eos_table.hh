@@ -1,7 +1,7 @@
 /**
  * @file read_eos_table.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Free-function readers that ingest HDF5 / ASCII tabulated EOS files and populate the corresponding interpolator storage.
  * @date 2024-05-29
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

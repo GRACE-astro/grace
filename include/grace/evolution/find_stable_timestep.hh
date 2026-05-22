@@ -1,7 +1,7 @@
 /**
  * @file find_stable_timestep.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Entry point that scans all evolved physics modules to compute the CFL-stable global timestep for the next RK step.
  * @version 0.1
  * @date 2024-05-16
  * 
@@ -38,13 +38,13 @@ namespace grace {
  *        over the whole grid. Notice that the timestep is modified by this 
  *        function to be the maximum stable timestep over the whole grid 
  *        multiplied by the cfl_factor parameter.
- * \ingroup evol
+ * \ingroup evolution
  */
 void find_stable_timestep() ;
 //*****************************************************************************************************
 /**
  * @brief Implementation of find_stable_timestep for a concrete EOS type.
- * \ingroup evol
+ * \ingroup evolution
  * \cond grace_detail
  * @tparam eos_t Type of concrete EOS.
  */

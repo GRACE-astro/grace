@@ -1,7 +1,7 @@
 /**
  * @file metric_utils.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief metric_array_t value class plus host/device helpers for spatial-metric manipulations (determinant, inverse, lower/raise indices).
  * @date 2024-06-04
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

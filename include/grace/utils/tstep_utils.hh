@@ -1,7 +1,7 @@
 /**
  * @file tstep_utils.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Per-physics maximum-wavespeed reduction helpers used by find_stable_timestep to compute CFL-limited dt.
  * @date 2025-10-14
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

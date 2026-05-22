@@ -1,7 +1,7 @@
 /**
  * @file abort.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief grace_abort / ABORT macros: cooperative MPI-safe abort that prints a diagnostic and tears down the runtime.
  * @version 0.1
  * @date 2023-03-13
  * 

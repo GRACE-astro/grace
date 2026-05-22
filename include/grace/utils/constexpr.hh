@@ -1,7 +1,7 @@
 /**
  * @file constexpr.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Compile-time loop unrolling primitives (ForwardLoop) used to inline small fixed-size kernels.
  * @date 2024-04-18
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

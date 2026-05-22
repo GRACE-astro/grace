@@ -1,7 +1,7 @@
 /**
  * @file auxiliaries.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Entry point for computing derived (auxiliary) variables (e.g. C2P-recovered primitives, magnetic-field reconstructions) from the evolved state.
  * @date 2024-05-13
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics
@@ -35,13 +35,13 @@ namespace grace {
 //*****************************************************************************************************
 /**
  * @brief Fill the <code>aux</code> array.
- * \ingroup evol
+ * \ingroup evolution
  */
 void compute_auxiliary_quantities() ; 
 //*****************************************************************************************************
 /**
  * @brief Fill the <code>aux</code> array
- * \ingroup evol
+ * \ingroup evolution
  * @tparam eos_t Type of active EOS.
  * @param state The state to be used to compute auxiliaries.
  * @param aux   The array where to store computed aux variables.

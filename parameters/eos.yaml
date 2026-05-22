@@ -118,15 +118,11 @@ eos:
       type: bool
       default: true
       description: >
-        If true (default), interpret the table's rho axis using the atomic
-        mass unit (m_u = 931.494 MeV/c^2) for the nb <-> rho conversion,
-        matching the FUKA / LORENE / Margherita convention used by virtually
-        all GR-MHD initial-data codes. The cold EOS table must have been
-        generated with the same convention (use force_mu=True in GRACEpy).
-        Set to false ONLY for pure CompOSE-strict thermodynamics work where
-        no FUKA-format initial data is involved; importing FUKA initial data
-        with force_mu=false produces a ~1% baryonic mass error and a
-        corresponding ~1 rad GW phase drift over a typical BNS inspiral.
+        Baryonic mass convention for the nb <-> rho conversion on the cold
+        EOS table.  When true (default), uses the atomic mass unit (m_u);
+        when false, uses the neutron mass.  Must match the convention used
+        when the cold table was generated.  Use false only when importing
+        FUKA initial data that itself uses the neutron-mass convention.
     sanitize_axes:
       type: bool
       default: true

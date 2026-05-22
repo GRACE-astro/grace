@@ -1,7 +1,7 @@
 /**
  * @file scalar_output.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Global scalar (min/max/L1/L2 reductions and integrals) output: file initialisation, per-step computation, and ASCII writers.
  * @date 2024-05-22
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

@@ -1,7 +1,7 @@
 /**
  * @file error.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Signal-handler installation and shared error-reporting plumbing for GRACE runtime errors.
  * @version 0.1
  * @date 2023-03-13
  * 

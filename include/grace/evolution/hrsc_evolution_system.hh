@@ -1,7 +1,7 @@
 /**
  * @file hrsc_evolution_system.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief CRTP base for high-resolution-shock-capturing evolution systems: dispatches reconstruction, Riemann solve, and flux assembly to the derived class.
  * @date 2024-05-13
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

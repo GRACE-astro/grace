@@ -1,7 +1,17 @@
 /**
  * @file grace_system.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Umbrella header for the GRACE runtime system: initialization,
+ *        finalization, MPI / Kokkos / p4est lifecycle, runtime singleton,
+ *        and printing utilities.  Include this to bring in all
+ *        system-level facilities.
+ *
+ * \defgroup system GRACE runtime system
+ *
+ * Lifecycle management of the GRACE runtime: MPI, Kokkos, and p4est
+ * initialization and shutdown; the global runtime singleton holding
+ * iteration / time / parameter state; logging and print utilities.
+ *
  * @version 0.1
  * @date 2024-03-18
  * 

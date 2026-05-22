@@ -1,7 +1,7 @@
 /**
 * @file coordinates.cpp
 * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
-* @brief 
+* @brief Implementation of the per-quadrant coordinate, spacing, and Jacobian fill routines.
 * @version 0.1
 * @date 2024-03-12
 * 

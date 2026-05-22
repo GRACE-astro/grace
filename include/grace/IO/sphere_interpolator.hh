@@ -1,7 +1,7 @@
 /**
- * @file interpolate_on_spheres.hh
+ * @file sphere_interpolator.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Octree-based sphere-surface interpolator: locate quadrants intersecting each sample point and dispatch the per-cell trilinear interpolation kernel.
  * @date 2025-10-03
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

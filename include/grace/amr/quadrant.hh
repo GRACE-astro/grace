@@ -1,7 +1,7 @@
 /**
  * @file quadrant.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Thin wrapper around p4est_quadrant_t carrying GRACE-specific per-quadrant state (flags, indices, payload accessors).
  * @date 2024-03-01
  * 
  * @copyright This file is part of GRACE.

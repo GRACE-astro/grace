@@ -1,7 +1,7 @@
 /**
- * @file bssn_helpers.hh
+ * @file z4c_helpers.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Inline helpers shared by the Z4c RHS kernels: finite-difference stencils, conformal-factor primitives, and tensor-trace utilities.
  * @date 2026-12-21
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

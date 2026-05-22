@@ -1,7 +1,7 @@
 /**
  * @file vtk_output_3D.tpp
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Templated 3D VTK cell-data writers used by the volume-output backend.
  * @version 0.1
  * @date 2024-03-18
  * 

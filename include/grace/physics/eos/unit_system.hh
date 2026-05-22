@@ -1,7 +1,7 @@
 /**
- * @file read_eos_table.cpp
+ * @file unit_system.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief unit_system value class collecting the conversion factors between CGS, SI, and geometrised c=G=Msun=1 units used by GRACE.
  * @date 2024-05-29
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

@@ -1,7 +1,7 @@
 /**
  * @file initial_data.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Free-function entry point that dispatches initial-data setup based on the active configuration.
  * @date 2024-05-15
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

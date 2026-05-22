@@ -1,7 +1,7 @@
 /**
  * @file eos_types.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Compile-time EOS type traits (has_ye, etc.) used to specialise GRMHD kernels for the active equation-of-state.
  * @date 2024-06-17
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

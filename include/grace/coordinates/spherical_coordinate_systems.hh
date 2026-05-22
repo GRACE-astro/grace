@@ -1,7 +1,7 @@
 /**
- * @file coordinate_systems.hh
+ * @file spherical_coordinate_systems.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Spherical coordinate system implementation: central Cartesian patch + six radial blocks, with optional logarithmic stretching of the radial direction.
  * @date 2024-03-26
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics
@@ -43,7 +43,7 @@ namespace grace {
 //**************************************************************************************************
 /**
  * @brief Implementation of coordinate system class for spherical grids.
- * \ingroup grace_coordinates
+ * \ingroup coordinates
  * 
  * Spherical coordinates in grace are implemented using a central patch of Cartesian coordinates
  * which corresponds with tree 0 in the p4est connectivity. The cartesian patch is surrounded 

@@ -1,7 +1,7 @@
 /**
- * @file coordinate_systems.cpp
+ * @file cartesian_coordinate_system.cpp
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Implementation of the cartesian coordinate-system singleton: tree extents, logical/physical map, and host helpers.
  * @date 2024-03-26
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

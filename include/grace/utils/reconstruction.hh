@@ -1,7 +1,7 @@
 /**
- * @file reconstruction.h
+ * @file reconstruction.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Low-order reconstruction functors (donor-cell, slope-limited TVD) and slope-limiter primitives used by the HRSC layer.
  * @version 0.1
  * @date 2024-05-13
  * 

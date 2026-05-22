@@ -1,7 +1,7 @@
 /**
  * @file hdf5_surface_output.hh
  * @author Keneth Miler (miler@itp.uni-frankfurt.de)
- * @brief 
+ * @brief HDF5 writers for plane (2D slice) cell data: grid structure, scalar arrays, and vector arrays, sliced via the octree plane query.
  * @version 0.1
  * @date 2024-05-23
  * 
@@ -48,13 +48,13 @@ namespace detail {
 
 /**
  * @brief Writes plane surface data to an HDF5 file.
- * \ingroup IO 
+ * \ingroup io 
  */
 void write_plane_cell_data() ; 
 
 /**
  * @brief Writes data from a plane slice of the grid to HDF5.
- * \ingroup IO
+ * \ingroup io
  * @param plane The plane along which the grid is sliced
  * NB: This function currently only supports axis-aligned planes.
  */

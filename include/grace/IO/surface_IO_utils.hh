@@ -1,7 +1,7 @@
 /**
  * @file surface_IO_utils.hh
  * @author Carlo Musolino (musolino@aei.mpg.de)
- * @brief 
+ * @brief Shared surface-IO descriptors and helper routines used by the spherical, plane, and AH output writers.
  * @date 2025-10-03
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

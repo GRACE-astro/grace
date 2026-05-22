@@ -1,7 +1,7 @@
 /**
  * @file mg.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Reserved umbrella header for forthcoming multigrid solver utilities (currently a forward-compatibility stub).
  * @version 0.1
  * @date 2026-03-27
  * 

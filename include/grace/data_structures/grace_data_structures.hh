@@ -1,7 +1,7 @@
 /**
  * @file grace_data_structures.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Umbrella header pulling together the GRACE data-structures subsystem: variable list, variable properties, and index helpers.
  * @version 0.1
  * @date 2024-03-18
  * 

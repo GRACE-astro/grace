@@ -1,7 +1,7 @@
 /**
  * @file rootfinding.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Host/device 1D root-finding routines (bisection, Newton, Brent) operating on user-supplied callables.
  * @date 2024-06-10
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

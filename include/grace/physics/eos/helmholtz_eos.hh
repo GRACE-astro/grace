@@ -1,7 +1,7 @@
 /**
  * @file helmholtz_eos.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Reserved header for a forthcoming Helmholtz (Timmes) EOS implementation (currently a forward-compatibility stub).
  * @date 2026-02-06
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

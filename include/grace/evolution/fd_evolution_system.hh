@@ -1,7 +1,7 @@
 /**
  * @file fd_evolution_system.hh
  * @author  Carlo Musolino
- * @brief 
+ * @brief CRTP base for finite-difference evolution systems (e.g. Z4c): dispatches RHS assembly and Kreiss-Oliger dissipation to the derived class.
  * @date 2024-09-03
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

@@ -1,7 +1,7 @@
 /**
  * @file hybrid_eos.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Hybrid EOS wrapper: combines a user-supplied cold EOS with a thermal Γ-law contribution P = P_cold(rho) + (Γ_th-1) rho ε_th.
  * @date 2024-05-28
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

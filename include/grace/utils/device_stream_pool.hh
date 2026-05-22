@@ -1,7 +1,7 @@
 /**
  * @file device_stream_pool.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Singleton pool of reusable device streams synchronized via device events, used to overlap compute with ghost-zone communications.
  * @date 2024-10-07
  * 
  * @copyright This file is part of the General Relativistic Astrophysics
@@ -112,10 +112,9 @@ class device_stream_pool_impl_t
 } ; 
 //**************************************************************************************************
 /**
- * @brief 
- * 
+ * @brief Singleton accessor type for the global device stream pool.
  */
-using device_stream_pool = utils::singleton_holder<device_stream_pool_impl_t> ; 
+using device_stream_pool = utils::singleton_holder<device_stream_pool_impl_t> ;
 //**************************************************************************************************
 }
 //**************************************************************************************************

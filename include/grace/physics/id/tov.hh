@@ -1,7 +1,7 @@
 /**
  * @file tov.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Tolman-Oppenheimer-Volkoff initial-data driver: 1D TOV integrator plus the per-cell kernel that lays a single TOV onto the GRACE grid.
  * @date 2024-07-22
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

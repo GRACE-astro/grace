@@ -1,7 +1,7 @@
 /**
  * @file amr_functions.cpp
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Implementations of the free-function AMR utilities: per-quadrant iteration, flag manipulation, and bookkeeping operations on the forest.
  * @version 0.1
  * @date 2024-03-18
  * 

@@ -1,7 +1,7 @@
 /**
  * @file integration.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief 1D numerical-integration helpers: fixed-order Gauss-Legendre quadratures and adaptive recursive-trapezoidal Romberg integration.
  * @version 0.1
  * @date 2024-04-15
  * 

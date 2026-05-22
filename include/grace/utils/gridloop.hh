@@ -1,7 +1,7 @@
 /**
  * @file gridloop.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Multi-dimensional Kokkos parallel-for loop wrappers (grid_loop and friends) used to launch per-cell / per-quadrant kernels with consistent indexing.
  * @date 2024-07-18
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

@@ -1,7 +1,7 @@
 /**
  * @file phys_bc_kernels.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Per-cell physical boundary condition operators (reflect, extrapolation of various orders, outflow, Sommerfeld) applied in ghost-zone fills at domain boundaries.
  * @date 2025-09-05
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

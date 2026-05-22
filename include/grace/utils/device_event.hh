@@ -1,7 +1,7 @@
 /**
  * @file device_event.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief RAII wrapper around a backend device event used for cross-stream synchronization of GRACE ghost-zone task pipelines.
  * @date 2024-10-07
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

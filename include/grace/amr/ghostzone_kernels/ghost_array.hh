@@ -1,7 +1,7 @@
 /**
  * @file ghost_array.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Ghost-zone payload storage: flat arrays addressed by element kind plus reflux buffers for face and edge corrections at coarse-fine interfaces.
  * @date 2025-09-05
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

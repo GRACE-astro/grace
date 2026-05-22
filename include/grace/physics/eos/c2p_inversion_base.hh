@@ -1,7 +1,7 @@
 /**
  * @file c2p_inversion_base.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief CRTP base for GRMHD conserved-to-primitive inverter schemes, providing the shared interface (apply, fallback, error signalling).
  * @date 2026-03-28
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

@@ -1,7 +1,7 @@
 /**
- * @file black_hole_diagnostics.hh
+ * @file gw_integrals.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Diagnostic that integrates the Ψ4 Weyl scalar on registered extraction spheres to produce gravitational-wave waveforms.
  * @date 2026-01-15
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

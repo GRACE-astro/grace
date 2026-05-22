@@ -398,21 +398,21 @@ gpu_task_t make_pack_to_cbuf_task(
     return pack_task ; 
 }
 /**
- * @brief 
- * 
- * @tparam elem_kind 
- * @param rb 
- * @param ghost_array 
- * @param rank 
- * @param data 
- * @param recv_buf 
- * @param recv_task_id 
- * @param pup_stream 
- * @param ngz 
- * @param nv 
- * @param task_counter 
- * @param task_list 
- * @return gpu_task_t 
+ * @brief Build an unpack-task descriptor that takes a per-rank receive buffer and scatters it into the local ghost-zone storage for the given element kind.
+ *
+ * @tparam elem_kind
+ * @param rb
+ * @param ghost_array
+ * @param rank
+ * @param data
+ * @param recv_buf
+ * @param recv_task_id
+ * @param pup_stream
+ * @param ngz
+ * @param nv
+ * @param task_counter
+ * @param task_list
+ * @return gpu_task_t
  */
 template< amr::element_kind_t elem_kind, var_staggering_t stag >
 gpu_task_t make_unpack_task(

@@ -1,7 +1,7 @@
 /**
  * @file cell_surface_2D_helpers.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Per-direction integrand helpers for 2D cell-surface areas on the spherical multipatch grid.
  * @date 2024-04-17
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

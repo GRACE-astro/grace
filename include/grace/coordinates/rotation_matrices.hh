@@ -1,7 +1,7 @@
 /**
  * @file rotation_matrices.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Compile-time per-face discrete rotation matrices (and their inverses) used to align tensor components across patches of the spherical macro-grid.
  * @date 2024-03-26
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics
@@ -96,7 +96,7 @@ static constexpr std::array<std::array<double,GRACE_NSPACEDIM*GRACE_NSPACEDIM>,P
 /**
  * @brief Apply a discrete rotation to a vector.
  * 
- * \ingroup grace_coordinates 
+ * \ingroup coordinates 
  * \cond grace_detail
  * @param _x 
  * @param dir 

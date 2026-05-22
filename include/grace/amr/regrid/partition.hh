@@ -1,7 +1,7 @@
 /**
- * @file regrid_helpers.cpp
+ * @file partition.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Templated helpers for transferring quadrant-resident View payload between MPI ranks during repartition after a regrid.
  * @version 0.1
  * @date 2025-07-31
  * 

@@ -1,7 +1,7 @@
 /**
- * @file fmtorus.hh
+ * @file Avec_id.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Per-direction vector-potential initial-data functors (poloidal Avec) used to seed face-staggered B via grmhd_B_from_A.
  * @date 2025-10-13
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

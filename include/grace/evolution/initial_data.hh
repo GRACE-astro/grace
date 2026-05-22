@@ -1,7 +1,7 @@
 /**
  * @file initial_data.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Initial-data dispatch within the evolution module, plus logical-frame transformation hook used after ID is laid down on the AMR grid.
  * @date 2024-05-15
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics
@@ -32,18 +32,18 @@
 
 namespace grace {
 /**
- * \defgroup id Initial Data
+ * \defgroup initial_data Initial data
  * 
  */
 
 /**
  * @brief Set the initial data.
- * \ingroup id
+ * \ingroup initial_data
  */
 void set_initial_data() ; 
 /**
  * @brief Implementation of set_initial_data for a concrete EOS type.
- * \ingroup id
+ * \ingroup initial_data
  * \cond grace_detail
  * @tparam eos_t Type of active EOS.
  */
@@ -53,7 +53,7 @@ void set_initial_data_impl() ;
 /**
  * @brief Transform vector and tensor variables
  *        from physical coordinates grid coordinates.
- * \ingroup id
+ * \ingroup initial_data
  * \cond detail 
  */
 void transform_to_logical_frame() ; 

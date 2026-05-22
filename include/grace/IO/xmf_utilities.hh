@@ -1,7 +1,7 @@
 /**
  * @file xmf_utilities.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief XDMF (.xmf) sidecar writer that wraps the HDF5 volume/plane/sphere output for use with ParaView / VisIt.
  * @version 0.1
  * @date 2024-05-24
  * 

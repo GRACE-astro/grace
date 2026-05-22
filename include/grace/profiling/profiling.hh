@@ -1,7 +1,7 @@
 /**
  * @file profiling.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Umbrella header for the GRACE profiling subsystem (host timers, GPU counters, runtime singleton).
  * @date 2024-06-11
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

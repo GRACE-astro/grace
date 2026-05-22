@@ -1,7 +1,7 @@
 /**
  * @file device_stream.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief RAII wrapper around a backend device stream (CUDA / HIP / SYCL queue or host-no-op) used for asynchronous kernel launches.
  * @date 2024-10-07
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

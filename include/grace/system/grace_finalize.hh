@@ -1,7 +1,7 @@
 /**
  * @file grace_finalize.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Public entry point for GRACE shutdown: tears down MPI, Kokkos, p4est, and flushes pending IO.
  * @date 2024-05-09
  * 
  * @copyright This file is part of GRACE.

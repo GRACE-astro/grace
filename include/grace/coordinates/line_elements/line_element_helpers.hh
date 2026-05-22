@@ -1,7 +1,7 @@
 /**
  * @file line_element_helpers.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Inline integrand helpers for the logical-direction line elements (dx, dy, dz) on the logarithmic-radius spherical multipatch grid.
  * @date 2024-04-17
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

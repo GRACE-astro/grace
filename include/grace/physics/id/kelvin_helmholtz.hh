@@ -1,7 +1,7 @@
 /**
  * @file kelvin_helmholtz.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Kelvin-Helmholtz instability initial-data kernel: counter-streaming flows with a perturbed shear layer.
  * @date 2025-10-01
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

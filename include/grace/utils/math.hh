@@ -1,7 +1,7 @@
 /**
  * @file math.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Host/device math helpers: compile-time integer powers, sign function, and other small numeric utilities not provided by std/Kokkos.
  * @version 0.1
  * @date 2023-03-13
  * 

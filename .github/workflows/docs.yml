@@ -27,12 +27,22 @@ jobs:
 
       - name: Build docs
         run: |
-          cmake -Bbuild-docs -DGRACE_BUILD_DOCS=ON -DGRACE_BUILD_DOCS_ONLY=ON && cmake --build build-docs
+          cmake -Bbuild-docs -DGRACE_BUILD_DOCS=ON -DGRACE_BUILD_DOCS_ONLY=ON
+          cmake --build build-docs
+          # Co-locate the Doxygen HTML inside the Sphinx html dir so the
+          # API link (`doxygen/html/index.html` relative to a Sphinx page)
+          # resolves correctly on the deployed site.  Without this the
+          # API button 404s because Doxygen output ends up as a sibling
+          # of `html/`, not a child of it.
+          cp -r build-docs/doc/doxygen build-docs/doc/html/doxygen
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: build-docs/doc/  
+          path: build-docs/doc/html
 
   deploy:
     needs: build

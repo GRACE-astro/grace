@@ -1,7 +1,7 @@
 /**
  * @file magnetic_rotor.hh
  * @author Konrad Topolski (topolski@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Magnetic-rotor (Balsara-Spicer) initial-data kernel: rotating high-density cylinder in a magnetised ambient medium.
  * @date 2025-05-12
  * 
  * @copyright This file is part of the General Relativistic Astrophysics
@@ -46,8 +46,7 @@ namespace grace {
 
 //**************************************************************************************************
 /**
- * \defgroup initial_data Initial Data
- * 
+ * \ingroup initial_data
  */
 //**************************************************************************************************
 /**

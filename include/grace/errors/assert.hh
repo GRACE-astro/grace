@@ -1,7 +1,7 @@
 /**
  * @file assert.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief ASSERT / ASSERT_DBG / DEBUGOUT macros that abort with a diagnostic message in debug builds and compile out in release builds.
  * @version 0.1
  * @date 2023-03-13
  * 

@@ -1,7 +1,7 @@
 /**
  * @file refluxing.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Free-function entry points for face-flux and constrained-transport EMF refluxing at coarse-fine AMR interfaces.
  * @date 2025-10-16
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics
@@ -40,13 +40,13 @@ namespace grace {
 //*****************************************************************************************************
 /** @brief Fill flux buffers for refluxing
  * @return Transfer context containing send and receive requests for fluxes.
- * \ingroup evol
+ * \ingroup evolution
  */
 parallel::grace_transfer_context_t reflux_fill_flux_buffers();
 //*****************************************************************************************************
 /** @brief Fill emf buffers for refluxing
  * @return Transfer context containing send and receive requests for emfs.
- * \ingroup evol
+ * \ingroup evolution
  */
 parallel::grace_transfer_context_t reflux_fill_emf_buffers() ; 
 //*****************************************************************************************************
@@ -63,7 +63,7 @@ parallel::grace_transfer_context_t reflux_fill_emf_buffers() ;
  *  repartition.
  *
  * @param context Transfer context populated by `reflux_fill_flux_buffers`.
- * \ingroup evol
+ * \ingroup evolution
 */
 void reflux_correct_fluxes(
     parallel::grace_transfer_context_t& context
@@ -71,7 +71,7 @@ void reflux_correct_fluxes(
 //*****************************************************************************************************
 /** @brief Correct EMFs at fine-coarse interfaces
  * @param context Transfer context
- * \ingroup evol
+ * \ingroup evolution
 */
 void reflux_correct_emfs(
     parallel::grace_transfer_context_t& context

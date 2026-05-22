@@ -1,7 +1,7 @@
 /**
  * @file black_hole_diagnostics.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Diagnostic that extracts horizon-related quantities (mass, spin, location) from the apparent-horizon finder output.
  * @date 2025-11-17
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

@@ -1,7 +1,7 @@
 /**
  * @file iterator.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Generic forward iterator / const-iterator templates wrapping a raw pointer with the standard iterator-trait typedefs.
  * @version 0.1
  * @date 2024-02-29
  * 

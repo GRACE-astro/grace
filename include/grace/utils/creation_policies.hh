@@ -1,7 +1,7 @@
 /**
- * @file creators.hh
+ * @file creation_policies.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Creator-policy templates (placement-new with custom allocator) that hand singleton construction off to a configurable allocation strategy.
  * @version 0.1
  * @date 2023-03-10
  * 
@@ -35,7 +35,7 @@ namespace memory {
 //**************************************************************************************************
 /**
  * @brief defines new_delete creator and its instantiations
- * \ingroup memory 
+ * \ingroup utils 
  * @tparam T type of the object to be created 
  * @tparam allocator memory allocator to be used 
  */
@@ -80,7 +80,7 @@ public:
 /**
  * @brief Alias for creator class using global
  *        <code>malloc</code> and <code>free</code>.
- * \ingroup memory
+ * \ingroup utils
  * @tparam T type being created.
  */
 template<typename T>

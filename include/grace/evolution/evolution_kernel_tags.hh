@@ -36,37 +36,37 @@ namespace grace {
 //*****************************************************************************************************
 /**
  * @brief Tag for x-flux computation kernels.
- * \ingroup evol
+ * \ingroup evolution
  */
 struct x_flux_computation_kernel_t {};
 //*****************************************************************************************************
 /**
  * @brief Tag for y-flux computation kernels.
- * \ingroup evol
+ * \ingroup evolution
  */
 struct y_flux_computation_kernel_t {};
 //*****************************************************************************************************
 /**
  * @brief Tag for z-flux computation kernels.
- * \ingroup evol
+ * \ingroup evolution
  */
 struct z_flux_computation_kernel_t {};
 //*****************************************************************************************************
 /**
  * @brief Tag for geometric sources computation kernels.
- * \ingroup evol
+ * \ingroup evolution
  */
 struct sources_computation_kernel_t {}; 
 //*****************************************************************************************************
 /**
  * @brief Tag for auxiliary variables computation kernel.
- * \ingroup evol
+ * \ingroup evolution
  */
 struct auxiliaries_computation_kernel_t {} ;
 //*****************************************************************************************************
 /**
  * @brief Tag for eigenspeed computation kernel.
- * \ingroup evol
+ * \ingroup evolution
  */
 struct eigenspeed_kernel_t {} ; 
 //*****************************************************************************************************

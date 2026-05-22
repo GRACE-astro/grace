@@ -1,7 +1,7 @@
 /**
  * @file variable_properties.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Per-variable metadata structure (rank, staggering, boundary types, ghost-zone behaviour) and dimension-specialised variants thereof.
  * @date 2024-03-12
  * 
  * @copyright This file is part of MagMA.

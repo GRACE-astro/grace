@@ -1,7 +1,7 @@
 /**
 * @file variables.cpp
 * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
-* @brief 
+* @brief Implementation of the global variable_list singleton: registry construction and per-variable property storage.
 * @version 0.1
 * @date 2024-03-07
 * 

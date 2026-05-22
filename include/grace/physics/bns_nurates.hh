@@ -1,7 +1,7 @@
 /**
  * @file bns_nurates.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Bindings to the bns_nurates neutrino-opacity tables and quadrature helpers used by the M1 source-term assembly.
  * @date 2026-03-26
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

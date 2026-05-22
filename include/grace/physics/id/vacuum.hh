@@ -1,7 +1,7 @@
 /**
  * @file vacuum.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Vacuum initial-data kernel: flat-space Z4c initial state with atmospheric matter fields.
  * @date 2025-11-24
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

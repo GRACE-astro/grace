@@ -1,7 +1,7 @@
 /**
  * @file twopuncture.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Initial-data driver that imports TwoPunctures (Ansorg) binary black hole data and lays it down on the GRACE Z4c grid.
  * @date 2025-01-08
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

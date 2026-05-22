@@ -1,7 +1,7 @@
 /**
  * @file blastwave.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Cylindrical / spherical blast-wave initial-data kernel (Komissarov MHD blast variants) for GRMHD code-testing.
  * @date 2026-01-07
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

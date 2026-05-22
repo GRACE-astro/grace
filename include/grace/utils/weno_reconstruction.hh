@@ -1,7 +1,7 @@
 /**
  * @file weno_reconstruction.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief WENO reconstruction functors (order-3 and higher) acting on cell-centred views to produce face-state reconstructions for HRSC schemes.
  * @date 2024-06-06
  * 
  * @copyright This file is part of the General Relativistic Astrophysics

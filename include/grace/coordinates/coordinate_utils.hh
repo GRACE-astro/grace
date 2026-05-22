@@ -1,7 +1,7 @@
 /**
  * @file coordinate_utils.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Reserved umbrella for free-function coordinate utilities in the grace::amr namespace (currently a forward-compatibility stub).
  * @date 2024-03-26
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

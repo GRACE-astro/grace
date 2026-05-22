@@ -1,7 +1,7 @@
 /**
  * @file cartesian_coordinate_systems.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Cartesian coordinate-system implementation (host singleton + device functor) providing logical/physical maps and Jacobians on a brick of p4est trees.
  * @date 2024-03-26
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics
@@ -130,7 +130,7 @@ struct cartesian_device_coordinate_system_impl_t{
 //**************************************************************************************************
 /**
  * @brief Implementation of coordinate system class for cartesian grids.
- * \ingroup grace_coordinates
+ * \ingroup coordinates
  */
 //**************************************************************************************************
 class cartesian_coordinate_system_impl_t 

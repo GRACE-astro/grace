@@ -1,7 +1,7 @@
 /**
  * @file variables.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Global variable-list singleton: registry of evolved, auxiliary and HRSC variables with their properties (rank, staggering, boundary types).
  * @version 0.1
  * @date 2024-03-07
  * 

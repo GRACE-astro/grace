@@ -1,7 +1,7 @@
 /**
  * @file bits.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Bit-level primitives (set/clear/toggle/check/extract nth bit) operating on integer types and raw byte pointers.
  * @date 2023-03-23
  * 
  * @copyright This file is part of GRACE.
@@ -33,12 +33,12 @@
 
 namespace utils {
 /**
- * @brief 
- * 
- * @tparam T 
- * @param ptr 
- * @param n 
- * @return GRACE_ALWAYS_INLINE 
+ * @brief Return the n-th bit of the byte stream pointed to by ptr (treating the underlying storage as a packed bit array).
+ *
+ * @tparam T
+ * @param ptr
+ * @param n
+ * @return GRACE_ALWAYS_INLINE
  */
 template< typename T >
 GRACE_ALWAYS_INLINE bool nth_bit(const T* ptr, const size_t n)

@@ -1,7 +1,7 @@
 /**
- * @file spherical_surface_utils.hh
+ * @file spherical_surface_helpers.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Sampling and tracking policies for spherical output surfaces (uniform / Gauss-Legendre samplers, static / tracked center policies).
  * @date 2025-10-03
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

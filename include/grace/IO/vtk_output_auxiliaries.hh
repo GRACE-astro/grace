@@ -1,7 +1,7 @@
 /**
  * @file vtk_output_auxiliaries.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Helpers that compute auxiliary fields (vector decompositions, derived quantities) prior to VTK volume output.
  * @date 2024-05-17
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

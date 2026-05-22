@@ -16,7 +16,7 @@ Prerequisites
 GRACE has two dependency modes — pick the one that matches your environment.
 
 System dependencies (always required)
-=====================================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These come from your OS or HPC modules.
 
@@ -30,7 +30,7 @@ The remaining five GRACE dependencies — **Kokkos**, **p4est**, **Catch2**,
 **spdlog**, **yaml-cpp** — can be supplied two ways:
 
 Mode A: bundled (recommended for laptop / first build / CI)
-============================================================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Clone the repository with ``--recursive`` and configure with
 ``-DGRACE_USE_BUNDLED_DEPS=ON``.  GRACE will build all five from the in-tree
@@ -40,7 +40,7 @@ main build.  Self-contained, reproducible, zero version-mismatch issues.
 .. code-block:: bash
 
     git clone --recurse-submodules --shallow-submodules \
-              https://github.com/Carlo-Musolino/grace.git grace-src
+              https://github.com/GRACE-astro/grace.git grace-src
     cd grace-src
     cmake -B build -S . \
           -DGRACE_USE_BUNDLED_DEPS=ON \
@@ -48,15 +48,8 @@ main build.  Self-contained, reproducible, zero version-mismatch issues.
           -DGRACE_METRIC_EVOL=COWLING
     cmake --build build -j
 
-The ``--shallow-submodules`` flag fetches Kokkos, p4est, and the other
-in-tree dependencies at depth 1, which on a slow link is the difference
-between a few-minute clone and a multi-hour one.  Use plain ``--recursive``
-instead if you need full submodule history (e.g. for development against
-a specific upstream commit).  If you forgot to clone with submodules, run
-``git submodule update --init --recursive --depth 1`` afterwards.
-
-Mode B: system installs (recommended for HPC clusters)
-======================================================
+Mode B: system installs (alternative)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Leave ``GRACE_USE_BUNDLED_DEPS`` off (the default).  GRACE locates each
 dependency through a ``<DEP>_ROOT`` environment variable, typically populated
@@ -70,11 +63,21 @@ by ``module load`` on cluster systems:
     export YAML_ROOT=/path/to/yaml-cpp/install
     export CATCH2_ROOT=/path/to/catch2/install
 
-This mode is preferred on clusters because the locally-installed Kokkos is
-typically tuned with the right CUDA/HIP arch flags + register-pressure
-heuristics, which the bundled build cannot match.  The ``env/`` directory
-in the GRACE repository contains example environment files for several
-systems; copying one as a starting point is the easiest path.
+The ``env/`` directory in the GRACE repository contains example environment
+files for several systems; copying one as a starting point is the easiest
+path.
+
+.. warning::
+
+   If you supply Kokkos from a system-wide installation, you must ensure
+   it was built with **relocatable device code (RDC)** enabled for your
+   GPU backend
+   (``-DKokkos_ENABLE_CUDA_RELOCATABLE_DEVICE_CODE=ON`` or the matching
+   ``HIP`` / ``SYCL`` flag).  GRACE has device functions defined in ``.cpp``
+   files that are called from kernels in other translation units, which
+   only links when the active backend's RDC is on.  Many pre-built Kokkos
+   modules on HPC systems ship with RDC off — check, or build your own.
+   The bundled-deps build (Mode A) handles this automatically.
 
 
 Clone and build
@@ -82,7 +85,7 @@ Clone and build
 
 .. code-block:: bash
 
-    git clone --recursive https://github.com/Carlo-Musolino/grace.git grace-src
+    git clone --recursive https://github.com/GRACE-astro/grace.git grace-src
     cd grace-src
 
     # source your environment file (sets KOKKOS_ROOT, P4EST_ROOT, etc.)
@@ -116,8 +119,12 @@ Run your first simulation
 
 GRACE ships several ready-to-run parameter files under ``examples/``,
 organized by problem class (``z4c/``, ``grmhd/``, ``cowling_grmhd/``,
-``symmetry_audit/``).  The simplest is a 1D relativistic shocktube on a
-Cowling background — runs to completion in seconds on a laptop CPU:
+``symmetry_audit/``).  A good first run is the Balsara MHD shocktube on
+a Cowling background.  The shipped configuration uses a 3D grid
+(``32³`` cells per block, 5 stacked trees, refinement level 1), which
+completes in about a minute on a single GPU; on a CPU laptop expect a
+few minutes.  Reduce ``npoints_block_*`` or
+``initial_refinement_level`` in the YAML for a faster smoke test.
 
 .. code-block:: bash
 

@@ -1,7 +1,7 @@
 /**
- * @file black_hole_diagnostics.hh
+ * @file diagnostic_base.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief 
+ * @brief Common base type for output diagnostics: per-diagnostic lifecycle hooks (initialize, compute, write) and shared bookkeeping.
  * @date 2025-11-17
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics
