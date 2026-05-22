@@ -7,7 +7,6 @@
  * When enabled, callers should still respect the runtime config flag
  * particles.enabled before invoking module APIs that mutate state.
  *
- * See doc/design/particles.md for the full architecture.
  */
 #ifndef GRACE_PARTICLES_PARTICLES_MODULE_HH
 #define GRACE_PARTICLES_PARTICLES_MODULE_HH

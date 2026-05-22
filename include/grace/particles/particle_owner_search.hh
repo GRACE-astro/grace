@@ -8,7 +8,6 @@
  * p4est_search_partition, which is non-collective and uses only the global
  * partition layout already replicated by p4est.
  *
- * See doc/design/particles.md (sections "Architecture" and "Drift regimes").
  */
 #ifndef GRACE_PARTICLES_PARTICLE_OWNER_SEARCH_HH
 #define GRACE_PARTICLES_PARTICLE_OWNER_SEARCH_HH

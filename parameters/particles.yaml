@@ -3,7 +3,6 @@ particles:
   description: >
     Lagrangian tracer particle subsystem. v1: passive tracers advected with
     the fluid 3-velocity, sampling rho/T/Y_e/etc. for nucleosynthesis
-    post-processing. See doc/design/particles.md.
 
   enabled:
     type: bool
