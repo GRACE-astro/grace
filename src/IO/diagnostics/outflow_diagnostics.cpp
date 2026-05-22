@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -78,7 +78,7 @@ outflows::compute_local_fluxes(
     for(int i=0; i<npoints; ++i) {
 
         auto ip = detector.intersecting_points_h[i] ; 
-        #ifndef GRACE_ENABLE_Z4C_METRIC
+        #if GRACE_METRIC_EVOL != GRACE_METRIC_EVOL_Z4
         double gxx{ivals(i,loc_var_idx_t::GXXL)}
                 , gxy{ivals(i,loc_var_idx_t::GXYL)}
                 , gxz{ivals(i,loc_var_idx_t::GXZL)}
@@ -114,7 +114,7 @@ outflows::compute_local_fluxes(
                 , zy{ivals_aux(i,loc_aux_idx_t::ZYL)}
                 , zz{ivals_aux(i,loc_aux_idx_t::ZZL)} ;
         #endif 
-        #ifndef GRACE_ENABLE_Z4C_METRIC
+        #if GRACE_METRIC_EVOL != GRACE_METRIC_EVOL_Z4
         metric_array_t metric{
             {gxx,gxy,gxz,gyy,gyz,gzz}, {betax,betay,betaz}, alp
         } ;

@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -93,7 +93,7 @@ metric_array_t( std::array<double,6>const& g_
  * @param alp_ Lapse function.
  * NB: The order of metric components should be: (XX,XY,XZ,YY,YZ,ZZ).
  */
- #ifdef GRACE_ENABLE_Z4C_METRIC
+ #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
 GRACE_HOST_DEVICE
 metric_array_t( std::array<double,6>const& gt_
               , double const& W_

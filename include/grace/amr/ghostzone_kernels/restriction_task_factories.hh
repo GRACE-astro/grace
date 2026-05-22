@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -85,37 +85,44 @@ task_id_t insert_restriction_tasks(
 
     GRACE_TRACE("Recording GPU-restrict task (tid {}) number of quadrants {}", task_counter, cbuf_qid.size()) ;
     Kokkos::View<size_t*> quad_id_d("restrict_qid", cbuf_qid.size())
-                        , cbuf_id_d("restrict_cbufid", cbuf_qid.size()) 
+                        , cbuf_id_d("restrict_cbufid", cbuf_qid.size())
                         , varlist_lo_d("restrict_vlist_lo", varlist_lo.size())
-                        , varlist_ho_d("restrict_vlist_ho", varlist_ho.size()); 
+                        , varlist_ho_d("restrict_vlist_ho", varlist_ho.size());
+    // Per-quad Morton child-id (bits 0,1,2 = x,y,z half within parent).
+    // Consumed by restrict_op to flip the interior Lagrange stencil so the
+    // ghost-zone restriction is L↔R symmetric across the parent midplane.
+    Kokkos::View<uint8_t*> child_id_d("restrict_child_id", cbuf_qid.size()) ;
     Kokkos::View<double*> ho_restrict_coeffs_d("ho_restrict_coeffs", ho_restrict_coeffs.size());
     deep_copy_vec_to_view(ho_restrict_coeffs_d,ho_restrict_coeffs);
 
     deep_copy_vec_to_view(varlist_lo_d,varlist_lo);
     deep_copy_vec_to_view(varlist_ho_d,varlist_ho);
 
-    auto quad_id_h = Kokkos::create_mirror_view(quad_id_d) ; 
-    auto cbuf_id_h = Kokkos::create_mirror_view(cbuf_id_d) ; 
-    
-    size_t i{0UL} ; 
+    auto quad_id_h = Kokkos::create_mirror_view(quad_id_d) ;
+    auto cbuf_id_h = Kokkos::create_mirror_view(cbuf_id_d) ;
+    auto child_id_h = Kokkos::create_mirror_view(child_id_d) ;
+
+    size_t i{0UL} ;
     for( auto const& qid: cbuf_qid) {
-        quad_id_h(i) = qid ; 
-        cbuf_id_h(i) = ghost_array[qid].cbuf_id ; 
-        i+=1UL ; 
+        quad_id_h(i) = qid ;
+        cbuf_id_h(i) = ghost_array[qid].cbuf_id ;
+        child_id_h(i) = static_cast<uint8_t>(ghost_array[qid].local_child_id) ;
+        i+=1UL ;
     }
     Kokkos::deep_copy(quad_id_d,quad_id_h) ;
     Kokkos::deep_copy(cbuf_id_d,cbuf_id_h) ;
+    Kokkos::deep_copy(child_id_d,child_id_h) ;
 
     gpu_task_t task{} ;
 
-    amr::restrict_op<restrict_lo_op,decltype(state)> 
+    amr::restrict_op<restrict_lo_op,decltype(state)>
     functor(
-        state, coarse_buffers, quad_id_d, cbuf_id_d, varlist_lo_d, restrict_lo_op{}, ngz
-    ) ; 
+        state, coarse_buffers, quad_id_d, cbuf_id_d, varlist_lo_d, child_id_d, restrict_lo_op{}, ngz
+    ) ;
 
-    amr::restrict_op<restrict_ho_op,decltype(state)> 
+    amr::restrict_op<restrict_ho_op,decltype(state)>
     functor_ho(
-        state, coarse_buffers, quad_id_d, cbuf_id_d, varlist_ho_d, restrict_ho_op(ho_restrict_coeffs_d,nx,ny,nz,ngz), ngz
+        state, coarse_buffers, quad_id_d, cbuf_id_d, varlist_ho_d, child_id_d, restrict_ho_op(ho_restrict_coeffs_d,nx,ny,nz,ngz), ngz
     ) ;
 
     auto exec_space = grace::make_exec_space(stream) ;

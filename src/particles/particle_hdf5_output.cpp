@@ -232,7 +232,7 @@ void write_particle_snapshot(const tracer_container_t<>& tr,
     long long       offset_ll  = 0;
     long long       n_global_ll = 0;
     MPI_Exscan   (&n_local_ll, &offset_ll,   1, MPI_LONG_LONG, MPI_SUM, comm);
-    MPI_Allreduce(&n_local_ll, &n_global_ll, 1, MPI_LONG_LONG, MPI_SUM, comm);
+    parallel::mpi_allreduce(&n_local_ll, &n_global_ll, 1, sc_MPI_SUM, comm);
     if (rank == 0) offset_ll = 0;
     if (n_global_ll == 0) return; // nobody has tracers; skip the snapshot entirely
 

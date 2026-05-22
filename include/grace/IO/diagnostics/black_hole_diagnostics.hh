@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -55,7 +55,7 @@ struct bh_diagnostics:
     public diagnostic_base_t<bh_diagnostics> 
 {
     using base_t = diagnostic_base_t<bh_diagnostics>; 
-    #ifndef GRACE_ENABLE_Z4C_METRIC
+    #if GRACE_METRIC_EVOL != GRACE_METRIC_EVOL_Z4
     enum loc_var_idx_t : int {
         GXXL=0, GXYL, GXZL, GYYL, GYZL, GZZL,
         BETAXL, BETAYL, BETAZL, ALPL, NUM_VARS 
@@ -83,7 +83,7 @@ struct bh_diagnostics:
     bh_diagnostics() 
         : base_t("bh_diagnostics")
     {
-        #ifndef GRACE_ENABLE_Z4C_METRIC
+        #if GRACE_METRIC_EVOL != GRACE_METRIC_EVOL_Z4
         this->var_interp_idx = std::vector<int>({GXX_, GXY_, GXZ_, GYY_, GYZ_, GZZ_, BETAX_, BETAY_, BETAZ_, ALP_});
         #else 
         this->var_interp_idx = std::vector<int>({GTXX_, GTXY_, GTXZ_, GTYY_, GTYZ_, GTZZ_, CHI_, BETAX_, BETAY_, BETAZ_, ALP_});

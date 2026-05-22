@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -229,16 +229,16 @@ struct m1_equations_system_t
         /* Metric derivatives                                                                             */
         /**************************************************************************************************/
         double dalpha_dx[3], dgdd_dx[18], dbetau_dx[9] ; 
-        fill_deriv_scalar(this->_state, i,j,k, ALP_, q, dalpha_dx, idx(0,q)) ; 
-        fill_deriv_vector(this->_state, i,j,k, BETAX_, q, dbetau_dx, idx(0,q)) ;
-        #ifdef GRACE_ENABLE_COWLING_METRIC
-        fill_deriv_tensor(this->_state, i,j,k, GXX_, q, dgdd_dx, idx(0,q)) ;
-        #else 
-        double chi = s(CHI_) ; 
-        double oochi = 1./fmax(1e-15,chi) ; 
-        double dchi_dx[3] ; 
-        fill_deriv_scalar(this->_state, i,j,k, CHI_, q, dchi_dx, idx(0,q)) ;
-        fill_deriv_tensor(this->_state, i,j,k, GTXX_, q, dgdd_dx, idx(0,q)) ;
+        fill_deriv_scalar<MATTER_METRIC_DER_ORDER>(this->_state, i,j,k, ALP_, q, dalpha_dx, idx(0,q)) ;
+        fill_deriv_vector<MATTER_METRIC_DER_ORDER>(this->_state, i,j,k, BETAX_, q, dbetau_dx, idx(0,q)) ;
+        #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_COWLING
+        fill_deriv_tensor<MATTER_METRIC_DER_ORDER>(this->_state, i,j,k, GXX_, q, dgdd_dx, idx(0,q)) ;
+        #else
+        double chi = s(CHI_) ;
+        double oochi = 1./fmax(1e-15,chi) ;
+        double dchi_dx[3] ;
+        fill_deriv_scalar<MATTER_METRIC_DER_ORDER>(this->_state, i,j,k, CHI_, q, dchi_dx, idx(0,q)) ;
+        fill_deriv_tensor<MATTER_METRIC_DER_ORDER>(this->_state, i,j,k, GTXX_, q, dgdd_dx, idx(0,q)) ;
         // gdd = gtdd/chi
         // dgdd/dx = dgtdd/dx / chi - gdd / chi dchi/dx 
         for( int idir=0; idir<3; ++idir) {
@@ -251,7 +251,7 @@ struct m1_equations_system_t
         /* Extrinsic curvature                                                                            */
         /**************************************************************************************************/
         double Kdd[6] ; 
-        #ifdef GRACE_ENABLE_COWLING_METRIC
+        #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_COWLING
         Kdd[0] = s(KXX_) ; Kdd[1] = s(KXY_) ; Kdd[2] = s(KXZ_) ; 
         Kdd[3] = s(KYY_) ; Kdd[4] = s(KYZ_) ; Kdd[5] = s(KZZ_) ; 
         #else
@@ -259,13 +259,11 @@ struct m1_equations_system_t
               s(ATXX_), s(ATXY_), s(ATXZ_),
               s(ATYY_), s(ATYZ_), s(ATZZ_)
         } ;
-        #ifdef GRACE_ENABLE_Z4C_METRIC
+        #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
         double const Khat  = s(KHAT_);
         double const theta = s(THETA_);
-        double const Ktr = Khat + 2. * theta ; 
-        #elif defined(GRACE_ENABLE_BSSN_METRIC)
-        double const Ktr = s(KTR_) ; 
-        #endif 
+        double const Ktr = Khat + 2. * theta ;
+        #endif
         for( int a=0; a<6; ++a ) {
             Kdd[a] = oochi * Atdd[a] + Ktr * gdd[a] / 3. ; 
         }
@@ -630,10 +628,11 @@ struct m1_equations_system_t
         /***********************************************************************/
         recon_t reconstructor{} ; 
         /***********************************************************************/
-        /* 3rd order interpolation of metric at cell interface                 */
+        /* 4-point Lagrange interpolation of the metric at the cell interface, */
+        /* with pair-symmetric summation so the face values are bit-mirror     */
+        /* under the discrete symmetries (see grmhd_helpers.hh).               */
         /***********************************************************************/
-        metric_array_t metric_face ; 
-        COMPUTE_FCVAL(metric_face,this->_state,i,j,k,q,idir) ; 
+        auto const metric_face = compute_face_metric(this->_state, VEC(i,j,k), q, idir);
         /***********************************************************************/
         /*              Reconstruct primitive variables                        */
         /***********************************************************************/
@@ -843,6 +842,7 @@ void set_m1_eas<EOS>()
 
 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::tabulated_cold_eos_t>) ;
 INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;
 INSTANTIATE_TEMPLATE(grace::ideal_gas_eos_t) ;
 #undef INSTANTIATE_TEMPLATE

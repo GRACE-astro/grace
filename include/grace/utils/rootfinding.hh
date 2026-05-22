@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -510,6 +510,59 @@ rootfind_nd_newton_raphson(FT&& func, DFT&& dfunc, double (&x)[ND], unsigned lon
     err = ERR_STAGNATION ; 
     return ; 
 }
+//****************************************************************************
+// Plain secant. Does not bracket, does not cap, does not line-search.
+// Caller is expected to apply downstream physical sanity gates on the
+// returned x; non-finite f is the only mid-iteration failure path.
+//
+// Error codes:
+//   0  converged (|dx| < rtol|x| + atol  or  |f| < ftol)
+//   1  initial sample non-finite
+//   2  zero secant slope (f == fl)
+//   3  trial step produced non-finite f
+//   5  ran out of iterations
+template< typename F >
+KOKKOS_INLINE_FUNCTION
+double rootfind_secant(F&& func,
+                        double x1, double x2,
+                        double atol, double rtol, double ftol,
+                        size_t maxit, int& err)
+{
+    err = 0;
+
+    double xl = x1, x = x2;
+    double fl = func(xl);
+    double f  = func(x);
+
+    if (!Kokkos::isfinite(fl) || !Kokkos::isfinite(f)) {
+        err = 1; return x;
+    }
+
+    for (size_t j = 0; j < maxit; ++j) {
+        if (f == 0.0) return x;
+
+        double df = f - fl;
+        if (df == 0.0) { err = 2; return x; }
+
+        double dx    = -f * (x - xl) / df;
+        double x_new = x + dx;
+        double f_new = func(x_new);
+
+        if (!Kokkos::isfinite(f_new)) { err = 3; return x; }
+
+        xl = x;     fl = f;
+        x  = x_new; f  = f_new;
+
+        if (Kokkos::fabs(dx) < rtol * Kokkos::fabs(x) + atol ||
+            Kokkos::fabs(f)  < ftol) {
+            return x;
+        }
+    }
+
+    err = 5;
+    return x;
 }
+
+} /* namespace utils */
 
 #endif /* GRACE_UTILS_ROOTFINDING_HH */

@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -50,19 +50,24 @@ parallel::grace_transfer_context_t reflux_fill_flux_buffers();
  */
 parallel::grace_transfer_context_t reflux_fill_emf_buffers() ; 
 //*****************************************************************************************************
-/** @brief Correct fluxes at fine-coarse interfaces
- * @param context Transfer context
- * @param t Time 
- * @param dt Time step 
- * @param dtfact Time step factor
- * @param new_state New state 
+/** @brief Replace coarse-side fluxes at fine-coarse interfaces with the
+ *         area-averaged fine fluxes, in place on the flux array.
+ *
+ *  Must be called AFTER `compute_fluxes` and AFTER `reflux_fill_flux_buffers`,
+ *  but BEFORE `add_fluxes_and_source_terms` (the divergence update that
+ *  consumes the flux array).  Mirrors the `reflux_correct_emfs` pattern.
+ *  Replacing the flux directly (rather than patching `new_state` after the
+ *  fact) makes the operation race-free: each (qid, idir, side, i, j, ivar)
+ *  slot in the flux array is written by at most one descriptor, so the
+ *  kernel needs no atomics and the result is bit-invariant under MPI
+ *  repartition.
+ *
+ * @param context Transfer context populated by `reflux_fill_flux_buffers`.
  * \ingroup evol
 */
 void reflux_correct_fluxes(
-    parallel::grace_transfer_context_t& context,
-    double t, double dt, double dtfact,
-    var_array_t & new_state 
-) ; 
+    parallel::grace_transfer_context_t& context
+) ;
 //*****************************************************************************************************
 /** @brief Correct EMFs at fine-coarse interfaces
  * @param context Transfer context

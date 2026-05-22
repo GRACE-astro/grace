@@ -8,7 +8,7 @@
  * @copyright This file is part of GRACE.
  * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -65,30 +65,37 @@ struct regrid_restrict_op {
       , n(_n), g(_g)
     {}
 
-    // loop runs over coarse indices 
-    KOKKOS_INLINE_FUNCTION 
+    // loop runs over coarse indices
+    KOKKOS_INLINE_FUNCTION
     void operator() (size_t i, size_t j, size_t k, size_t vidx, size_t iq) const
     {
         using namespace Kokkos ;
-        // restrict: fine = out, coarse = in 
-        auto iv = varidx(vidx) ; 
+        // restrict: fine = out, coarse = in
+        auto iv = varidx(vidx) ;
 
         // coarse quad_id
         auto qc = qid_in(iq) ;
 
-        // child id 
-        int8_t ic = (2*i>=n) + ((2*j>=n)<<1) + ((2*k>=n)<<2) ; 
-        // fine quad_id 
-        auto qf = qid_out(P4EST_CHILDREN * iq + ic ) ; 
+        // child id (3 bits: x in bit 0, y in bit 1, z in bit 2)
+        int hx = (2*i>=n) ? 1 : 0 ;
+        int hy = (2*j>=n) ? 1 : 0 ;
+        int hz = (2*k>=n) ? 1 : 0 ;
+        int8_t ic = hx + (hy<<1) + (hz<<2) ;
+        // fine quad_id
+        auto qf = qid_out(P4EST_CHILDREN * iq + ic ) ;
 
-        size_t i_f = 2*i%n ; 
-        size_t j_f = 2*j%n ; 
-        size_t k_f = 2*k%n ; 
+        size_t i_f = 2*i%n ;
+        size_t j_f = 2*j%n ;
+        size_t k_f = 2*k%n ;
 
-        auto u = subview(data_out,ALL(),ALL(),ALL(),iv,qf) ; 
+        auto u = subview(data_out,ALL(),ALL(),ALL(),iv,qf) ;
+        // Pass per-direction half-flags so the interior 5-pt Lagrange stencil
+        // flips bias across the parent-quad midplane, restoring L↔R symmetry
+        // of the restriction (see lagrange_restrict_op<4>::operator()).
+        // second_order_restrict_op has an overload that ignores the flags.
         data_in(i+g,j+g,k+g,iv,qc) = op(
-            u, g + i_f, g + j_f, g + k_f
-        ); 
+            u, g + i_f, g + j_f, g + k_f, hx, hy, hz
+        );
     }
 } ; 
 

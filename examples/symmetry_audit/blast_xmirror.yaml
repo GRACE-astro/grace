@@ -1,0 +1,112 @@
+#=============================================================================
+# Symmetry-audit Tier-1 MHD test.
+#
+# Komissarov 1999 cylindrical magnetic blast wave on a small periodic box.
+# Uniform poloidal Bx = B0 in the background; smooth tanh transition between
+# an over-pressured cylinder at the origin and the ambient medium.
+#
+# The IC is bit-exactly x-mirror symmetric (reflection x -> -x):
+#
+#   rho(r), p(r) : scalars   -> invariant
+#   v = 0                    -> trivial
+#   Bx = const   : axial x-comp under x-mirror   -> +Bx (invariant)
+#   By = Bz = 0  : axial y/z-comps               -> trivial
+#
+# This is NOT pi-rotation symmetric (uniform Bx breaks pi-rot for axial
+# vectors); use khi_hydro_pirot.yaml for the pi-rot audit.
+#
+# Verify with:
+#   examples/symmetry_audit/tools/check_symmetry.py <run-dir>/desc_xy.xmf \
+#       --transform xmirror --var zvec --var Bvec --time all --tol 1e-13
+#
+# x-mirror is improper, so polar (zvec) and axial (Bvec) components flip
+# differently:
+#   zvec : (-1, +1, +1)
+#   Bvec : (+1, -1, -1)
+# The check_symmetry.py tool handles this automatically via the per-var
+# parity lookup.
+#=============================================================================
+name: "blast_xmirror"
+amr: {
+  npoints_block_x: 64,
+  npoints_block_y: 64,
+  npoints_block_z: 8,
+
+  # Centered domain so x-mirror maps cell-centers to cell-centers exactly.
+  xmin: -1.0,
+  xmax:  1.0,
+  ymin: -1.0,
+  ymax:  1.0,
+  zmin: -0.125,
+  zmax:  0.125,
+
+  periodic_x: true,
+  periodic_z: true,
+
+  n_ghostzones: 4,
+  initial_refinement_level: 1,
+
+  max_refinement_level: 7,
+  regrid_every: -1,
+  regrid_at_postinitial: false
+}
+
+IO: {
+  plane_surface_output_cell_variables: ["hydro","c2p_err","smallb2","dens","tau"],
+  plane_surface_output_every: 10,
+
+  info_output_every: 2,
+  info_output_max_reductions: ["rho", "press", "Bvec[1]", "Bdiv"],
+  info_output_min_reductions: ["rho", "press", "Bvec[1]"],
+
+  scalar_output_every: 10,
+  scalar_output_minmax: ["rho","press","eps","Bdiv"],
+  scalar_output_norm2: ["Bdiv"],
+
+  output_use_hdf5: true,
+  hdf5_compression_level: 0,
+  hdf5_chunk_size: 8192,
+
+  output_extra_quantities: true,
+
+  xy_plane_offset: 1e-5
+}
+
+evolution: {
+  time_stepper: "rk3",
+  cfl_factor: 0.25,
+  # Stop before the fast-magnetosonic shock reaches the periodic boundary.
+  # Shock speed ~ 1, box half-width 1, so 0.4 is comfortably pre-wrap.
+  final_time: 0.4
+}
+
+grmhd: {
+  id_type: "cylindrical_blast",
+  B_field_initialization: "direct",
+  cylindrical_blast: {
+    # Uniform density + over-pressured pulse: simpler than Komissarov's
+    # vacuum contrast and equally diagnostic for the symmetry audit.
+    rho_in:    1.0,
+    rho_out:   1.0,
+    press_in:  10.0,    # high-pressure pulse drives a fast-magnetosonic shock
+    press_out: 0.1,     # background
+    r_in:      0.10,    # inner radius of the smooth transition shell
+    r_out:     0.15,    # outer radius (taper width = r_out - r_in)
+    B0:        0.1      # uniform poloidal Bx; sigma ~ B0^2/(2 p_out) = 0.05
+  },
+  c2p: {
+    use_c2p_entropy_backup: false
+  }
+}
+
+system: {
+  console_log_level: "info",
+  n_device_streams: 4
+}
+
+eos: {
+  eos_type: "ideal_gas",
+  ideal_gas_eos: {
+    gamma: 1.6666667
+  }
+}

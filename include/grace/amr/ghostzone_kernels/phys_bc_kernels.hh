@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -115,42 +115,42 @@ struct sommerfeld_bc_t
       {
         double dudx,dudy,dudz; 
         if ( dx>0 ) {
-            fd_der_2_x_l1(view_p,i,j,k,invh,&dudx) ; 
+            fd_der_x_l1<2>(view_p,i,j,k,invh,&dudx) ; 
         } else if ( dx<0 ) {
-            fd_der_2_x_r1(view_p,i,j,k,invh,&dudx) ; 
+            fd_der_x_r1<2>(view_p,i,j,k,invh,&dudx) ; 
         } else {
             if ( i > 0 and i < nx + 2*ngz - 1 ) {
-                fd_der_2_x(view_p,i,j,k,invh,&dudx) ; 
+                fd_der_x<2>(view_p,i,j,k,invh,&dudx) ; 
             } else if ( i == 0 ) {
-                fd_der_2_x_r1(view_p,i,j,k,invh,&dudx) ; 
+                fd_der_x_r1<2>(view_p,i,j,k,invh,&dudx) ; 
             } else {
-                fd_der_2_x_l1(view_p,i,j,k,invh,&dudx) ; 
+                fd_der_x_l1<2>(view_p,i,j,k,invh,&dudx) ; 
             }
         }
         if ( dy>0 ) {
-            fd_der_2_y_l1(view_p,i,j,k,invh,&dudy) ; 
+            fd_der_y_l1<2>(view_p,i,j,k,invh,&dudy) ; 
         } else if ( dy<0 ) {
-            fd_der_2_y_r1(view_p,i,j,k,invh,&dudy) ; 
+            fd_der_y_r1<2>(view_p,i,j,k,invh,&dudy) ; 
         } else {
             if ( j > 0 and j < ny + 2*ngz - 1 ) {
-                fd_der_2_y(view_p,i,j,k,invh,&dudy) ;  
+                fd_der_y<2>(view_p,i,j,k,invh,&dudy) ;  
             } else if ( j ==  0 ) {
-                fd_der_2_y_r1(view_p,i,j,k,invh,&dudy) ; 
+                fd_der_y_r1<2>(view_p,i,j,k,invh,&dudy) ; 
             } else {
-                fd_der_2_y_l1(view_p,i,j,k,invh,&dudy) ; 
+                fd_der_y_l1<2>(view_p,i,j,k,invh,&dudy) ; 
             }
         }
         if ( dz>0 ) {
-            fd_der_2_z_l1(view_p,i,j,k,invh,&dudz) ; 
+            fd_der_z_l1<2>(view_p,i,j,k,invh,&dudz) ; 
         } else if ( dz<0 ) {
-            fd_der_2_z_r1(view_p,i,j,k,invh,&dudz) ; 
+            fd_der_z_r1<2>(view_p,i,j,k,invh,&dudz) ; 
         } else {
             if ( k > 0 and k < nz + 2*ngz - 1 ) {
-                fd_der_2_z(view_p,i,j,k,invh,&dudz) ;  
+                fd_der_z<2>(view_p,i,j,k,invh,&dudz) ;  
             } else if ( k == 0 ) {
-                fd_der_2_z_r1(view_p,i,j,k,invh,&dudz) ; 
+                fd_der_z_r1<2>(view_p,i,j,k,invh,&dudz) ; 
             } else {
-                fd_der_2_z_l1(view_p,i,j,k,invh,&dudz) ; 
+                fd_der_z_l1<2>(view_p,i,j,k,invh,&dudz) ; 
             }
         }
         double dudt = -v*(s[0]*dudx + s[1]*dudy + s[2]*dudz) + (f0-view_p(i,j,k))*v/r;
@@ -184,14 +184,14 @@ struct phys_bc_md_corner_tag      {} ;
 
 // Z4c algebraic-constraint follow-up variants: same shape minus the `iv`
 // axis.  Launched only when `stag == STAG_CENTER` under
-// GRACE_ENABLE_Z4C_METRIC; for other staggerings we never touch them.
+// GRACE_METRIC_EVOL == Z4; for other staggerings we never touch them.
 struct phys_bc_md_face_z4c_tag    {} ;
 struct phys_bc_md_edge_z4c_tag    {} ;
 struct phys_bc_md_corner_z4c_tag  {} ;
 
 KOKKOS_INLINE_FUNCTION 
 static void get_somm_props(int iv, double *v, double *f0) {
-    #ifdef GRACE_ENABLE_Z4C_METRIC
+    #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
     if ( iv == ALP_ or iv == KHAT_ ) {
         *v = sqrt(2) ; 
     } else {
@@ -296,7 +296,7 @@ struct phys_bc_op {
         outflow_kernel = outflow_bc_t{} ; extrap_kernel = extrap_bc_t<3>{} ; sommerfeld_kernel = sommerfeld_bc_t{} ; reflect_kernel = reflect_bc_t{} ;
     }
 
-    #ifdef GRACE_ENABLE_Z4C_METRIC
+    #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
     KOKKOS_INLINE_FUNCTION 
     void impose_algebraic_constraintz_z4c(const int ijk[3], size_t qid) const {
         auto sv = Kokkos::subview(
@@ -531,7 +531,7 @@ struct phys_bc_op {
 
     // Z4c algebraic-constraint follow-up pass. Rank<3>(i, j, iq) with the
     // swept axis serial, calls `impose_algebraic_constraintz_z4c` once per
-    // (i,j,k). Only meaningful for STAG_CENTER under GRACE_ENABLE_Z4C_METRIC;
+    // (i,j,k). Only meaningful for STAG_CENTER under GRACE_METRIC_EVOL == Z4;
     // the task factory only launches this in that case.
     KOKKOS_INLINE_FUNCTION
     void operator() (
@@ -539,7 +539,7 @@ struct phys_bc_op {
         int i, int j, int iq
     ) const
     {
-        #ifdef GRACE_ENABLE_Z4C_METRIC
+        #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
         if constexpr (!(extended
                         && elem_kind == element_kind_t::FACE
                         && bc_kind   == element_kind_t::FACE)) {
@@ -713,7 +713,7 @@ struct phys_bc_op {
         int i, int j, int iq
     ) const
     {
-        #ifdef GRACE_ENABLE_Z4C_METRIC
+        #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
         if constexpr (extended || bc_kind != element_kind_t::FACE) {
             return ;
         } else {
@@ -748,7 +748,7 @@ struct phys_bc_op {
         int i, int iq
     ) const
     {
-        #ifdef GRACE_ENABLE_Z4C_METRIC
+        #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
         if constexpr (extended || bc_kind != element_kind_t::EDGE) {
             return ;
         } else {
@@ -787,7 +787,7 @@ struct phys_bc_op {
         int iq
     ) const
     {
-        #ifdef GRACE_ENABLE_Z4C_METRIC
+        #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
         if constexpr (extended || bc_kind != element_kind_t::CORNER) {
             return ;
         } else {

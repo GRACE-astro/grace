@@ -8,7 +8,7 @@
  * @copyright This file is part of GRACE.
  * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -52,12 +52,11 @@
 
 #include <grace/IO/spherical_surfaces.hh>
 #include <grace/IO/output_diagnostics.hh>
-#ifdef GRACE_ENABLE_Z4C_METRIC
+#if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
 #include <grace/evolution/evolve.hh>
 #endif 
 #include <grace/IO/diagnostics/co_tracker.hh>
-#ifdef GRACE_ENABLE_Z4C_METRIC
-#include <grace/IO/diagnostics/apparent_horizon.hh>
+#if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
 #endif
 
 #ifdef GRACE_ENABLE_PARTICLES
@@ -255,9 +254,6 @@ void initialize(int& argc, char* argv[])
         // initialize trackers before reading checkpoint
         // since it contains previous locations
         grace::co_tracker::initialize() ;
-        #ifdef GRACE_ENABLE_Z4C_METRIC
-        grace::ah_finder_manager::initialize() ;
-        #endif
     }
     
     GRACE_INFO("Filling coordinate arrays...") ;
@@ -320,7 +316,7 @@ void initialize(int& argc, char* argv[])
     //--
     grace::spherical_surface_manager::initialize() ;
     //--
-    #ifdef GRACE_ENABLE_Z4C_METRIC
+    #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
     grace::compute_constraint_violations() ;
     #endif
     #ifdef GRACE_ENABLE_PARTICLES

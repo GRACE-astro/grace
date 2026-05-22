@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,12 +27,14 @@
 
 #include <hdf5.h>
 
+#include <cmath>
 #include <string>
 #include <filesystem>
 #include <sstream>
 #include <vector>
 #include <stdexcept>
 #include <fstream>
+#include <unordered_map>
 
 #include <grace/errors/error.hh>
 #include <grace/system/print.hh>
@@ -43,6 +45,7 @@
 
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/tabulated_eos.hh>
+#include <grace/physics/eos/tabulated_cold_eos.hh>
 #include <grace/physics/eos/physical_constants.hh>
 #include <grace/physics/eos/unit_system.hh>
 
@@ -141,86 +144,217 @@ sanitize_uniform_axis_inplace(std::vector<double>& axis,
     }
 }
 
+// Cross-check a cold table's energy_shift and baryon_mass (parsed from its
+// header) against the values derived from the hot table.  Mismatches imply
+// the cold and hot tables were generated from different sources or with
+// different conventions (force_mu / shift floor), in which case eps recovery
+// would be silently wrong.  NaN values indicate the header was unparseable
+// (legacy file written before this contract was made explicit) — skip the
+// check rather than warn, to preserve backward compatibility.
+static void
+check_cold_table_conventions(double cold_shift, double cold_baryon,
+                             double hot_shift,  double hot_baryon)
+{
+    if (std::isfinite(cold_shift) &&
+        std::abs(cold_shift - hot_shift) > 1e-12 * std::abs(hot_shift) + 1e-30) {
+        GRACE_WARN("Cold table reports energy_shift={} but hot table computed "
+                   "{}.  Likely the two tables were generated from different "
+                   "sources; eps recovery will be biased by {}.",
+                   cold_shift, hot_shift, cold_shift - hot_shift) ;
+    }
+    if (std::isfinite(cold_baryon) &&
+        std::abs(cold_baryon - hot_baryon) > 1e-10 * std::abs(hot_baryon)) {
+        ERROR("Cold table reports baryon_mass=" << cold_baryon << " but hot "
+              "table has " << hot_baryon << ".  Likely a force_mu mismatch "
+              "between the two tables — rho and eps axes will not be "
+              "consistent and initial data would be silently corrupted. "
+              "Regenerate the cold table from the same source as the hot "
+              "table, with matching force_mu setting.") ;
+    }
+}
+
+// Trim leading/trailing whitespace from a string in place.
+static void
+trim_whitespace_inplace(std::string& s)
+{
+    auto const start = s.find_first_not_of(" \t\r\n") ;
+    if (start == std::string::npos) { s.clear() ; return ; }
+    auto const end   = s.find_last_not_of(" \t\r\n")   ;
+    s = s.substr(start, end - start + 1) ;
+}
+
+// Strip the `#` comment prefix and any leading whitespace.  Returns false if
+// the line is not a `#`-prefixed comment line.
+static bool
+strip_comment_prefix(std::string const& line, std::string& body)
+{
+    auto pos = line.find_first_not_of(" \t") ;
+    if (pos == std::string::npos || line[pos] != '#') return false ;
+    body = line.substr(pos + 1) ;
+    auto bp = body.find_first_not_of(" \t") ;
+    body = (bp == std::string::npos) ? std::string() : body.substr(bp) ;
+    return true ;
+}
+
 static void
 read_cold_table(
-    const std::string& filename, 
+    const std::string& filename,
     Kokkos::View<double**, grace::default_execution_space>& d_data,
     Kokkos::View<double* , grace::default_execution_space>& d_rho,
+    double& cold_energy_shift,
+    double& cold_baryon_mass,
     int expected_cols = -1)
 {
+    std::ifstream file(filename) ;
+    ASSERT(file.is_open(), "Can't open cold table file") ;
 
-    std::ifstream file(filename);
+    std::string line ;
+    cold_energy_shift = std::nan("") ;
+    cold_baryon_mass  = std::nan("") ;
 
-    ASSERT(file.is_open(),"Can't open cold table file") ; 
-
-    std::string line;
-
-    // ---- 1. Skip description line
-    std::getline(file, line);
-
-    // ---- 2. Read number of rows
-    std::getline(file, line);
-    std::istringstream iss_n(line);
-
-    size_t nrows;
-    iss_n >> nrows;
-    ASSERT(iss_n, "Failed to read number of rows in cold eos table") ; 
-
-
-    // ---- 3. Peek first data line to determine columns
-    std::streampos data_start = file.tellg();
-
+    // ---- 1. Detect format from the first line.
+    //
+    //  v2 (GRACEpy >= 2026-05): a `#`-prefixed metadata block of `key = value`
+    //  lines, terminated by the first non-comment line (= first data row).
+    //  The first comment carries the literal tag "GRACE cold EOS table vN".
+    //
+    //  v1 (legacy): free-form first line "Slice generated by GRACEpy ...
+    //  energy shift X baryon mass Y ..." with the row count on the second
+    //  line.  Energy_shift / baryon_mass extracted by substring search.
     if (!std::getline(file, line)) {
-        ERROR("Unexpected EOF when reading cold eos table");
+        ERROR("Unexpected EOF when reading cold eos table") ;
+    }
+    std::string first_body ;
+    bool const is_v2 = strip_comment_prefix(line, first_body)
+                       && first_body.rfind("GRACE cold EOS table v", 0) == 0 ;
+
+    size_t nrows = 0 ;
+    std::vector<double> first_row ;
+
+    if (is_v2) {
+        // ---- 2a. v2: parse `# key = value` lines until first data row.
+        std::unordered_map<std::string, std::string> meta ;
+        meta["format_tag"] = first_body ;
+
+        std::string data_line ;
+        while (std::getline(file, line)) {
+            std::string body ;
+            if (!strip_comment_prefix(line, body)) {
+                // First non-comment line; this is the first data row.
+                data_line = line ;
+                break ;
+            }
+            if (body.empty()) continue ;
+            auto eq = body.find('=') ;
+            if (eq == std::string::npos) continue ;
+            std::string key = body.substr(0, eq) ;
+            std::string val = body.substr(eq + 1) ;
+            trim_whitespace_inplace(key) ;
+            trim_whitespace_inplace(val) ;
+            meta[key] = val ;
+        }
+
+        auto get_double = [&meta] (std::string const& k) -> double {
+            auto it = meta.find(k) ;
+            if (it == meta.end()) return std::nan("") ;
+            try { return std::stod(it->second) ; }
+            catch (...) { return std::nan("") ; }
+        } ;
+        cold_energy_shift = get_double("energy_shift") ;
+        cold_baryon_mass  = get_double("baryon_mass")  ;
+
+        // npoints is required in v2; we trust it for allocation.
+        auto it_n = meta.find("npoints") ;
+        if (it_n == meta.end()) {
+            ERROR("v2 cold table missing required 'npoints' metadata field") ;
+        }
+        nrows = static_cast<size_t>(std::stoul(it_n->second)) ;
+
+        // Log key provenance fields so the simulation log self-documents
+        // which cold table was loaded and how it was generated.
+        auto log_meta = [&meta] (std::string const& k) {
+            auto it = meta.find(k) ;
+            if (it != meta.end()) {
+                GRACE_INFO("cold-table {} = {}", k, it->second) ;
+            }
+        } ;
+        log_meta("source_table")     ;
+        log_meta("source_table_id")  ;
+        log_meta("force_mu")         ;
+        log_meta("attach_polytrope") ;
+        log_meta("rho_junction")     ;
+        log_meta("remove_radiation") ;
+        log_meta("slice_temperature_MeV") ;
+
+        if (data_line.empty()) {
+            ERROR("v2 cold table: no data rows after metadata block") ;
+        }
+        std::istringstream iss_first(data_line) ;
+        double val ;
+        while (iss_first >> val) first_row.push_back(val) ;
+    } else {
+        // ---- 2b. v1 (legacy): free-form first line, nrows on second line.
+        auto extract_after = [&line] (std::string const& key) -> double {
+            auto pos = line.find(key) ;
+            if (pos == std::string::npos) return std::nan("") ;
+            pos += key.size() ;
+            try { return std::stod(line.substr(pos)) ; }
+            catch (...) { return std::nan("") ; }
+        } ;
+        cold_energy_shift = extract_after("energy shift ") ;
+        cold_baryon_mass  = extract_after("baryon mass ")  ;
+
+        std::getline(file, line) ;
+        std::istringstream iss_n(line) ;
+        iss_n >> nrows ;
+        ASSERT(iss_n, "Failed to read number of rows in cold eos table") ;
+
+        if (!std::getline(file, line)) {
+            ERROR("Unexpected EOF when reading cold eos table") ;
+        }
+        std::istringstream iss_first(line) ;
+        double val ;
+        while (iss_first >> val) first_row.push_back(val) ;
     }
 
-    std::istringstream iss_first(line);
-    std::vector<double> first_row;
-    double val;
-
-    while (iss_first >> val) {
-        first_row.push_back(val);
-    }
-    ASSERT(!first_row.empty(), "Invalid cold eos table format, first line is empty.") ; 
-
-    size_t ncols = first_row.size();
-
+    ASSERT(!first_row.empty(), "Invalid cold eos table format, first data line is empty.") ;
+    size_t ncols = first_row.size() ;
     if (expected_cols > 0 && ncols != static_cast<size_t>(expected_cols)) {
-        ERROR("Column count mismatch in cold eos table");
+        ERROR("Column count mismatch in cold eos table") ;
     }
 
-    // ---- 4. Allocate view
-    Kokkos::realloc(d_data, nrows, ncols-1) ; 
-    Kokkos::realloc(d_rho, nrows) ; 
-    // ----- Create mirrors 
-    auto data = Kokkos::create_mirror_view(d_data) ; 
+    // ---- 3. Allocate view
+    Kokkos::realloc(d_data, nrows, ncols-1) ;
+    Kokkos::realloc(d_rho,  nrows) ;
+    auto data = Kokkos::create_mirror_view(d_data) ;
     auto rho  = Kokkos::create_mirror_view(d_rho)  ;
 
-    // ---- 5. Fill first row
-    rho(0) = first_row[0] ; 
+    // ---- 4. Fill first row
+    rho(0) = first_row[0] ;
     for (size_t j = 1; j < ncols; ++j) {
-        data(0, j-1) = first_row[j];
+        data(0, j-1) = first_row[j] ;
     }
 
-    // ---- 6. Read remaining rows
-    size_t i = 1;
-    std::vector<double> row ; 
+    // ---- 5. Read remaining rows
+    size_t i = 1 ;
+    std::vector<double> row ;
     while (std::getline(file, line)) {
-        if (line.empty()) continue;
-        row.clear() ; 
+        if (line.empty()) continue ;
+        // Skip stray comment lines (defensive — v2 metadata is already
+        // consumed, but a user might hand-edit the file).
+        std::string dummy ;
+        if (strip_comment_prefix(line, dummy)) continue ;
+        row.clear() ;
+        std::istringstream iss(line) ;
+        double val ;
+        while (iss >> val) row.push_back(val) ;
+        ASSERT(row.size() == ncols, "Malformed eos file at line " << i + 2) ;
 
-        std::istringstream iss(line);
-        while (iss >> val) {
-            row.push_back(val);
+        rho(i) = row[0] ;
+        for (int j = 1; j < ncols; ++j) {
+            data(i, j-1) = row[j] ;
         }
-        ASSERT(row.size() == ncols, "Malformed eos file at line " << i + 2 ) ;
-
-        rho(i) = row[0] ; 
-        for( int j=1; j<ncols; ++j) {
-            data(i,j-1) = row[j] ; 
-        }
-
-        ++i;
+        ++i ;
     }
 
     if (i != nrows) {
@@ -443,29 +577,34 @@ grace::tabulated_eos_t read_scollapse_table(std::string const& fname, std::strin
 
     GRACE_INFO("Atmosphere settings: rho: {}, temperature: {}, ye: {}", rho_floor, temp_floor, ye_atmo) ; 
 
-    // read in the cold table 
-    Kokkos::View<double **, grace::default_execution_space> cold_tables("eos_cold_table") ; 
-    Kokkos::View<double *, grace::default_execution_space> cold_table_rho("eos_cold_table_log_rho") ; 
-    GRACE_INFO("Reading cold table {}", cold_tab_fname) ; 
+    // read in the cold table
+    Kokkos::View<double **, grace::default_execution_space> cold_tables("eos_cold_table") ;
+    Kokkos::View<double *, grace::default_execution_space> cold_table_rho("eos_cold_table_log_rho") ;
+    double cold_energy_shift, cold_baryon_mass ;
+    GRACE_INFO("Reading cold table {}", cold_tab_fname) ;
     read_cold_table(
         cold_tab_fname,
-        cold_tables, 
+        cold_tables,
         cold_table_rho,
+        cold_energy_shift,
+        cold_baryon_mass,
         tabulated_eos_t::COLD_TEOS_VIDX::N_CTAB_VARS+1
-    ) ; 
+    ) ;
+    check_cold_table_conventions(cold_energy_shift, cold_baryon_mass,
+                                 energy_shift, baryon_mass) ;
 
-    GRACE_INFO("Done reading cold table, size rho {} size table {} {}", cold_table_rho.extent(0), cold_tables.extent(0), cold_tables.extent(1)) ; 
+    GRACE_INFO("Done reading cold table, size rho {} size table {} {}", cold_table_rho.extent(0), cold_tables.extent(0), cold_tables.extent(1)) ;
     return tabulated_eos_t(
-        _tables, 
+        _tables,
         _lrho, _lt, _ye,
         cold_tables,
         cold_table_rho,
-        rhomax, rhomin, 
-        tempmax, tempmin, 
-        yemax, yemin, 
-        baryon_mass, 
+        rhomax, rhomin,
+        tempmax, tempmin,
+        yemax, yemin,
+        baryon_mass,
         energy_shift,
-        epsmin, epsmax, 
+        epsmin, epsmax,
         hmin, hmax,
         temp_floor, ye_atmo, atm_beta_eq
     ) ;
@@ -802,48 +941,98 @@ grace::tabulated_eos_t read_compose_table(std::string const& fname, std::string 
         epsmax = usr_eps_max ; 
     }
 
-    // read in the cold table 
-    Kokkos::View<double **, grace::default_execution_space> cold_tables("eos_cold_table") ; 
-    Kokkos::View<double *, grace::default_execution_space> cold_table_rho("eos_cold_table_log_rho") ; 
-    GRACE_INFO("Reading cold table {}", cold_tab_fname) ; 
+    // read in the cold table
+    Kokkos::View<double **, grace::default_execution_space> cold_tables("eos_cold_table") ;
+    Kokkos::View<double *, grace::default_execution_space> cold_table_rho("eos_cold_table_log_rho") ;
+    double cold_energy_shift, cold_baryon_mass ;
+    GRACE_INFO("Reading cold table {}", cold_tab_fname) ;
     read_cold_table(
         cold_tab_fname,
-        cold_tables, 
+        cold_tables,
         cold_table_rho,
+        cold_energy_shift,
+        cold_baryon_mass,
         tabulated_eos_t::COLD_TEOS_VIDX::N_CTAB_VARS+1
-    ) ; 
+    ) ;
+    check_cold_table_conventions(cold_energy_shift, cold_baryon_mass,
+                                 energy_shift, baryon_mass) ;
 
-    GRACE_INFO("Done reading cold table, size rho {} size table {} {}", cold_table_rho.extent(0), cold_tables.extent(0), cold_tables.extent(1)) ; 
+    GRACE_INFO("Done reading cold table, size rho {} size table {} {}", cold_table_rho.extent(0), cold_tables.extent(0), cold_tables.extent(1)) ;
     return tabulated_eos_t(
-        _tables, 
+        _tables,
         _lrho, _lt, _ye,
         cold_tables,
         cold_table_rho,
-        rhomax, rhomin, 
-        tempmax, tempmin, 
-        yemax, yemin, 
-        baryon_mass, 
+        rhomax, rhomin,
+        tempmax, tempmin,
+        yemax, yemin,
+        baryon_mass,
         energy_shift,
-        epsmin, epsmax, 
+        epsmin, epsmax,
         hmin, hmax,
         temp_floor, ye_atmo, atm_beta_eq
-    ) ; 
-    
+    ) ;
+
 }
 
-grace::tabulated_eos_t read_eos_table() 
+grace::tabulated_eos_t read_eos_table()
 {
-    auto const eos_tab_name = grace::get_param<std::string>("eos", "tabulated_eos", "table_filename") ; 
+    auto const eos_tab_name = grace::get_param<std::string>("eos", "tabulated_eos", "table_filename") ;
     auto const eos_cold_tab_name = grace::get_param<std::string>("eos", "tabulated_eos", "cold_table_filename") ;
     auto const eos_tab_kind =  grace::get_param<std::string>("eos", "tabulated_eos", "table_format") ;
-    
-    if ( eos_tab_kind == "compose" ) {
-        return read_compose_table(eos_tab_name, eos_cold_tab_name) ; 
-    } else {
-        ASSERT(eos_tab_kind=="stellarcollapse", "Should have been caught at parcheck") ; 
-        return read_scollapse_table(eos_tab_name, eos_cold_tab_name) ;  
-    } 
 
+    if ( eos_tab_kind == "compose" ) {
+        return read_compose_table(eos_tab_name, eos_cold_tab_name) ;
+    } else {
+        ASSERT(eos_tab_kind=="stellarcollapse", "Should have been caught at parcheck") ;
+        return read_scollapse_table(eos_tab_name, eos_cold_tab_name) ;
+    }
+
+}
+
+grace::tabulated_cold_eos_t read_tabulated_cold_eos(std::string const& cold_tab_fname)
+{
+    using namespace grace ;
+
+    Kokkos::View<double **, grace::default_execution_space> cold_tables   ("eos_cold_table") ;
+    Kokkos::View<double  *, grace::default_execution_space> cold_table_rho("eos_cold_table_log_rho") ;
+    double cold_energy_shift, cold_baryon_mass ;
+    GRACE_INFO("Reading tabulated cold EOS from {}", cold_tab_fname) ;
+    read_cold_table(
+        cold_tab_fname,
+        cold_tables,
+        cold_table_rho,
+        cold_energy_shift,
+        cold_baryon_mass,
+        tabulated_eos_t::COLD_TEOS_VIDX::N_CTAB_VARS+1
+    ) ;
+
+    if (!std::isfinite(cold_energy_shift)) {
+        ERROR("Cold EOS table at " << cold_tab_fname << " did not provide an "
+              "energy_shift in its header.  This field is required when the "
+              "cold table is used as a hybrid-EOS backbone (no hot table is "
+              "present to derive the shift from).  Regenerate with GRACEpy "
+              "v2-format export.") ;
+    }
+    if (!std::isfinite(cold_baryon_mass)) {
+        ERROR("Cold EOS table at " << cold_tab_fname << " did not provide a "
+              "baryon_mass in its header.  This field is required when the "
+              "cold table is used as a hybrid-EOS backbone.  Regenerate with "
+              "GRACEpy v2-format export.") ;
+    }
+
+    // Read rho range from the table itself.
+    auto host_rho = Kokkos::create_mirror_view(cold_table_rho) ;
+    Kokkos::deep_copy(host_rho, cold_table_rho) ;
+    int const n = host_rho.extent(0) ;
+    double const rhomin = std::exp(host_rho(0))   ;
+    double const rhomax = std::exp(host_rho(n-1)) ;
+
+    return tabulated_cold_eos_t(
+        cold_tables, cold_table_rho,
+        rhomin, rhomax,
+        cold_baryon_mass, cold_energy_shift
+    ) ;
 }
 
 

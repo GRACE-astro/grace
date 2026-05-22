@@ -1,0 +1,6 @@
+# CODEOWNERS — auto-request review from the project maintainer on every
+# pull request.  This file does not change anyone's access permissions; it
+# only tells GitHub who to ping for review.  Enforcement (no merge without
+# code-owner approval) is configured separately via branch protection
+# rules on `main`.
+*  @carlomusolino

@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,6 +36,7 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/hybrid_eos.hh>
 #include <grace/physics/eos/piecewise_polytropic_eos.hh>
+#include <grace/physics/eos/tabulated_cold_eos.hh>
 #include <grace/physics/eos/ideal_gas_eos.hh>
 
 #include <grace/physics/eos/physical_constants.hh> 
@@ -167,25 +168,48 @@ eos_storage_t::eos_storage_t() {
 
         if( cold_eos_type == "piecewise_polytrope" ) {
 
-            auto _pwpoly = setup_cold_polytrope() ; 
+            auto _pwpoly = setup_cold_polytrope() ;
 
-            double temp_floor = get_param<double>("grmhd", "atmosphere", "temp_fl") ; 
-            double rho_floor = get_param<double>("grmhd", "atmosphere", "rho_fl") ; 
+            double temp_floor = get_param<double>("grmhd", "atmosphere", "temp_fl") ;
+            double rho_floor = get_param<double>("grmhd", "atmosphere", "rho_fl") ;
 
-            double const h_min = 1. + 1e-10 ; 
+            double const h_min = 1. + 1e-10 ;
 
             _hybrid_pwpoly = hybrid_eos_t<piecewise_polytropic_eos_t>{
-                  _pwpoly 
-                , gamma_th - 1. 
+                  _pwpoly
+                , gamma_th - 1.
                 , c2p_entropy_min
                 , h_min
-                , 1 // baryon mass, arbitrary for ideal gas eos 
-                , c2p_eps_max 
+                , 1 // baryon mass, arbitrary for ideal gas eos
+                , c2p_eps_max
                 , temp_floor
-            } ; 
+            } ;
+
+        } else if ( cold_eos_type == "tabulated" ) {
+
+            auto const cold_tab_fname =
+                get_param<std::string>("eos", "hybrid_eos", "cold_table_filename") ;
+            auto _cold_tab = read_tabulated_cold_eos(cold_tab_fname) ;
+
+            double temp_floor = get_param<double>("grmhd", "atmosphere", "temp_fl") ;
+
+            _hybrid_tabulated = hybrid_eos_t<tabulated_cold_eos_t>{
+                  _cold_tab
+                , gamma_th - 1.
+                , c2p_entropy_min
+                , _cold_tab.h_minimum
+                , _cold_tab.baryon_mass
+                , c2p_eps_max
+                , temp_floor
+            } ;
+
+            GRACE_INFO("Hybrid EOS with tabulated cold backbone initialized "
+                       "(rho_min={}, rho_max={}, h_min={}, baryon_mass={}).",
+                       _cold_tab.eos_rhomin, _cold_tab.eos_rhomax,
+                       _cold_tab.h_minimum, _cold_tab.baryon_mass) ;
 
         } else {
-            ERROR("Unsupported cold_eos_type.") ; 
+            ERROR("Unsupported cold_eos_type.") ;
         }
     } else if ( eos_type == "tabulated") {
         _tabulated = read_eos_table() ; 

@@ -9,7 +9,7 @@
  * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic astrophysical systems and plasma
  * dynamics.
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -221,7 +221,7 @@ enum evol_var_vc_idx : int {
 } ; 
 
 enum evol_fd_var_cc_idx : int {
-    #ifdef GRACE_ENABLE_COWLING_METRIC
+    #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_COWLING
     GXX_=N_HRSC_CC,
     GXY_,
     GXZ_,
@@ -239,7 +239,7 @@ enum evol_fd_var_cc_idx : int {
     KYZ_,
     KZZ_,
     #endif 
-    #ifdef GRACE_ENABLE_Z4C_METRIC
+    #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
     GTXX_=N_HRSC_CC,
     GTXY_,
     GTXZ_,
@@ -304,18 +304,33 @@ enum aux_var_idx : int {
     KAPPAAN2_,
     #endif
     #endif
-    #ifdef GRACE_ENABLE_Z4C_METRIC
+    #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
     PSI4RE_,
     PSI4IM_,
     HAM_,
     MOMX_,
     MOMY_,
     MOMZ_,
+    #ifdef GRACE_Z4C_DIAG_SYMMETRY
+    // Temporary diagnostic slots for the π_z symmetry audit.  Populated
+    // by the Z4c curvature kernels in z4c.hh and consumed by
+    // check_symmetry.py / check_tensor_symmetry.py via the standard XDMF
+    // aux output.  Remove the GRACE_Z4C_DIAG_SYMMETRY define (and the
+    // matching writes in z4c.hh) when the audit is done.
+    DBG_RTRACE_,
+    DBG_DIDIALP_,
+    DBG_RICCI_XX_,
+    DBG_RICCI_XY_,
+    DBG_RICCI_XZ_,
+    DBG_RICCI_YY_,
+    DBG_RICCI_YZ_,
+    DBG_RICCI_ZZ_,
+    #endif
     #endif
     N_AUX_VARS
 } ;
 
-#ifdef GRACE_ENABLE_Z4C_METRIC
+#if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
 // Per-cell scratch produced by the curvature-pre kernel and consumed by the
 // curvature-update kernel.  Persisting these intermediates lets the update
 // kernel drop the second-derivative loads (ddgtdd_dx2[36], ddchi_dx2[6],

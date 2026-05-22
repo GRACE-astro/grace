@@ -6,17 +6,12 @@
 #include <grace/coordinates/coordinate_systems.hh>
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/utils/grace_utils.hh>
+#ifdef GRACE_ENABLE_VTK
 #include <grace/IO/vtk_output.hh>
+#endif
 #include <iostream>
 TEST_CASE("Volume hdf5 output", "[vol_hdf5_out]")
 {
-    #ifdef GRACE_ENABLE_BURGERS 
-    int const DENS = U ; 
-    int const DENS_ = U ; 
-    int const BETAX_ = U ; 
-    int const BETAY_ = U ; 
-    int const BETAZ_ = U ; 
-    #endif
     auto state  = grace::variable_list::get().getstate() ;
     size_t nx,ny,nz; 
     std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
@@ -42,10 +37,12 @@ TEST_CASE("Volume hdf5 output", "[vol_hdf5_out]")
         double const r2 = EXPR( math::int_pow<2>(coords[0]),
                               + math::int_pow<2>(coords[1]),
                               + math::int_pow<2>(coords[2]) )  ; 
-        h_state_mirror(VEC(i,j,k),DENS,q) = exp( - r2 / 0.5 ) ; 
+        h_state_mirror(VEC(i,j,k),DENS_,q) = exp( - r2 / 0.5 ) ;
     }
     Kokkos::deep_copy(state, h_state_mirror) ;
 
-    grace::IO::write_cell_data_hdf5(true,true,true) ; 
-    grace::IO::write_cell_data_vtk(true,false,false) ; 
+    grace::IO::write_cell_data_hdf5(true,true,true) ;
+#ifdef GRACE_ENABLE_VTK
+    grace::IO::write_cell_data_vtk(true,false,false) ;
+#endif
 }

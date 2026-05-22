@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -141,7 +141,79 @@ parallel::grace_transfer_context_t reflux_fill_flux_buffers()
             );  
         }
     }
+    #ifdef GRACE_SAME_LEVEL_FACE_AVERAGE
+    auto coarse_sbuf = ghost_layer.get_reflux_coarse_send_buffer() ; 
+    auto coarse_rbuf = ghost_layer.get_reflux_coarse_recv_buffer() ; 
+    auto coarse_info = ghost_layer.get_reflux_coarse_face_send_list() ;
+    
+    //**************************************************************************************************/
+    auto coarse_policy = 
+        MDRangePolicy<Rank<4>> (
+            {0,0,0,0},
+            {static_cast<long>(nx)
+            ,static_cast<long>(nx)
+            ,static_cast<long>(nvars_hrsc)
+            ,static_cast<long>(coarse_info.qid.extent(0))}
+        ) ; 
+    //**************************************************************************************************/ 
+    //**************************************************************************************************/
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "reflux_fill_coarse_buffers")
+            , coarse_policy 
+            , KOKKOS_LAMBDA (VECD(int const& i, int const& j), int const& ivar, int const& iq) {
 
+                auto const iface = coarse_info.elem_id(iq) ; 
+                auto const rank = coarse_info.rank(iq)     ; 
+                auto const idir = iface / 2    ; 
+                auto const iside = iface%2     ; 
+                auto const qid = coarse_info.qid(iq)      ; 
+
+                size_t ijk_s[3]                        ; 
+                ijk_s[idir] = iside ? nx + ngz : ngz   ; 
+                ijk_s[other_dirs[idir][0]] = ngz + i ; 
+                ijk_s[other_dirs[idir][1]] = ngz + j ; 
+
+                auto bid = coarse_info.buf_id(iq) ;
+                // Write to the same-level send buffer — NOT the fine-coarse
+                // `sbuf` (which was filled by the hanging-face loop above
+                // and is in flight on GRACE_REFLUX_TAG).
+                coarse_sbuf(i,j,ivar,bid,rank) = fluxes(ijk_s[0], ijk_s[1], ijk_s[2], ivar, idir, qid) ;
+            }
+    );
+    Kokkos::fence() ;
+
+    /* now we send and receive */
+    auto coarse_soffsets = ghost_layer.get_reflux_buffer_rank_send_coarse_offsets() ;
+    auto coarse_ssizes = ghost_layer.get_reflux_buffer_rank_send_coarse_sizes() ;
+    
+    auto coarse_roffsets = ghost_layer.get_reflux_buffer_rank_recv_coarse_offsets() ; 
+    auto coarse_rsizes = ghost_layer.get_reflux_buffer_rank_recv_coarse_sizes() ;
+
+    //**************************************************************************************************/
+    for( int iproc=0; iproc<nprocs; ++iproc) {
+        if ( coarse_ssizes[iproc] > 0 ) {
+            context._send_requests.push_back(MPI_Request{}) ; 
+            parallel::mpi_isend(
+                coarse_sbuf.data() + coarse_soffsets[iproc],
+                coarse_ssizes[iproc],
+                iproc,
+                parallel::GRACE_REFLUX_COARSE_FACE_TAG,
+                MPI_COMM_WORLD,
+                &context._send_requests.back()
+            );  
+        }
+        if ( coarse_rsizes[iproc] > 0 ) {
+            context._recv_requests.push_back(MPI_Request{}) ; 
+            parallel::mpi_irecv(
+                coarse_rbuf.data() + coarse_roffsets[iproc],
+                coarse_rsizes[iproc],
+                iproc,
+                parallel::GRACE_REFLUX_COARSE_FACE_TAG,
+                MPI_COMM_WORLD,
+                &context._recv_requests.back()
+            );  
+        }
+    }
+    #endif 
     return context ;
 }
 
@@ -473,28 +545,24 @@ parallel::grace_transfer_context_t reflux_fill_emf_buffers()
 }
 
 void reflux_correct_fluxes(
-    parallel::grace_transfer_context_t& context,
-    double t, double dt, double dtfact,
-    var_array_t & new_state 
+    parallel::grace_transfer_context_t& context
 )
 {
-    using namespace grace ; 
-    using namespace Kokkos ; 
-    DECLARE_GRID_EXTENTS ; 
+    using namespace grace ;
+    using namespace Kokkos ;
+    DECLARE_GRID_EXTENTS ;
     //**************************************************************************************************/
-    // fetch some stuff 
-    auto& idx     = grace::variable_list::get().getinvspacings() ;  
-    auto& fluxes  = grace::variable_list::get().getfluxesarray() ; 
+    // fetch some stuff
+    auto& fluxes  = grace::variable_list::get().getfluxesarray() ;
     int nvars_hrsc = variables::get_n_hrsc() ;
     //**************************************************************************************************/
     auto& ghost_layer = grace::amr_ghosts::get();
-    auto rbuf = ghost_layer.get_reflux_recv_buffer() ; 
-    auto desc = ghost_layer.get_reflux_face_descriptors() ; 
-    //**************************************************************************************************/    
+    auto rbuf = ghost_layer.get_reflux_recv_buffer() ;
+    auto desc = ghost_layer.get_reflux_face_descriptors() ;
     //**************************************************************************************************/
-    parallel::mpi_waitall(context) ; 
+    parallel::mpi_waitall(context) ;
     //**************************************************************************************************/
-    auto policy = 
+    auto policy =
         MDRangePolicy<Rank<4>> (
             {0,0,0,0},
             {static_cast<long>(nx)
@@ -505,65 +573,136 @@ void reflux_correct_fluxes(
     //**************************************************************************************************/
     constexpr std::array<std::array<int,2>,3> other_dirs = {{
         {{1,2}}, {{0,2}}, {{0,1}}
-    }} ; 
+    }} ;
     //**************************************************************************************************/
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "reflux_apply")
-            , policy 
+    // For each coarse-fine descriptor, overwrite the coarse-side flux at
+    // each (i,j) on the coarse face with the area-average of the four
+    // co-located fine fluxes (local: read 4 cells, sum in fixed loop
+    // order, multiply by 0.25; remote: already pre-averaged on the
+    // sender, read one value from rbuf).
+    //
+    // Write target is fluxes(ijk_fs[0], ijk_fs[1], ijk_fs[2], ivar, idir, qid_c).
+    // The (qid_c, idir, side, i, j, ivar) slot is unique across descriptors
+    // (descriptors are unique by (qid, face_id) and writes within one
+    // descriptor sweep distinct (i,j)), so writes are race-free: no atomics
+    // needed, and the resulting flux array is bit-invariant under any MPI
+    // repartition that preserves the descriptor set on the owning rank.
+    //
+    // The subsequent divergence kernel (`add_fluxes_and_source_terms`) then
+    // naturally uses the corrected fluxes -- mathematically equivalent to
+    // the old post-update state patch but without the edge/corner write
+    // collision and the non-determinism it caused.
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "reflux_replace_coarse_flux")
+            , policy
             , KOKKOS_LAMBDA (VECD(int const& i, int const& j), int const& ivar, int const& iq) {
-                auto const qid_c  = desc.coarse_qid(iq)     ; 
-                auto const iface_c = desc.coarse_face_id(iq) ; 
+                auto const qid_c   = desc.coarse_qid(iq) ;
+                auto const iface_c = desc.coarse_face_id(iq) ;
 
-                auto const idir = iface_c / 2; 
-                auto const side = iface_c % 2;
+                auto const idir = iface_c / 2;
 
-                size_t ijk_fs[3], ijk_cc[3] ; 
-                // face-staggered index
-                ijk_fs[idir] = (iface_c % 2)    
-                            ? ngz + nx 
+                size_t ijk_fs[3] ;
+                // face-staggered index of the coarse-side flux to overwrite
+                ijk_fs[idir] = (iface_c % 2)
+                            ? ngz + nx
                             : ngz ;
-                // cell centered index 
-                ijk_cc[idir] = (iface_c % 2)    
-                            ? ngz + nx - 1 
-                            : ngz ;
-                ijk_fs[other_dirs[idir][0]] = ijk_cc[other_dirs[idir][0]] = ngz + i ; 
-                ijk_fs[other_dirs[idir][1]] = ijk_cc[other_dirs[idir][1]] = ngz + j ; 
+                ijk_fs[other_dirs[idir][0]] = ngz + i ;
+                ijk_fs[other_dirs[idir][1]] = ngz + j ;
 
-                // compute child id 
-                int8_t ichild = (2*i>=nx) + 2 * (2*j>=nx) ; 
+                // child id selects which of the 4 fine quadrants on this
+                // face covers coarse cell (i,j)
+                int8_t ichild = (2*i>=nx) + 2 * (2*j>=nx) ;
 
-                double flux_correction = 0 ; 
+                double flux_avg = 0 ;
                 if ( desc.fine_is_remote(iq,ichild) ) {
-                    flux_correction = rbuf(i%(nx/2),j%(nx/2),ivar,desc.fine_bid(iq,ichild),desc.fine_owner_rank(iq,ichild)) ; 
+                    flux_avg = rbuf(i%(nx/2),j%(nx/2),ivar,desc.fine_bid(iq,ichild),desc.fine_owner_rank(iq,ichild)) ;
                 } else {
-                    // compute flux correction 
                     size_t qid_f = desc.fine_qid(iq,ichild);
-                    size_t ijk_f[3] ; 
-                    // on fine side the side is opposite 
-                    ijk_f[idir] = (iface_c % 2)    
-                                ? ngz  
+                    size_t ijk_f[3] ;
+                    // on the fine side the face sits on the OPPOSITE side
+                    ijk_f[idir] = (iface_c % 2)
+                                ? ngz
                                 : ngz + nx ;
-                    ijk_f[other_dirs[idir][0]] = ngz + (2*i%nx) ; 
-                    ijk_f[other_dirs[idir][1]] = ngz + (2*j%nx) ; 
+                    ijk_f[other_dirs[idir][0]] = ngz + (2*i%nx) ;
+                    ijk_f[other_dirs[idir][1]] = ngz + (2*j%nx) ;
 
                     for( int ii=0; ii<=(idir!=0); ++ii) {
                         for( int jj=0; jj<=(idir!=1); ++jj) {
                             for( int kk=0; kk<=(idir!=2); ++kk) {
-                                flux_correction += fluxes(ijk_f[0]+ii, ijk_f[1]+jj, ijk_f[2]+kk, ivar, idir, qid_f) ; 
+                                flux_avg += fluxes(ijk_f[0]+ii, ijk_f[1]+jj, ijk_f[2]+kk, ivar, idir, qid_f) ;
                             }
                         }
                     }
-                    flux_correction *= 0.25 ; 
+                    flux_avg *= 0.25 ;
                 }
-                int sign = side ? -1 : +1 ; 
-                new_state(ijk_cc[0],ijk_cc[1],ijk_cc[2],ivar,qid_c) += sign * dt * dtfact * idx(idir,qid_c) * (
-                    flux_correction - fluxes(ijk_fs[0],ijk_fs[1],ijk_fs[2],ivar,idir,qid_c)
-                ) ; 
+
+                fluxes(ijk_fs[0], ijk_fs[1], ijk_fs[2], ivar, idir, qid_c) = flux_avg ;
             }
         ) ;
+    #ifdef GRACE_SAME_LEVEL_FACE_AVERAGE
     //**************************************************************************************************/
-    //**************************************************************************************************/
+    // Same-level face-flux apply: read the cross-rank averages from the
+    // face-flux coarse recv buffer (NOT the EMF one — they have different
+    // var counts: 5 HRSC vars vs 2 EMF components).
+    auto coarse_rbuf = ghost_layer.get_reflux_coarse_recv_buffer() ;
+    auto coarse_desc = ghost_layer.get_reflux_coarse_face_descriptors() ;
     //**************************************************************************************************/ 
-
+    //**************************************************************************************************/
+    auto coarse_policy = 
+        MDRangePolicy<Rank<4>> (
+            {0,0,0,0},
+            {static_cast<long>(nx)
+            ,static_cast<long>(nx)
+            ,static_cast<long>(nvars_hrsc)
+            ,static_cast<long>(coarse_desc.qid.extent(0))}
+    ) ;
+    //**************************************************************************************************/
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "reflux_apply_coarse_face")
+            , coarse_policy
+            , KOKKOS_LAMBDA (VECD(int const& i, int const& j), int const& ivar, int const& iq) {
+                size_t ijk[3] ;
+                double flux_corr = 0.0; 
+                for( int is=0; is<2; ++is) {
+                    auto const fid = coarse_desc.face_id(iq,is) ;
+                    auto const fdir = fid / 2 ;
+                    // other directions (z-order)
+                    auto const idir = other_dirs[fdir][0];
+                    auto const jdir = other_dirs[fdir][1];
+                    // iside
+                    auto const iside = fid % 2 ;
+                    if ( coarse_desc.is_remote(iq,is) ) {
+                        // id
+                        auto const bid = coarse_desc.bid(iq,is);
+                        int const r = coarse_desc.owner_rank(iq,is) ;
+                        auto const ghost_qid = coarse_desc.qid(iq,is);
+                        flux_corr += coarse_rbuf(i,j,ivar,bid,r);
+                    } else {
+                        auto const qid = coarse_desc.qid(iq,is);
+                        ijk[fdir] = iside ? nx + ngz : ngz ;
+                        ijk[idir] = ngz + i ;
+                        ijk[jdir] = ngz + j ;
+                        flux_corr += fluxes(ijk[0],ijk[1],ijk[2],ivar,fdir,qid);
+                    }
+                }
+                flux_corr *= 0.5 ; 
+                for( int is=0; is<2; ++is) {
+                    auto const fid = coarse_desc.face_id(iq,is) ;
+                    auto const fdir = fid / 2 ;
+                    // other directions (z-order)
+                    auto const idir = other_dirs[fdir][0];
+                    auto const jdir = other_dirs[fdir][1];
+                    // iside
+                    auto const iside = fid % 2 ;
+                    if ( !coarse_desc.is_remote(iq,is) ) {
+                        auto const qid = coarse_desc.qid(iq,is);
+                        ijk[fdir] = iside ? nx + ngz : ngz ;
+                        ijk[idir] = ngz + i ;
+                        ijk[jdir] = ngz + j ;
+                        fluxes(ijk[0],ijk[1],ijk[2],ivar,fdir,qid) = flux_corr;
+                    }
+                }
+            }
+    );
+    #endif 
 }
 
 void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
@@ -690,60 +829,118 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
     GRACE_TRACE("About to run reflux {}", coarse_desc.qid.extent(0) ) ; 
     //**************************************************************************************************/
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "reflux_emf_apply_coarse_face")
-            , coarse_policy 
+            , coarse_policy
             , KOKKOS_LAMBDA (VECD(int const& i, int const& j), int const& iq) {
-                // step 1 compute 
-                size_t ijk[3] ; 
-                double emf_corr[2] = {0,0}; 
+                // step 1 compute
+                size_t ijk[3] ;
+                double emf_corr[2] = {0,0};
+                #ifdef DEBUG_REFLUX_FACE
+                // Diagnostic gate: print the data flow for one chosen
+                // (i,j) across every coarse-face descriptor.  Compare
+                // first-pass and second-pass output to localise the
+                // idempotence bug.  Tighten the gate (e.g. add iq==K)
+                // once you know which descriptor is interesting.
+                bool const dbg = (i == 2 && j == 3);
+                #endif
                 for( int is=0; is<2; ++is) {
                     auto const fid = coarse_desc.face_id(iq,is) ;
-                    auto const fdir = fid / 2 ; 
+                    auto const fdir = fid / 2 ;
                     // other directions (z-order)
-                    auto const idir = other_dirs[fdir][0]; 
-                    auto const jdir = other_dirs[fdir][1]; 
-                    // iside 
+                    auto const idir = other_dirs[fdir][0];
+                    auto const jdir = other_dirs[fdir][1];
+                    // iside
                     auto const iside = fid % 2 ;
-                     
+
                     if ( coarse_desc.is_remote(iq,is) ) {
-                        // id 
+                        // id
                         auto const bid = coarse_desc.bid(iq,is);
-                        int const r = coarse_desc.owner_rank(iq,is) ; 
-                        emf_corr[0] += coarse_rbuf(i,j,0,bid,r) ; 
-                        emf_corr[1] += coarse_rbuf(i,j,1,bid,r) ; 
+                        int const r = coarse_desc.owner_rank(iq,is) ;
+                        auto const ghost_qid = coarse_desc.qid(iq,is);
+                        double const v0 = coarse_rbuf(i,j,0,bid,r);
+                        double const v1 = coarse_rbuf(i,j,1,bid,r);
+                        emf_corr[0] += v0 ;
+                        emf_corr[1] += v1 ;
+                        #ifdef DEBUG_REFLUX_FACE
+                        if (dbg) {
+                            printf("[REFLUX_FACE_DBG rank=%d iq=%d i=%d j=%d] "
+                                   "is=%d fid=%d fdir=%d idir=%d jdir=%d iside=%d "
+                                   "REMOTE ghost_qid=%lu bid=%d r=%d rbuf0=%.17g rbuf1=%.17g\n",
+                                   myproc, iq, i, j, is,
+                                   (int)fid, (int)fdir, (int)idir, (int)jdir, (int)iside,
+                                   (unsigned long)ghost_qid,
+                                   (int)bid, r, v0, v1);
+                        }
+                        #endif
                     } else {
-                        // qid 
+                        // qid
                         auto const qid = coarse_desc.qid(iq,is);
-                        ijk[fdir] = iside ? nx + ngz : ngz ; 
-                        ijk[idir] = ngz + i ; 
-                        ijk[jdir] = ngz + j ; 
-                        emf_corr[0] += emf(ijk[0],ijk[1],ijk[2],idir,qid) ; 
-                        emf_corr[1] += emf(ijk[0],ijk[1],ijk[2],jdir,qid) ; 
+                        ijk[fdir] = iside ? nx + ngz : ngz ;
+                        ijk[idir] = ngz + i ;
+                        ijk[jdir] = ngz + j ;
+                        double const v0 = emf(ijk[0],ijk[1],ijk[2],idir,qid);
+                        double const v1 = emf(ijk[0],ijk[1],ijk[2],jdir,qid);
+                        emf_corr[0] += v0 ;
+                        emf_corr[1] += v1 ;
+                        #ifdef DEBUG_REFLUX_FACE
+                        if (dbg) {
+                            printf("[REFLUX_FACE_DBG rank=%d iq=%d i=%d j=%d] "
+                                   "is=%d fid=%d fdir=%d idir=%d jdir=%d iside=%d "
+                                   "LOCAL qid=%lu ijk=(%lu,%lu,%lu) "
+                                   "emf_idir=%.17g emf_jdir=%.17g\n",
+                                   myproc, iq, i, j, is,
+                                   (int)fid, (int)fdir, (int)idir, (int)jdir, (int)iside,
+                                   (unsigned long)qid,
+                                   (unsigned long)ijk[0], (unsigned long)ijk[1], (unsigned long)ijk[2],
+                                   v0, v1);
+                        }
+                        #endif
                     }
-                } // iside 
-                emf_corr[0] *= 0.5 ; 
-                emf_corr[1] *= 0.5 ; 
-                // step two correct 
+                } // iside
+                emf_corr[0] *= 0.5 ;
+                emf_corr[1] *= 0.5 ;
+                #ifdef DEBUG_REFLUX_FACE
+                if (dbg) {
+                    printf("[REFLUX_FACE_DBG rank=%d iq=%d i=%d j=%d] "
+                           "AVG emf_corr0=%.17g emf_corr1=%.17g\n",
+                           myproc, iq, i, j, emf_corr[0], emf_corr[1]);
+                }
+                #endif
+                // step two correct
                 for( int is=0; is<2; ++is) {
                     auto const fid = coarse_desc.face_id(iq,is) ;
-                    auto const fdir = fid / 2 ; 
+                    auto const fdir = fid / 2 ;
                     // other directions (z-order)
-                    auto const idir = other_dirs[fdir][0]; 
-                    auto const jdir = other_dirs[fdir][1]; 
-                    // iside 
+                    auto const idir = other_dirs[fdir][0];
+                    auto const jdir = other_dirs[fdir][1];
+                    // iside
                     auto const iside = fid % 2 ;
                     if ( !coarse_desc.is_remote(iq,is) ) {
-                        // qid 
-                        auto const qid = coarse_desc.qid(iq,is); 
-                        ijk[fdir] = iside ? nx + ngz : ngz ; 
-                        ijk[idir] = ngz + i ; 
-                        ijk[jdir] = ngz + j ; 
-                        if ( ijk[jdir] > ngz ) emf(ijk[0],ijk[1],ijk[2],idir,qid) = emf_corr[0]; 
-                        if ( ijk[idir] > ngz ) emf(ijk[0],ijk[1],ijk[2],jdir,qid) = emf_corr[1];  
-                    } 
-                } // iside 
+                        // qid
+                        auto const qid = coarse_desc.qid(iq,is);
+                        ijk[fdir] = iside ? nx + ngz : ngz ;
+                        ijk[idir] = ngz + i ;
+                        ijk[jdir] = ngz + j ;
+                        bool const wrote_idir = (ijk[jdir] > ngz);
+                        bool const wrote_jdir = (ijk[idir] > ngz);
+                        if ( wrote_idir ) emf(ijk[0],ijk[1],ijk[2],idir,qid) = emf_corr[0];
+                        if ( wrote_jdir ) emf(ijk[0],ijk[1],ijk[2],jdir,qid) = emf_corr[1];
+                        #ifdef DEBUG_REFLUX_FACE
+                        if (dbg) {
+                            printf("[REFLUX_FACE_DBG rank=%d iq=%d i=%d j=%d] "
+                                   "WRITE is=%d qid=%lu ijk=(%lu,%lu,%lu) "
+                                   "wrote_idir=%d (val=%.17g) wrote_jdir=%d (val=%.17g)\n",
+                                   myproc, iq, i, j, is,
+                                   (unsigned long)qid,
+                                   (unsigned long)ijk[0], (unsigned long)ijk[1], (unsigned long)ijk[2],
+                                   (int)wrote_idir, emf_corr[0],
+                                   (int)wrote_jdir, emf_corr[1]);
+                        }
+                        #endif
+                    }
+                } // iside
             }
-                
-        ) ; 
+
+        ) ;
     #endif 
     //**************************************************************************************************/
     auto edge_rbuf = ghost_layer.get_reflux_emf_edge_recv_buffer() ; 

@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -71,8 +71,17 @@ class ideal_gas_eos_t
         /*atm_is_beta*/ true
      )
     {
-        gamma_m1 = grace::get_param<double>("eos","ideal_gas_eos","gamma") - 1. ; 
-        k0       = grace::get_param<double>("eos","ideal_gas_eos","kappa_id")   ; 
+        gamma_m1        = grace::get_param<double>("eos","ideal_gas_eos","gamma") - 1. ;
+        gamma_          = gamma_m1 + 1. ;
+        gamma_gamma_m1_ = gamma_ * gamma_m1 ;
+        k0              = grace::get_param<double>("eos","ideal_gas_eos","kappa_id")   ;
+        // ε reference for the lower entropy bound.  entropy__eps_rho uses
+        // log(eps * rho^{-(Γ-1)}) / (Γ-1), so ent_min must be > 0 to avoid
+        // log(0) = -inf in entropy_cold__rho_impl, entropy_range__rho_ye,
+        // and limit_entropy.  Use the thermal eps at atmosphere temperature
+        // (ε_th = T_atm / (Γ-1)); fall back to a tiny safety value if t_atm
+        // is zero.
+        ent_min = (temp_atm > 0.0) ? (temp_atm / gamma_m1) : 1e-100 ;
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
@@ -108,7 +117,7 @@ class ideal_gas_eos_t
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     press_cold__rho_impl(double& rho, error_type& err) const 
     {
-        return k0 * Kokkos::pow(rho, 1+gamma_m1) ; 
+        return k0 * Kokkos::pow(rho, gamma_) ;
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
@@ -125,7 +134,7 @@ class ideal_gas_eos_t
             err.set(EOS_PRESS_TOO_LOW) ; 
             press_cold = 0.0 ; 
         }
-        return Kokkos::pow(press_cold/k0, 1./(gamma_m1+1.)) ; 
+        return Kokkos::pow(press_cold/k0, 1./gamma_) ;
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
@@ -140,7 +149,7 @@ class ideal_gas_eos_t
     rho__energy_cold_impl(double& e_cold, error_type& err) const 
     {
         // need a lil rootfind 
-        double gloc = gamma_m1 + 1 ; 
+        double gloc = gamma_ ;
         double kloc = k0 ; 
         auto const froot = [&] (double rho) {
             double p = kloc * Kokkos::pow(rho,gloc) ; 
@@ -186,7 +195,7 @@ class ideal_gas_eos_t
     eps_range__rho_ye( double& eps_min, double& eps_max
                      , double &rho, double &ye, error_type &err) const 
     {
-        eps_min = 0.0 ; 
+        eps_min = 0 ; 
         eps_max = this->c2p_eps_max ; 
     }
 
@@ -206,7 +215,7 @@ class ideal_gas_eos_t
     {
         limit_eps(eps,err); 
         const double press  = press__eps_rho(eps,rho) ; 
-        h = h__eps_press_rho(eps,press,rho); 
+        h = h__eps(eps);
         csnd2 = csnd2__eps_h(eps,h) ; 
         return press ; 
     }
@@ -219,7 +228,7 @@ class ideal_gas_eos_t
         limit_temp(temp,err)                   ; 
         double eps = eps__temp(temp)           ; 
         double press = press__eps_rho(eps,rho) ; 
-        h = h__eps_press_rho(eps,press,rho)    ;
+        h = h__eps(eps);
         csnd2 = csnd2__eps_h(eps,h) ; 
         return press ;  
     }
@@ -232,7 +241,7 @@ class ideal_gas_eos_t
         limit_temp(temp,err)                   ; 
         eps = eps__temp(temp)           ; 
         double press = press__eps_rho(eps,rho) ; 
-        double h = h__eps_press_rho(eps,press,rho)    ;
+        double h = h__eps(eps);
         csnd2 = csnd2__eps_h(eps,h) ; 
         return press ;   
     }
@@ -245,9 +254,9 @@ class ideal_gas_eos_t
     {
         limit_eps(eps,err) ; 
         double press = press__eps_rho(eps,rho) ; 
-        h = h__eps_press_rho(eps,press,rho) ; 
-        csnd2 = csnd2__eps_h(eps,h) ; 
-        temp = temp__eps(eps) ; 
+        h = h__eps(eps);
+        csnd2 = csnd2__eps_h(eps,h) ;
+        temp = temp__eps(eps) ;
         entropy = entropy__eps_rho(eps,rho) ; 
         return press ; 
     }
@@ -260,7 +269,7 @@ class ideal_gas_eos_t
         limit_temp(temp,err)                   ; 
         double eps = eps__temp(temp)           ; 
         double press = press__eps_rho(eps,rho) ; 
-        double h = h__eps_press_rho(eps,press,rho)    ;
+        double h = h__eps(eps);
         csnd2 = csnd2__eps_h(eps,h) ; 
         entropy = entropy__eps_rho(eps,rho) ; 
         return eps ; 
@@ -274,7 +283,7 @@ class ideal_gas_eos_t
         limit_temp(temp,err)                   ; 
         eps = eps__temp(temp)           ; 
         double press = press__eps_rho(eps,rho) ; 
-        double h = h__eps_press_rho(eps,press,rho)    ;
+        double h = h__eps(eps);
         csnd2 = csnd2__eps_h(eps,h) ; 
         entropy = entropy__eps_rho(eps,rho) ; 
         return press ;  
@@ -289,7 +298,7 @@ class ideal_gas_eos_t
         limit_entropy(entropy,rho,err) ; 
         eps = eps__entropy_rho(entropy,rho) ; 
         double press = press__eps_rho(eps,rho) ; 
-        h     = h__eps_press_rho(eps,press,rho) ; 
+        h     = h__eps(eps);
         temp  = temp__eps(eps);
         csnd2 = csnd2__eps_h(eps,h) ; 
         return press ; 
@@ -301,7 +310,7 @@ class ideal_gas_eos_t
                                                , double& ye, error_type& err) const 
     {
         double eps = press/(gamma_m1*rho)  ; 
-        h       = h__eps_press_rho(eps,press,rho) ; 
+        h       = h__eps(eps);
         csnd2   = csnd2__eps_h(eps,h) ; 
         entropy = entropy__eps_rho(eps,rho) ; 
         temp    = temp__eps(eps) ; 
@@ -327,9 +336,11 @@ class ideal_gas_eos_t
 
     private:
     //==
-    double gamma_m1 ; //!< Gamma - 1 
-    double k0       ; //!< Adiabat for initial data 
-    double ent_min  ; //!< Low bound for s 
+    double gamma_m1        ; //!< Gamma - 1
+    double gamma_          ; //!< Gamma (cached)
+    double gamma_gamma_m1_ ; //!< Gamma * (Gamma - 1) (cached, for csnd2)
+    double k0              ; //!< Adiabat for initial data
+    double ent_min         ; //!< Low bound for s
     //==
 
     void KOKKOS_INLINE_FUNCTION 
@@ -339,14 +350,18 @@ class ideal_gas_eos_t
             err.set(EOS_ERROR_T::EOS_EPS_TOO_HIGH) ; 
             eps = this->c2p_eps_max ; 
         }
+        if ( eps < this->c2p_eps_min ) {
+            err.set(EOS_ERROR_T::EOS_EPS_TOO_LOW) ; 
+            eps = this->c2p_eps_min ; 
+        }
     }
 
     void KOKKOS_INLINE_FUNCTION 
     limit_temp(double& temp, error_type& err) const 
     {
         double tempmax = temp__eps(this->c2p_eps_max) ; 
-        if ( temp < 0 ) {
-            temp = 0.0 ; 
+        if ( temp < this->eos_tempmin ) {
+            temp = this->eos_tempmin ; 
             err.set(EOS_ERROR_T::EOS_TEMPERATURE_TOO_LOW) ; 
         }
         if ( temp > tempmax ) {
@@ -370,37 +385,52 @@ class ideal_gas_eos_t
         }
     }
 
-    double KOKKOS_INLINE_FUNCTION 
-    entropy__eps_rho(double eps, double rho) const 
-    {
-        return Kokkos::log(eps * pow(rho, -gamma_m1)) / (gamma_m1);
-    }
-
-    double KOKKOS_INLINE_FUNCTION 
-    eps__entropy_rho(double entropy, double rho) const 
-    {
-        return Kokkos::exp(gamma_m1 * entropy) * pow(rho, gamma_m1);
-    }
-
-    double KOKKOS_INLINE_FUNCTION 
-    temp__eps(double eps) const { return eps * gamma_m1 ; } 
-
-    double KOKKOS_INLINE_FUNCTION 
-    eps__temp(double eps) const { return eps / gamma_m1 ; } 
-
+    // Algebraically equivalent to log(eps * rho^{-(γ-1)}) / (γ-1), but
+    // computed as log(eps)/(γ-1) - log(rho) to avoid the intermediate
+    // pow(rho, ...) which can over/underflow when rho is very large or
+    // very small even though the result entropy is well-defined.
     double KOKKOS_INLINE_FUNCTION
-    h__eps_press_rho(double eps, double p, double rho) const 
+    entropy__eps_rho(double eps, double rho) const
     {
-        return 1 + eps + p/rho; 
+        return Kokkos::log(eps) / gamma_m1 - Kokkos::log(rho);
+    }
+
+    // Inverse of the above. The form exp(γ-1)·(s + log ρ)) avoids the
+    // intermediate pow(rho, γ-1) for the same numerical-stability reason.
+    double KOKKOS_INLINE_FUNCTION
+    eps__entropy_rho(double entropy, double rho) const
+    {
+        return Kokkos::exp(gamma_m1 * (entropy + Kokkos::log(rho)));
     }
 
     double KOKKOS_INLINE_FUNCTION
-    csnd2__eps_h(double eps, double h) const 
+    temp__eps(double eps) const { return eps * gamma_m1 ; }
+
+    double KOKKOS_INLINE_FUNCTION
+    eps__temp(double eps) const { return eps / gamma_m1 ; }
+
+    // Direct enthalpy specialisation for ideal gas: h = 1 + γε.
+    // Algebraically identical to 1 + ε + p/ρ when p = (γ-1)ρε; preferred
+    // over h__eps_press_rho because it avoids a divide that loses precision
+    // at small ρ.
+    double KOKKOS_INLINE_FUNCTION
+    h__eps(double eps) const { return 1.0 + gamma_ * eps ; }
+
+    // Polymorphic-style enthalpy taking (eps, p, ρ); kept for API
+    // compatibility. For ideal gas, prefer h__eps.
+    double KOKKOS_INLINE_FUNCTION
+    h__eps_press_rho(double eps, double p, double rho) const
     {
-        return (gamma_m1+1) * gamma_m1 * eps / h ; 
+        return 1 + eps + p/rho;
     }
 
-    double KOKKOS_INLINE_FUNCTION 
+    double KOKKOS_INLINE_FUNCTION
+    csnd2__eps_h(double eps, double h) const
+    {
+        return gamma_gamma_m1_ * eps / h ;
+    }
+
+    double KOKKOS_INLINE_FUNCTION
     press__eps_rho(double eps, double rho) const { return gamma_m1 * eps * rho ; }
 } ; 
 

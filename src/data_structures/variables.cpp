@@ -8,7 +8,7 @@
 * @copyright This file is part of GRACE.
 * GRACE is an evolution framework that uses Finite Difference
 * methods to simulate relativistic spacetimes and plasmas
-* Copyright (C) 2023 Carlo Musolino
+* Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
 * 
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -79,7 +79,17 @@ variable_list_impl_t::variable_list_impl_t()
     , _staggered_vars_p()
     , _fluxes()
     , _emf()
-    #ifdef GRACE_ENABLE_Z4C_METRIC
+    , _fofc_face_tags("fofc_face_tags", 0,0,0,0,0)
+    , _fofc_edge_tags("fofc_edge_tags", 0,0,0,0,0)
+    , _fofc_fx("fofc_fx", 0)
+    , _fofc_fy("fofc_fy", 0)
+    , _fofc_fz("fofc_fz", 0)
+    , _fofc_eyz("fofc_eyz", 0)
+    , _fofc_exz("fofc_exz", 0)
+    , _fofc_exy("fofc_exy", 0)
+    , _fofc_face_cnt("fofc_face_count")
+    , _fofc_edge_cnt("fofc_edge_count")
+    #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
     , _z4c_curv_scratch("z4c_curv_scratch", VEC(0,0,0),0,0)
     #endif
 {
@@ -128,7 +138,7 @@ variable_list_impl_t::variable_list_impl_t()
                    , GRACE_NSPACEDIM
                    , nq 
                    ) ;
-    #ifdef GRACE_GRMHD_USE_GS
+    #if GRACE_EMF_SCHEME == GRACE_EMF_SCHEME_GS
     Kokkos::realloc( _Ecenter
                    , VEC( nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
                    , 3 // E^x E^y E^z
@@ -152,7 +162,31 @@ variable_list_impl_t::variable_list_impl_t()
                    , VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz)
                    , GRACE_NSPACEDIM
                    , nq ) ;
-    #ifdef GRACE_ENABLE_Z4C_METRIC
+    #ifdef GRACE_ENABLE_FOFC
+    /* FOFC compacted index lists: worst case is every interior cell in every
+     * quadrant flagged.  Per-substep population is atomic in flag_fofc_cells,
+     * so order is non-deterministic; that's fine because the apply step just
+     * iterates [0, count).                                                  */
+    {
+        Kokkos::realloc( _fofc_face_tags 
+                        , VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz)
+                        , GRACE_NSPACEDIM
+                        , nq ) ; 
+        Kokkos::realloc( _fofc_edge_tags 
+                        , VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz)
+                        , GRACE_NSPACEDIM
+                        , nq ) ; 
+        size_t const nflag_max_face = (nx + 1 + 2*ngz) * (nx + 2*ngz) * (nx + 2*ngz) * nq ; 
+        Kokkos::realloc( _fofc_fx, nflag_max_face ) ;
+        Kokkos::realloc( _fofc_fy, nflag_max_face ) ;
+        Kokkos::realloc( _fofc_fz, nflag_max_face ) ;
+        size_t const nflag_max_edge = (nx + 1 + 2*ngz) * (nx + 1 + 2*ngz) * (nx + 2*ngz) * nq ; 
+        Kokkos::realloc( _fofc_eyz, nflag_max_edge ) ;
+        Kokkos::realloc( _fofc_exz, nflag_max_edge ) ;
+        Kokkos::realloc( _fofc_exy, nflag_max_edge ) ;
+    }
+    #endif 
+    #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
     Kokkos::realloc( _z4c_curv_scratch
                    , VEC(nx + 2*ngz, ny + 2*ngz, nz + 2*ngz)
                    , N_Z4C_CURV_SCRATCH
@@ -205,7 +239,7 @@ void variable_list_impl_t::resize_aux_staging_and_flux_buffers(int nq_new)
                    , GRACE_NSPACEDIM
                    , nq_new 
                    ) ;
-    #ifdef GRACE_GRMHD_USE_GS
+    #if GRACE_EMF_SCHEME == GRACE_EMF_SCHEME_GS
     Kokkos::realloc( _Ecenter
                    , VEC( nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
                    , 3 // E^x E^y E^z
@@ -229,8 +263,32 @@ void variable_list_impl_t::resize_aux_staging_and_flux_buffers(int nq_new)
                    , VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz)
                    , GRACE_NSPACEDIM
                    , nq_new ) ;
+    #ifdef GRACE_ENABLE_FOFC
+    /* FOFC compacted index lists: worst case is every interior cell in every
+     * quadrant flagged.  Per-substep population is atomic in flag_fofc_cells,
+     * so order is non-deterministic; that's fine because the apply step just
+     * iterates [0, count).                                                  */
+    {
+        Kokkos::realloc( _fofc_face_tags 
+                        , VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz)
+                        , GRACE_NSPACEDIM
+                        , nq_new ) ; 
+        Kokkos::realloc( _fofc_edge_tags 
+                        , VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz)
+                        , GRACE_NSPACEDIM
+                        , nq_new ) ; 
+        size_t const nflag_max_face = (nx + 1 + 2*ngz) * (nx + 2*ngz) * (nx + 2*ngz) * nq_new ; 
+        Kokkos::realloc( _fofc_fx, nflag_max_face ) ;
+        Kokkos::realloc( _fofc_fy, nflag_max_face ) ;
+        Kokkos::realloc( _fofc_fz, nflag_max_face ) ;
+        size_t const nflag_max_edge = (nx + 1 + 2*ngz) * (nx + 1 + 2*ngz) * (nx + 2*ngz) * nq_new ; 
+        Kokkos::realloc( _fofc_eyz, nflag_max_edge ) ;
+        Kokkos::realloc( _fofc_exz, nflag_max_edge ) ;
+        Kokkos::realloc( _fofc_exy, nflag_max_edge ) ;
+    }
+    #endif
 
-    #ifdef GRACE_ENABLE_Z4C_METRIC
+    #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
     Kokkos::realloc( _z4c_curv_scratch
                    , VEC(nx + 2*ngz, ny + 2*ngz, nz + 2*ngz)
                    , N_Z4C_CURV_SCRATCH

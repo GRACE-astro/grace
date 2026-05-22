@@ -12,9 +12,10 @@ register_grace_object(grace_scalar_output scalar_output.cpp)
 register_grace_object(grace_spherical_surfaces spherical_surfaces.cpp)
 
 register_grace_object(grace_diagnostics output_diagnostics.cpp diagnostics/black_hole_diagnostics.cpp diagnostics/outflow_diagnostics.cpp diagnostics/co_tracker.cpp)
-register_grace_object_conditional(grace_gw_integrals GRACE_ENABLE_Z4C_METRIC diagnostics/gw_integrals.cpp)
-register_grace_object_conditional(grace_adm_integrals GRACE_ENABLE_Z4C_METRIC diagnostics/adm_integrals.cpp)
-register_grace_object_conditional(grace_ahfinder GRACE_ENABLE_Z4C_METRIC diagnostics/apparent_horizon.cpp)
+if(GRACE_METRIC_EVOL STREQUAL "Z4")
+    register_grace_object(grace_gw_integrals  diagnostics/gw_integrals.cpp)
+    register_grace_object(grace_adm_integrals diagnostics/adm_integrals.cpp)
+endif()
 
 
 register_grace_object(xmf_utilities xmf_utilities.cpp)

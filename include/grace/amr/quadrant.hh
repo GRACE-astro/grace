@@ -7,7 +7,7 @@
  * @copyright This file is part of GRACE.
  * GRACE is an evolution framework that uses Discontinuous Galerkin
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -117,8 +117,17 @@ class quadrant_t
     /**
      * @brief Get the index of tree containing this quadrant.
      */
-    int64_t GRACE_ALWAYS_INLINE 
+    int64_t GRACE_ALWAYS_INLINE
     tree_index() const { return _pquad->p.which_tree; }
+    //*****************************************************************************************************
+    /**
+     * @brief Get the quadrant's child id within its parent in p4est ordering.
+     *        Bit 0 = x position (0=lower, 1=upper), bit 1 = y, bit 2 = z.
+     *        Used by the AMR restriction operator to flip the interior
+     *        Lagrange stencil across the parent midplane for L↔R symmetry.
+     */
+    int8_t GRACE_ALWAYS_INLINE
+    child_id() const { return static_cast<int8_t>(p4est_quadrant_child_id(_pquad)); }
     //*****************************************************************************************************
     /**
      * @brief Set user data of this quadrant.

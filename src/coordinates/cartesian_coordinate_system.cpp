@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -101,7 +101,12 @@ cartesian_coordinate_system_impl_t::cart_to_sph(
         return std::array<double,GRACE_NSPACEDIM>{{
             r,
             (fabs(xyz[2]/r) < 1.0) ? acos(xyz[2]/r) : acos(copysign(1.0, xyz[2])),
-            atan2(r*xyz[1]-bh_spin*xyz[0], bh_spin*xyz[1]+r*xyz[0]) - bh_spin*r/(SQR(r)-2.0*r+SQR(bh_spin))
+            // KS-spherical azimuth — exact algebraic inverse of sph_to_cart.
+            // No BL shift here; both directions of this pair use KS spherical
+            // so the round-trip is the identity.  Initial data that needs the
+            // Boyer-Lindquist φ should implement its own conversion locally
+            // (the correct shift is `∫(a/Δ)dr`, not `a·r/Δ`).
+            atan2(r*xyz[1] - bh_spin*xyz[0], bh_spin*xyz[1] + r*xyz[0])
         }};
         
     } else {

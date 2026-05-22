@@ -218,8 +218,8 @@ namespace grace {
       double const hbw     = fmax(hbw_raw, h/w)      ; 
       double const newmu   = 1. / (hbw + rfsqr * mu) ;
 
-      return mu - newmu;
-      
+      return (mu - newmu);
+
     }
     
     /**
@@ -232,11 +232,13 @@ namespace grace {
       const double rfsqr = rfsqr__mu_x(mu,x) ; 
       const double qf    = qf__mu_x(mu,x) ; 
       double vsqr        = rfsqr * mu * mu ; 
-      double w           = 1/sqrt(1-vsqr) ; 
+      double w ;         
       if ( vsqr > vsqrmax ) {
         vsqr = vsqrmax ; 
         w    = wmax    ; 
-      } 
+      } else {
+        w = 1/Kokkos::sqrt(1-vsqr) ; 
+      }
 
       double const rhomax = eos.density_maximum();
       double const rhomin = eos.density_minimum();
@@ -326,11 +328,9 @@ namespace grace {
      */
     double  GRACE_HOST_DEVICE
     invert(grmhd_prims_array_t& prims, c2p_sig_t& c2p_errors) {
-      
-      static constexpr double tolerance = 1e-15 ; 
 
-      // initial bracket 
-      double mu0 = 1/h0 ; 
+      // initial bracket
+      double mu0 = 1/h0 ;
       if ( r2 >= h0*h0 ) {
         fbrack_t g(r2,Btilde2,r_dot_Btilde2,h0) ; 
         double mu0_min, mu0_max ; 
@@ -344,8 +344,9 @@ namespace grace {
         }
       }
 
-      froot_t fmu(eos,D,q,r2,r_dot_Btilde2,Btilde2,ye,h0) ; 
-      double mu = utils::brent(fmu, 0, mu0, tolerance) ; 
+      froot_t fmu(eos,D,q,r2,r_dot_Btilde2,Btilde2,ye,h0) ;
+
+      double mu = utils::brent(fmu, 0, mu0, 1e-15) ;
 
       // now compute all primitives, this call handles 
       // errors! 

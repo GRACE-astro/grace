@@ -8,7 +8,7 @@
  * @copyright This file is part of GRACE.
  * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -47,34 +47,35 @@ struct minmod {
      * @param slopeR Right slope.
      * @return double Limited slope.
      */
-    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     operator() (double const& slopeL, double const& slopeR) const {
-        auto const signL = math::sgn(slopeL) ;
-        auto const signR = math::sgn(slopeR) ; 
-        return 0.5 * ( signL + signR ) * math::min(Kokkos::fabs(slopeL),Kokkos::fabs(slopeR)) ; 
+        // copysign(1, x): hardware sign-bit op, bit-exactly sign-flip
+        // antisymmetric under x -> -x, which is what preserves the
+        // octant-mirror equivariance of the slope-limited prolongation.
+        auto const signL = Kokkos::copysign(1.0, slopeL) ;
+        auto const signR = Kokkos::copysign(1.0, slopeR) ;
+        return 0.5 * ( signL + signR ) * math::min(Kokkos::fabs(slopeL),Kokkos::fabs(slopeR)) ;
     }
-} ; 
+} ;
 /**
  * @brief monotonized-central limiter with \f$\beta=2\f$.
  * \ingroup numerics
  */
 struct MCbeta {
-    double const beta = 2. ; 
+    double const beta = 2. ;
     /**
      * @brief Apply mc limiter.
-     * 
+     *
      * @param slopeL Left slope.
      * @param slopeR Right slope.
      * @return double Limited slope.
      */
-    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     operator() (double const& slopeL, double const& slopeR) const {
-        auto const slopeC = 0.5 * (slopeR + slopeL) ; 
-        auto const signR  = math::sgn(slopeR) ;
-        auto const signC  = math::sgn(slopeC) ;
+        auto const slopeC = 0.5 * (slopeR + slopeL) ;
+        auto const signR  = Kokkos::copysign(1.0, slopeR) ;
         return signR * Kokkos::max(0.,Kokkos::min(Kokkos::min( beta*Kokkos::fabs(slopeR)
-                                                 , beta*signR*slopeL),signR*slopeC)) ; 
-
+                                                 , beta*signR*slopeL),signR*slopeC)) ;
     }
 } ; 
 

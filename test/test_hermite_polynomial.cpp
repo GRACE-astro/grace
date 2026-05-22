@@ -122,7 +122,11 @@ TEST_CASE("Scalar multiplication distributes over coefficients", "[hermite_polyn
 TEST_CASE("Polynomial-by-polynomial product has summed degree", "[hermite_polynomial]") {
     //  a(x) = 1 + 2x
     //  b(x) = 3 - x + x^2
-    //  a*b  = 3 + 5x + 0*x^2 + 2*x^3
+    //  a*b  = 3 + 5x - x^2 + 2*x^3
+    //         |    |    |       |
+    //         x^0  x^1  x^2     x^3
+    //   coeffs: 1·3,  1·(-1)+2·3,  1·1+2·(-1),  2·1
+    //         = 3,    5,           -1,          2
     utils::polynomial_t<1> a(std::array<double, 2>{1.0, 2.0});
     utils::polynomial_t<2> b(std::array<double, 3>{3.0, -1.0, 1.0});
 
@@ -130,10 +134,10 @@ TEST_CASE("Polynomial-by-polynomial product has summed degree", "[hermite_polyno
     static_assert(decltype(c)::degree == 3,
                   "Product degree should be deg(a) + deg(b)");
 
-    REQUIRE_THAT(c.coeffs[0], WithinAbs(3.0, kTightTol));
-    REQUIRE_THAT(c.coeffs[1], WithinAbs(5.0, kTightTol));
-    REQUIRE_THAT(c.coeffs[2], WithinAbs(0.0, kTightTol));
-    REQUIRE_THAT(c.coeffs[3], WithinAbs(2.0, kTightTol));
+    REQUIRE_THAT(c.coeffs[0], WithinAbs( 3.0, kTightTol));
+    REQUIRE_THAT(c.coeffs[1], WithinAbs( 5.0, kTightTol));
+    REQUIRE_THAT(c.coeffs[2], WithinAbs(-1.0, kTightTol));
+    REQUIRE_THAT(c.coeffs[3], WithinAbs( 2.0, kTightTol));
 
     // Evaluate at several points and compare to the reference expansion.
     auto ref = [](double x) {

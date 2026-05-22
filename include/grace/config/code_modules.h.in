@@ -8,7 +8,7 @@
  * @copyright This file is part of GRACE.
  * GRACE is an evolution framework that uses Finite Difference 
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -35,17 +35,15 @@
 
 namespace grace { namespace detail { 
 //*****************************************************************************************************
-const std::vector< std::string > code_modules { 
+const std::vector< std::string > code_modules {
     "amr",
     "system",
     "IO",
     "evolution",
     "nan_check"
-    #ifdef GRACE_ENABLE_GRMHD
     , "grmhd"
     , "b_field_injection"
-    #endif
-    #ifdef GRACE_ENABLE_Z4C_METRIC
+    #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
     , "z4c"
     #endif
     #ifdef GRACE_ENABLE_M1
@@ -57,15 +55,12 @@ const std::vector< std::string > code_modules {
     , "spherical_surfaces"
     , "bh_diagnostics"
     , "outflows"
-    #ifdef GRACE_ENABLE_Z4C_METRIC
+    #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
     , "gw_integrals"
     , "adm_integrals"
     #endif
     , "co_tracker"
     , "mhd_diagnostics"
-    #ifdef GRACE_ENABLE_Z4C_METRIC
-    , "apparent_horizon"
-    #endif
     #ifdef GRACE_ENABLE_PARTICLES
     , "particles"
     #endif
@@ -77,11 +72,9 @@ const std::vector< std::string > code_modules_default_configs {
      "${CMAKE_SOURCE_DIR}/parameters/IO.yaml",
      "${CMAKE_SOURCE_DIR}/parameters/evolution.yaml",
      "${CMAKE_SOURCE_DIR}/parameters/nan_check.yaml"
-     #ifdef GRACE_ENABLE_GRMHD
      , "${CMAKE_SOURCE_DIR}/parameters/grmhd.yaml"
      , "${CMAKE_SOURCE_DIR}/parameters/b_field_injection.yaml"
-     #endif
-     #ifdef GRACE_ENABLE_Z4C_METRIC
+     #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
      , "${CMAKE_SOURCE_DIR}/parameters/z4c.yaml"
      #endif
      #ifdef GRACE_ENABLE_M1
@@ -93,15 +86,12 @@ const std::vector< std::string > code_modules_default_configs {
      , "${CMAKE_SOURCE_DIR}/parameters/spherical_surfaces.yaml"
      , "${CMAKE_SOURCE_DIR}/parameters/bh_diagnostics.yaml"
      , "${CMAKE_SOURCE_DIR}/parameters/outflows.yaml"
-     #ifdef GRACE_ENABLE_Z4C_METRIC
+     #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
      , "${CMAKE_SOURCE_DIR}/parameters/gw_integrals.yaml"
      , "${CMAKE_SOURCE_DIR}/parameters/adm_integrals.yaml"
      #endif
      , "${CMAKE_SOURCE_DIR}/parameters/co_tracker.yaml"
      , "${CMAKE_SOURCE_DIR}/parameters/mhd_diagnostics.yaml"
-     #ifdef GRACE_ENABLE_Z4C_METRIC
-     , "${CMAKE_SOURCE_DIR}/parameters/apparent_horizon.yaml"
-     #endif
      #ifdef GRACE_ENABLE_PARTICLES
      , "${CMAKE_SOURCE_DIR}/parameters/particles.yaml"
      #endif

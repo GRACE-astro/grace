@@ -78,11 +78,7 @@ IO: {
   output_use_hdf5: true,
   hdf5_compression_level: 0,
   hdf5_chunk_size: 8192,
-  output_extra_quantities: true,
-
-  xy_plane_offset: 1e-5,
-  xz_plane_offset: 1e-5,
-  yz_plane_offset: 1e-5
+  output_extra_quantities: true
 
 }
 system: {
@@ -110,7 +106,8 @@ grmhd: {
     # temperature from 
     # ID adiabat at rho_fl
     temp_fl:  1.e-12,
-    rho_fl: 1.e-14
+    rho_fl: 1.e-14,
+    atmo_tol: 0.1
   },
 
   c2p: {

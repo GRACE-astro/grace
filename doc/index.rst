@@ -17,15 +17,16 @@ and on the `p4est`_ adaptive mesh refinement library.
    :maxdepth: 1
    :caption: Contents
 
-   introduction/index.rst          
-   userguide/index.rst             
-   code_building_guide/index.rst   
-   gallery/index.rst               
-   python_interface/index.rst      
-   contributing/index.rst          
-   code_of_conduct/index.rst       
-   citing/index.rst                
-   publications/index.rst          
+   introduction/index.rst
+   quickstart/index.rst
+   code_building_guide/index.rst
+   userguide/index.rst
+   gallery/index.rst
+   python_interface/index.rst
+   contributing/index.rst
+   code_of_conduct/index.rst
+   citing/index.rst
+   publications/index.rst
 
 Indices and Tables
 ***************************

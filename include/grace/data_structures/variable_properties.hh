@@ -7,7 +7,7 @@
  * @copyright This file is part of MagMA.
  * MagMA is an evolution framework that uses Discontinuous Galerkin
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -43,6 +43,12 @@ enum var_staggering_t : uint8_t {
     STAG_CENTER=0, STAG_FACEX, STAG_FACEY, STAG_EDGEXY, STAG_FACEZ, STAG_EDGEXZ, STAG_EDGEYZ, STAG_CORNER, N_VAR_STAGGERINGS
 } ; 
 
+/**
+ * @brief Holds tagged faces and edges for flux/emf correction
+ */
+struct fofc_index_tag_t {
+    int q,i,j,k ; 
+} ; 
 
 static inline 
 std::array<int,3> get_index_staggerings(grace::var_staggering_t stag) {

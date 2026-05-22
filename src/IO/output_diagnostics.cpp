@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -43,7 +43,7 @@
 #include <grace/config/config_parser.hh>
 
 #include <grace/IO/diagnostics/black_hole_diagnostics.hh>
-#ifdef GRACE_ENABLE_Z4C_METRIC
+#if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
 #include <grace/IO/diagnostics/gw_integrals.hh>
 #include <grace/IO/diagnostics/adm_integrals.hh>
 #include <grace/physics/z4c.hh>
@@ -68,7 +68,7 @@ void output_diagnostics() {
     
     bh_diagnostics bh_diag{};
     bh_diag.compute_and_write() ;  
-    #ifdef GRACE_ENABLE_Z4C_METRIC
+    #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
     auto state   = variable_list::get().getstate() ;
     auto sstate  = variable_list::get().getstaggeredstate() ;
     auto aux     = variable_list::get().getaux() ;
@@ -102,7 +102,7 @@ void output_diagnostics() {
 void initialize_diagnostic_files() {
     bh_diagnostics bh_diag{};
     bh_diag.initialize_files() ; 
-    #ifdef GRACE_ENABLE_Z4C_METRIC
+    #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
     gw_integrals gw_ints{} ;
     gw_ints.initialize_files() ;
     adm_integrals adm_ints{} ;

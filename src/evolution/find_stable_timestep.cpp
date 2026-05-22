@@ -8,7 +8,7 @@
  * @copyright This file is part of GRACE.
  * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,16 +31,13 @@
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/amr/amr_functions.hh>
 #include <grace/config/config_parser.hh>
-#include <grace/physics/grace_physical_systems.hh>
 #include <grace/evolution/evolution_kernel_tags.hh> 
 #include <grace/utils/reconstruction.hh>
 #include <grace/utils/riemann_solvers.hh>
 #include <grace/parallel/mpi_wrappers.hh>
-#ifdef GRACE_ENABLE_GRMHD
 #include <grace/physics/grmhd.hh>
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/eos_storage.hh>
-#endif
 #ifdef GRACE_ENABLE_M1
 #include <grace/physics/m1_helpers.hh>
 #include <grace/physics/m1.hh>
@@ -58,9 +55,9 @@ void find_stable_timestep() {
         auto const cold_eos_type = 
             get_param<std::string>("eos","hybrid_eos","cold_eos_type") ;  
         if( cold_eos_type == "piecewise_polytrope" ) {
-            find_stable_timestep_impl<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>() ; 
+            find_stable_timestep_impl<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>() ;
         } else if ( cold_eos_type == "tabulated" ) {
-            ERROR("Not implemented yet.") ;
+            find_stable_timestep_impl<grace::hybrid_eos_t<grace::tabulated_cold_eos_t>>() ;
         }
     } else if ( eos_type == "tabulated" ) {
         find_stable_timestep_impl<grace::tabulated_eos_t>() ; 
@@ -92,30 +89,11 @@ void find_stable_timestep_impl() {
     auto& params = config_parser::get() ; 
     double const CFL = params["evolution"]["cfl_factor"].as<double>() ; 
 
-    #ifdef GRACE_ENABLE_SCALAR_ADV 
-    double VEC(ax,ay,az) ; 
-    EXPR(
-    ax = params["scalar_advection"]["ax"].as<double>() ;,
-    ay = params["scalar_advection"]["ay"].as<double>() ;,
-    az = params["scalar_advection"]["az"].as<double>() ; )
-    scalar_advection_system_t  
-        scalar_adv_system{ state, aux, VEC(ax,ay,az) } ; 
-    #define GET_CMAX \
-    scalar_adv_system(eigenspeed_kernel_t{}, VEC(i,j,k),q)
-    #endif 
-    #ifdef GRACE_ENABLE_BURGERS 
-    burgers_equation_system_t
-        burgers_eq_system{ state, aux } ;
-    #define GET_CMAX \
-    burgers_eq_system(eigenspeed_kernel_t{}, VEC(i,j,k),q)
-    #endif 
-    #ifdef GRACE_ENABLE_GRMHD
-    auto eos = eos::get().get_eos<eos_t>() ;  
+    auto eos = eos::get().get_eos<eos_t>() ;
     grmhd_equations_system_t<eos_t>
-        grmhd_eq_system(eos,state,sstate,aux) ; 
+        grmhd_eq_system(eos,state,sstate,aux) ;
     #define GET_CMAX \
     grmhd_eq_system(eigenspeed_kernel_t{}, VEC(i,j,k),q)
-    #endif 
     #ifdef GRACE_ENABLE_M1 
     m1_equations_system_t m1_eq_system(state,sstate,aux) ;
     #endif 
@@ -128,7 +106,7 @@ void find_stable_timestep_impl() {
                    , policy
                    , KOKKOS_LAMBDA(VEC(int const& i, int const& j, int const& k), int const& q, double& dtmax)
     {
-        #if !defined(GRACE_ENABLE_Z4C_METRIC) && !defined(GRACE_ENABLE_BSSN_METRIC)
+        #if (GRACE_METRIC_EVOL != GRACE_METRIC_EVOL_Z4)
         double cmax = GET_CMAX; 
         #ifdef GRACE_ENABLE_M1 
         cmax = fmax(cmax,m1_eq_system(eigenspeed_kernel_t{}, VEC(i,j,k),q)) ; 
@@ -152,6 +130,7 @@ void find_stable_timestep_impl() {
 template                              \
 void find_stable_timestep_impl<EOS>()
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::tabulated_cold_eos_t>) ;
 INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;
 INSTANTIATE_TEMPLATE(grace::ideal_gas_eos_t) ;
 #undef INSTANTIATE_TEMPLATE

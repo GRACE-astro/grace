@@ -8,7 +8,7 @@
  * @copyright This file is part of GRACE.
  * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -48,11 +48,8 @@
 #include <grace/IO/output_diagnostics.hh>
 #include <grace/IO/diagnostics/co_tracker.hh>
 #include <grace/system/nan_check.hh>
-#ifdef GRACE_ENABLE_GRMHD
 #include <grace/physics/b_field_injection.hh>
-#endif
-#ifdef GRACE_ENABLE_Z4C_METRIC
-#include <grace/IO/diagnostics/apparent_horizon.hh>
+#if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
 #endif
 #ifdef GRACE_ENABLE_PARTICLES
 #include <grace/particles/particles_module.hh>
@@ -142,6 +139,14 @@ int main(int argc, char* argv[])
                 //******************************************************************************************/
                 grace::amr::apply_boundary_conditions() ;
                 //******************************************************************************************/
+                /*                  Re-impose BSSN/Z4c algebraic constraints                              */
+                /*  Regrid prolongs γ̃, Ã across the new coarse-fine interfaces; the                       */
+                /*  interpolation only preserves det γ̃ = 1 and tr Ã = 0 to O(dx^5).                      */
+                //******************************************************************************************/
+                #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
+                grace::enforce_algebraic_constraints(grace::variable_list::get().getstate()) ;
+                #endif
+                //******************************************************************************************/
                 /*                               Recompute aux                                             */
                 //******************************************************************************************/
                 grace::compute_auxiliary_quantities() ;
@@ -158,7 +163,7 @@ int main(int argc, char* argv[])
                 //******************************************************************************************/
                 /*                           Recompute violations                                          */
                 //******************************************************************************************/
-                #ifdef GRACE_ENABLE_Z4C_METRIC
+                #if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
                 grace::compute_constraint_violations() ; 
                 #endif 
             } 
@@ -203,15 +208,7 @@ int main(int argc, char* argv[])
         /**********************************************************************************/
         /* Inject B field mid-run if requested                                            */
         /**********************************************************************************/
-        #ifdef GRACE_ENABLE_GRMHD
         grace::maybe_inject_b_field() ;
-        #endif
-        /**********************************************************************************/
-        /* Find apparent horizons if needed                                               */
-        /**********************************************************************************/
-        #ifdef GRACE_ENABLE_Z4C_METRIC
-        grace::ah_finder_manager::get().find_all() ;
-        #endif
         /**********************************************************************************/
         /* Update spherical surfaces if needed                                            */
         /**********************************************************************************/

@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -139,16 +139,23 @@ void amr_ghosts_impl_t::update() {
     p4est_ghost_layer = p4est_ghost_new(grace::amr::forest::get().get(), P4EST_CONNECT_FULL);
 
     // Clear and re-alloc the ghost_layer to the correct size
-    auto nq = amr::get_local_num_quadrants() ; 
-    ghost_layer.clear() ; 
-    ghost_layer.resize(nq) ; 
+    auto nq = amr::get_local_num_quadrants() ;
+    ghost_layer.clear() ;
+    ghost_layer.resize(nq) ;
+
+    // Reset the outer-boundary face list — `grace_iterate_faces` will append
+    // (quad_id, face_id) for every face that p4est reports with only ONE side
+    // (no neighbor — i.e. on a non-periodic outer-domain face).  Finalized
+    // into the device view `_boundary_quads` after p4est_iterate returns.
+    _boundary_faces_host.clear() ;
 
     p4est_iter_data_t iter_data {
         &ghost_layer,
         &_reflux_face_descs,
         &_reflux_coarse_face_descs,
         &_reflux_edge_descs,
-        &_reflux_coarse_edge_descs
+        &_reflux_coarse_edge_descs,
+        &_boundary_faces_host
     } ;
     //**************************************************************************************************
     // Register neighbor faces into ghost_layer
@@ -157,13 +164,34 @@ void amr_ghosts_impl_t::update() {
                   static_cast<void*>(&iter_data),     /*user data*/
                   nullptr,                              /*volume*/
                   &grace_iterate_faces,                 /*face*/
-                  #ifdef GRACE_3D 
+                  #ifdef GRACE_3D
                   &grace_iterate_edges,                 /*edge*/
-                  #endif 
+                  #endif
                   &grace_iterate_corners );             /*corner*/
     //**************************************************************************************************
+    // Finalize the outer-boundary face list collected by grace_iterate_faces.
+    // Host vector → flat device views (one entry per (quadrant, face_id) pair
+    // on a non-periodic outer-domain face).  Walked by the mass-outflux
+    // diagnostic kernel in the evolution loop.
+    {
+        size_t const nb = _boundary_faces_host.size() ;
+        _boundary_quads.size = nb ;
+        Kokkos::realloc(_boundary_quads.q,       nb) ;
+        Kokkos::realloc(_boundary_quads.face_id, nb) ;
+        if (nb > 0) {
+            auto q_h  = Kokkos::create_mirror_view(_boundary_quads.q) ;
+            auto fi_h = Kokkos::create_mirror_view(_boundary_quads.face_id) ;
+            for (size_t b = 0; b < nb; ++b) {
+                q_h(b)  = _boundary_faces_host[b].first ;
+                fi_h(b) = _boundary_faces_host[b].second ;
+            }
+            Kokkos::deep_copy(_boundary_quads.q,       q_h)  ;
+            Kokkos::deep_copy(_boundary_quads.face_id, fi_h) ;
+        }
+        GRACE_TRACE("Constructed boundary_quads: {} outer-boundary faces on this rank", nb) ;
+    }
     //**************************************************************************************************
-    std::unordered_set<size_t> cbuf_qid ; 
+    std::unordered_set<size_t> cbuf_qid ;
     build_coarse_buffers(cbuf_qid)   ; 
     GRACE_TRACE("Constructed coarse buffers, we have {} quadrants", cbuf_qid.size()) ; 
     //**************************************************************************************************
@@ -212,13 +240,18 @@ void amr_ghosts_impl_t::build_coarse_buffers(
     } ; 
 
     /****************************************************/
-    size_t cur_idx{0UL} ; 
+    size_t cur_idx{0UL} ;
     for( size_t iq=0UL; iq<nq; iq+=1UL ) {
         if ( needs_cbuf(ghost_layer[iq]) ) {
-            ghost_layer[iq].cbuf_id = cur_idx ++ ; 
-            cbuf_qid.insert(iq) ; 
-        } 
-    }   
+            ghost_layer[iq].cbuf_id = cur_idx ++ ;
+            // Cache the quad's Morton child id within its parent so the
+            // ghost-zone restrict can flip the interior Lagrange stencil
+            // per direction (L↔R symmetric restriction; see
+            // lagrange_restrict_op<4>::operator() in pr_helpers.hh).
+            ghost_layer[iq].local_child_id = amr::get_quadrant(iq).child_id() ;
+            cbuf_qid.insert(iq) ;
+        }
+    }
     /****************************************************/
     _coarse_buffers = var_array_t(
         "coarse_buffers", VEC(nx/2+2*ngz, ny/2+2*ngz, nz/2+2*ngz), nvars, cur_idx 

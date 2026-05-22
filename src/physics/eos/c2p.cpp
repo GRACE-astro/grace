@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -55,9 +55,9 @@ compute_beta(
     double smallbu[4];
     double smallb2;
     grmhd_get_smallbu_smallb2(
-        betau,gdd,B,z,W,alp,&smallbu,&smallb2
-    ) ; 
-    return 2.0 * prims[PRESSL]/fmax(smallb2, 1e-50) ; 
+        alp,betau,gdd,B,z,W,&smallbu,&smallb2
+    ) ;
+    return 2.0 * prims[PRESSL]/fmax(smallb2, 1e-50) ;
 }
 
 template< typename eos_t >
@@ -96,9 +96,9 @@ limit_primitives(
     double smallbu[4];
     double smallb2;
     grmhd_get_smallbu_smallb2(
-        betau,gdd,B,z,W,alp,&smallbu,&smallb2
+        alp,betau,gdd,B,z,W,&smallbu,&smallb2
     ) ;
-    double const sigma = smallb2 / prims[RHOL] ; 
+    double const sigma = smallb2 / prims[RHOL] ;
     if ( sigma >= max_sigma ) {
         // add some density here! 
         double const rhofact = 1.001 * sigma/max_sigma ;
@@ -176,27 +176,34 @@ reset_to_atmosphere(
     prims[PRESSL] = eos.press_eps_csnd2_entropy__temp_rho_ye(
         prims[EPSL], csnd2, prims[ENTL], prims[TEMPL], prims[RHOL], prims[YEL], eos_err
     ); 
-    // all conserved need to be reset 
-    prims_to_conservs(prims,cons,metric) ; 
-    err.set_all() ; 
+    // all conserved need to be reset
+    prims_to_conservs(prims,cons,metric) ;
+    c2p_set_all_resets(err) ;
+    err.set(c2p_err_enum_t::C2P_ATMO_RESET) ;
 }
 
 template< typename eos_t >
-void GRACE_HOST_DEVICE
+bool GRACE_HOST_DEVICE
 conservs_to_prims(  grace::grmhd_cons_array_t&  cons
                   , grace::grmhd_prims_array_t& prims
                   , grace::metric_array_t const& metric
-                  , eos_t const& eos 
-                  , atmo_params_t const& atmo 
-                  , excision_params_t const& excision 
+                  , eos_t const& eos
+                  , atmo_params_t const& atmo
+                  , excision_params_t const& excision
                   , c2p_params_t const& c2p_pars
                   , double * rtp
                   , c2p_err_t& c2p_err)
 {
-    
+
     using c2p_mhd_t    = kastaun_c2p_t<eos_t>     ;
     using c2p_backup_t = entropy_fix_c2p_t<eos_t> ;
-    bool c2p_failed{ false }                      ;  
+    bool c2p_failed{ false }                      ;
+    // Tracks whether any "real" flooring/failure event happened. Returned at
+    // function exit and consumed by the FOFC pass to flag bad cells.
+    // Excludes routine adjustments (limit_conservatives, W/sigma clamps,
+    // the unconditional RESET_ENTROPY bit) — only atmosphere reset and the
+    // T-floor branch count.
+    bool floored{ false }                         ;
 
     // initialize ret code
     c2p_sig_t c2p_ret ;
@@ -220,8 +227,8 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
     if ( cons[DENSL] < 0 ) {
         reset_to_atmosphere(
             cons,prims,metric,atmo,eos,c2p_err
-        ) ; 
-        return ; 
+        ) ;
+        return true ;
     }
 
     /* Check that the ye is within bounds */
@@ -246,43 +253,77 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
     // enforce limits on conserved variables
     limit_conservatives(cons,metric,eos,c2p_err) ; 
     
-    /* If D>rho_atm we solve*/
-    if( cons[DENSL] > atmo.rho_fl * (1+atmo.atmo_tol) ) { 
+    /* If D ≥ atmosphere we solve; cells strictly below the buffered floor
+       fall through to c2p_failed and are atmosphered via the post-c2p path.
+       Strict `<` here matches the post-c2p trigger at line ~330 so a cell
+       at exactly ρ_fl·(1+atmo_tol) is handled identically in both branches. */
+    if( cons[DENSL] >= atmo.rho_fl * (1+atmo.atmo_tol) ) {
         // Call main c2p 
         c2p_mhd_t c2p(eos,metric,cons) ;
         double residual = c2p.invert(prims,c2p_ret) ;
         
 
-        // decide if we need a backup. The criteria are as follows:
-        // 1) C2P failed due to not finite residual or residual 
-        //    exceeding the threshold 
-        // 2) A severe exception was raised (rho>rho_max or eps>eps_max )
-        // 3) The plasma beta is below the threshold 
-        c2p_failed = (Kokkos::fabs(residual) > c2p_pars.tol) 
-                    || (c2p_ret.test(c2p_sig_enum_t::C2P_RHO_TOO_HIGH)) 
+        // Distinguish two failure modes of the energy inversion:
+        //   c2p_failed   : the inversion diverged or returned an unphysical
+        //                  state (bad residual, NaN, ρ too large, ε too
+        //                  large). Atmosphere reset is the right response.
+        //   c2p_distrust : the inversion converged to a state we'd like a
+        //                  second opinion on (cold convergence, low β).
+        //                  Triggers the entropy backup but is *not* itself
+        //                  a failure — if no backup is run, or the backup
+        //                  also lands cold, we accept the (clamped) state.
+        c2p_failed = (Kokkos::fabs(residual) > c2p_pars.tol)
+                    || (c2p_ret.test(c2p_sig_enum_t::C2P_RHO_TOO_HIGH))
                     || (c2p_ret.test(c2p_sig_enum_t::C2P_EPS_TOO_HIGH))
                     || (!Kokkos::isfinite(residual)) ;
 
-        double beta = compute_beta(prims,metric) ; 
-        
-        // backup if needed and allowed 
-        if ( (     c2p_failed 
-                or beta <= c2p_pars.beta_fallback ) 
-               and c2p_pars.use_ent_backup ) 
-        {
-            // reset the c2p signals since we are
-            // trying again
-            c2p_ret.reset() ; 
-            // call the backup c2p 
+        double beta = compute_beta(prims,metric) ;
+
+        bool const c2p_distrust = c2p_failed
+                    || (c2p_ret.test(c2p_sig_enum_t::C2P_EPS_TOO_LOW))
+                    || (beta <= c2p_pars.beta_fallback) ;
+
+        // backup if needed and allowed
+        if ( c2p_distrust and c2p_pars.use_ent_backup ) {
+            // save the energy-inversion primitives in case the backup
+            // diverges and we need to roll back
+            grace::grmhd_prims_array_t prims_save = prims ;
+            c2p_sig_t backup_ret ;
             c2p_backup_t e_c2p(eos,metric,cons) ;
-            double residual = e_c2p.invert(prims,c2p_ret) ; 
-            // decide if we can accept the inversion 
-            c2p_failed = (math::abs(residual) > c2p_pars.tol) || (!Kokkos::isfinite(residual)) ;
-            c2p_failed |= (prims[EPSL] >= eos.get_c2p_eps_max()) ; 
+            double const r_b = e_c2p.invert(prims,backup_ret) ;
+            bool const backup_ok =
+                   (Kokkos::fabs(r_b) <= c2p_pars.tol)
+                && Kokkos::isfinite(r_b)
+                && (prims[EPSL] < eos.get_c2p_eps_max()) ;
+            if (backup_ok) {
+                // entropy gave us a usable state; adopt its signals.
+                c2p_ret    = backup_ret ;
+                c2p_failed = false      ;
+                c2p_err.set(c2p_err_enum_t::C2P_ENT_BACKUP_USED) ;
+            } else if (!c2p_failed) {
+                // backup diverged but the energy inversion only landed
+                // cold — keep the (clamped) energy-inversion primitives.
+                prims = prims_save ;
+            }
+            // else: energy inversion already diverged and backup also
+            //       diverged — leave c2p_failed=true and atmosphere will
+            //       handle it below.
         }
-        // handle the return signals from within the 
-        // c2p operators 
-        c2p_handle_signals(c2p_ret, c2p_is_lenient, c2p_err) ; 
+        // FOFC trigger: any primitive clamp during the converged inversion
+        // (or its backup) counts as a flooring event. Without this, e.g. an
+        // EPS_TOO_LOW clamp that doesn't trip the T<T_atm strict-less-than
+        // test downstream would silently exit with floored=false, hiding
+        // surface cells whose high-order flux pushed below the EOS floor.
+        if (   c2p_ret.test(c2p_sig_enum_t::C2P_EPS_TOO_LOW)
+            || c2p_ret.test(c2p_sig_enum_t::C2P_EPS_TOO_HIGH)
+            || c2p_ret.test(c2p_sig_enum_t::C2P_RHO_TOO_LOW)
+            || c2p_ret.test(c2p_sig_enum_t::C2P_RHO_TOO_HIGH)
+            || c2p_ret.test(c2p_sig_enum_t::C2P_VEL_TOO_HIGH) ) {
+            floored = true ;
+        }
+        // handle the return signals from within the
+        // c2p operators
+        c2p_handle_signals<eos_t>(c2p_ret, c2p_is_lenient, c2p_err) ;
     } else {
         c2p_failed = true ;
     }
@@ -292,10 +333,11 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
                 ? rtp[0] <= excision.r_ex 
                 : metric.alp() <= excision.alp_ex ; 
     if ((prims[RHOL] < (1.+atmo.atmo_tol) * atmo.rho_fl) or c2p_failed or excise ) {
-        // reset everything to atmosphere 
+        // reset everything to atmosphere
         reset_to_atmosphere(
             cons,prims,metric,atmo,eos,c2p_err
         ) ;
+        floored = true ;
     } else if (prims[TEMPL] < atmo.temp_fl) {
         // NB: When using tabeos, if temp_fl == min(T_tab)
         // this check is effectively a no-op since 
@@ -312,23 +354,31 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
         prims[PRESSL] = eos.press_eps_csnd2_entropy__temp_rho_ye(
             prims[EPSL], csnd2, prims[ENTL], prims[TEMPL], prims[RHOL], prims[YEL], eos_err
         ); 
-        // check if the EOS had any sort of problem 
-        c2p_handle_eos_signals(
+        // check if the EOS had any sort of problem
+        c2p_handle_eos_signals<eos_t>(
             eos_err,
             c2p_is_lenient,
             c2p_err
-        ) ; 
-        // reset all conserved except for D (and S_i), since rho and W are unchanged
-        c2p_err.set(c2p_err_enum_t::C2P_RESET_TAU)     ; 
-        //c2p_err.set(c2p_err_enum_t::C2P_RESET_STILDE)  ; stick to the convention used for eps fix
-        c2p_err.set(c2p_err_enum_t::C2P_RESET_ENTROPY) ; 
+        ) ;
+        // T floored → ε,p,h changed → re-synchronize τ AND S̃_i so the
+        // momentum stays consistent with the clamped primitives.
+        c2p_err.set(c2p_err_enum_t::C2P_RESET_TAU)     ;
+        c2p_err.set(c2p_err_enum_t::C2P_RESET_STILDE)  ;
+        c2p_err.set(c2p_err_enum_t::C2P_RESET_ENTROPY) ;
+        c2p_err.set(c2p_err_enum_t::C2P_T_FLOORED)     ;
+        floored = true ;
     } else {
         /* Limit lorentz fact and magnetization  */
-        c2p_sig_t c2p_sig ; 
+        c2p_sig_t c2p_sig ;
         limit_primitives<eos_t>(
             prims, metric, eos, c2p_pars.max_w, c2p_pars.max_sigma, c2p_sig
         ) ;
-        c2p_handle_signals(c2p_sig, c2p_is_lenient, c2p_err) ; 
+        c2p_handle_signals<eos_t>(c2p_sig, c2p_is_lenient, c2p_err) ;
+        // FOFC trigger: W or σ had to be clamped — count as flooring.
+        if (   c2p_sig.test(c2p_sig_enum_t::C2P_VEL_TOO_HIGH)
+            || c2p_sig.test(c2p_sig_enum_t::C2P_SIGMA_TOO_HIGH) ) {
+            floored = true ;
+        }
     }
     
     /* Re-compute conservative variables based  */
@@ -336,6 +386,8 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
     /* NB: only conservatives flagged in the    */
     /* c2p errors are overwritten.              */
     prims_to_conservs(prims,cons,metric) ;
+
+    return floored ;
 }
 
 void GRACE_HOST_DEVICE
@@ -355,17 +407,17 @@ prims_to_conservs( grace::grmhd_prims_array_t& prims
     double smallbu[4];
     double smallb2;
     grmhd_get_smallbu_smallb2(
-        betau,gdd,B,z,W,alp,&smallbu,&smallb2
-    ) ; 
+        alp,betau,gdd,B,z,W,&smallbu,&smallb2
+    ) ;
 
     double D,tau,sstar ;
-    double Stilde[3] ; 
+    double Stilde[3] ;
     grmhd_get_conserved(
-        W, prims[RHOL], smallbu, smallb2,
-        alp, prims[EPSL], prims[PRESSL],
-        betau, z, gdd, prims[ENTL],
+        alp, betau, gdd,
+        prims[RHOL], prims[PRESSL], prims[EPSL],
+        z, prims[ENTL], W, smallb2, smallbu,
         &D, &tau, &Stilde, &sstar
-    ) ; 
+    ) ;
 
     double const sqrtg = metric.sqrtg() ; 
     cons[DENSL] = sqrtg * D ; 
@@ -381,7 +433,7 @@ prims_to_conservs( grace::grmhd_prims_array_t& prims
 
 #define INSTANTIATE_TEMPLATE(EOS) \
 template \
-void GRACE_HOST_DEVICE \
+bool GRACE_HOST_DEVICE \
 conservs_to_prims<EOS>( grace::grmhd_cons_array_t&  \
                       , grace::grmhd_prims_array_t&  \
                       , grace::metric_array_t const&  \
@@ -392,6 +444,7 @@ conservs_to_prims<EOS>( grace::grmhd_cons_array_t&  \
                       , double * rtp \
                       , c2p_err_t& c2p_err ) 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::tabulated_cold_eos_t>) ;
 INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;
 INSTANTIATE_TEMPLATE(grace::ideal_gas_eos_t) ;
 #undef INSTANTIATE_TEMPLATE

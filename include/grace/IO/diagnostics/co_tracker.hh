@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -202,14 +202,9 @@ class ns_tracker_t : public co_tracker_t
 
         array_sum_t<double,4> com_integrals_global;
 
-        MPI_Allreduce(
-            com_integrals.data,         // sendbuf
-            com_integrals_global.data,  // recvbuf
-            4,                          // count
-            MPI_DOUBLE,                 // datatype
-            MPI_SUM,                    // op
-            MPI_COMM_WORLD              // comm
-        );
+        parallel::mpi_allreduce(com_integrals.data,
+                                 com_integrals_global.data,
+                                 4, sc_MPI_SUM) ;
 
         bool eq_symm = get_param<bool>("amr","reflection_symmetries","z") ; 
         this->location[0] = com_integrals_global.data[0]/com_integrals_global.data[3];
@@ -253,7 +248,7 @@ class puncture_tracker_t : public co_tracker_t
         auto my_rank = parallel::mpi_comm_rank() ; 
         int owner = -1;
         if (puncture_is_here) owner = my_rank;
-        MPI_Allreduce(MPI_IN_PLACE, &owner, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+        parallel::mpi_allreduce_inplace(&owner, 1, sc_MPI_MAX);
         if (owner<0) {
             GRACE_WARN("Puncture location ({} {} {}) outside of the computational domain!", l[0], l[1], l[2]) ; 
             return ; 

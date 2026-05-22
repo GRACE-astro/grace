@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -132,31 +132,31 @@ struct z4c_system_t
         // Scalar upwind transport
         {
             double d ;
-            fill_deriv_scalar_upw(this->_state,i,j,k,CHI_   ,q,&d,beta,idx[0]) ; n(CHI_)   += w*d ;
-            fill_deriv_scalar_upw(this->_state,i,j,k,ALP_   ,q,&d,beta,idx[0]) ; n(ALP_)   += w*d ;
-            fill_deriv_scalar_upw(this->_state,i,j,k,THETA_ ,q,&d,beta,idx[0]) ; n(THETA_) += w*d ;
-            fill_deriv_scalar_upw(this->_state,i,j,k,KHAT_  ,q,&d,beta,idx[0]) ; n(KHAT_)  += w*d ;
+            fill_deriv_scalar_upw<Z4C_DER_ORDER>(this->_state,i,j,k,CHI_   ,q,&d,beta,idx[0]) ; n(CHI_)   += w*d ;
+            fill_deriv_scalar_upw<Z4C_DER_ORDER>(this->_state,i,j,k,ALP_   ,q,&d,beta,idx[0]) ; n(ALP_)   += w*d ;
+            fill_deriv_scalar_upw<Z4C_DER_ORDER>(this->_state,i,j,k,THETA_ ,q,&d,beta,idx[0]) ; n(THETA_) += w*d ;
+            fill_deriv_scalar_upw<Z4C_DER_ORDER>(this->_state,i,j,k,KHAT_  ,q,&d,beta,idx[0]) ; n(KHAT_)  += w*d ;
         }
         // Tensor upwind transport: g̃_ij and Ã_ij
         {
             double d[6] ;
-            fill_deriv_tensor_upw(this->_state,i,j,k,GTXX_,q,d,beta,idx[0]) ;
+            fill_deriv_tensor_upw<Z4C_DER_ORDER>(this->_state,i,j,k,GTXX_,q,d,beta,idx[0]) ;
             #pragma unroll 6
             for (int a=0; a<6; ++a) n(GTXX_+a) += w*d[a] ;
-            fill_deriv_tensor_upw(this->_state,i,j,k,ATXX_,q,d,beta,idx[0]) ;
+            fill_deriv_tensor_upw<Z4C_DER_ORDER>(this->_state,i,j,k,ATXX_,q,d,beta,idx[0]) ;
             #pragma unroll 6
             for (int a=0; a<6; ++a) n(ATXX_+a) += w*d[a] ;
         }
         // Vector upwind transport: β^i, Γ̃^i, B^i
         {
             double d[3] ;
-            fill_deriv_vector_upw(this->_state,i,j,k,BETAX_   ,q,d,beta,idx[0]) ;
+            fill_deriv_vector_upw<Z4C_DER_ORDER>(this->_state,i,j,k,BETAX_   ,q,d,beta,idx[0]) ;
             #pragma unroll 3
             for (int a=0; a<3; ++a) n(BETAX_+a) += w*d[a] ;
-            fill_deriv_vector_upw(this->_state,i,j,k,GAMMATX_ ,q,d,beta,idx[0]) ;
+            fill_deriv_vector_upw<Z4C_DER_ORDER>(this->_state,i,j,k,GAMMATX_ ,q,d,beta,idx[0]) ;
             #pragma unroll 3
             for (int a=0; a<3; ++a) n(GAMMATX_+a) += w*d[a] ;
-            fill_deriv_vector_upw(this->_state,i,j,k,BDRIVERX_,q,d,beta,idx[0]) ;
+            fill_deriv_vector_upw<Z4C_DER_ORDER>(this->_state,i,j,k,BDRIVERX_,q,d,beta,idx[0]) ;
             #pragma unroll 3
             for (int a=0; a<3; ++a) n(BDRIVERX_+a) += w*d[a] ;
         }
@@ -253,11 +253,11 @@ struct z4c_system_t
         // all rhs need it 
         // so we store it once
         double dbeta_dx[9] ;
-        fill_deriv_vector(this->_state,i,j,k,BETAX_,q,dbeta_dx,idx[0]) ;
+        fill_deriv_vector<Z4C_DER_ORDER>(this->_state,i,j,k,BETAX_,q,dbeta_dx,idx[0]) ;
 
         { // chi rhs 
             double dchi_dx_upw ; 
-            fill_deriv_scalar_upw(this->_state,i,j,k,CHI_,q,&dchi_dx_upw,beta,idx[0]) ; 
+            fill_deriv_scalar_upw<Z4C_DER_ORDER>(this->_state,i,j,k,CHI_,q,&dchi_dx_upw,beta,idx[0]) ; 
 
             z4c_get_chi_rhs(
                 alp, chi, theta, Khat, dbeta_dx, dchi_dx_upw, &dchi
@@ -267,7 +267,7 @@ struct z4c_system_t
 
         { // gtdd rhs 
             double dgtdd_dx_upw[6] ; 
-            fill_deriv_tensor_upw(this->_state,i,j,k,GTXX_,q,dgtdd_dx_upw,beta,idx[0]) ;
+            fill_deriv_tensor_upw<Z4C_DER_ORDER>(this->_state,i,j,k,GTXX_,q,dgtdd_dx_upw,beta,idx[0]) ;
 
             z4c_get_gtdd_rhs(
                 gtdd,Atdd,alp,dgtdd_dx_upw,dbeta_dx,&dgtdd
@@ -280,7 +280,7 @@ struct z4c_system_t
         {
             // get deriv
             double dgtdd_dx[18] ; 
-            fill_deriv_tensor(this->_state,i,j,k,GTXX_,q,dgtdd_dx,idx[0]) ;
+            fill_deriv_tensor<Z4C_DER_ORDER>(this->_state,i,j,k,GTXX_,q,dgtdd_dx,idx[0]) ;
             
             z4c_get_first_Christoffel(
                 dgtdd_dx, &Gammatddd
@@ -301,9 +301,9 @@ struct z4c_system_t
             // so we help the compiler 
             // get rid of it 
             double ddalp_dx2[6];
-            fill_deriv_scalar(this->_state,i,j,k,ALP_,q,dalp_dx,idx[0]) ; 
-            fill_deriv_scalar(this->_state,i,j,k,CHI_,q,dchi_dx,idx[0]) ;
-            fill_second_deriv_scalar(this->_state,i,j,k,ALP_,q,ddalp_dx2,idx[0]) ; 
+            fill_deriv_scalar<Z4C_DER_ORDER>(this->_state,i,j,k,ALP_,q,dalp_dx,idx[0]) ; 
+            fill_deriv_scalar<Z4C_DER_ORDER>(this->_state,i,j,k,CHI_,q,dchi_dx,idx[0]) ;
+            fill_second_deriv_scalar<Z4C_DER_ORDER>(this->_state,i,j,k,ALP_,q,ddalp_dx2,idx[0]) ; 
             
             z4c_get_DiDjalp(
                 gtdd, chi, gtuu, Gammatudd, dchi_dx, dalp_dx, ddalp_dx2, 
@@ -331,7 +331,7 @@ struct z4c_system_t
         // Khat rhs
         {
             double dKhat_dx_upw ; 
-            fill_deriv_scalar_upw(this->_state,i,j,k,KHAT_,q,&dKhat_dx_upw,beta,idx[0]) ;
+            fill_deriv_scalar_upw<Z4C_DER_ORDER>(this->_state,i,j,k,KHAT_,q,&dKhat_dx_upw,beta,idx[0]) ;
             z4c_get_Khat_rhs(
                 alp, theta, Ktr, Strace, rho, k1L, k2, AA, DiDialp, dKhat_dx_upw, &dKhat
             ) ; 
@@ -345,8 +345,8 @@ struct z4c_system_t
             {
                 double ddgtdd_dx2[36] ; 
                 double dGammat_dx[9] ; 
-                fill_second_deriv_tensor(this->_state,i,j,k,GTXX_,q,ddgtdd_dx2,idx[0]) ;
-                fill_deriv_vector(this->_state,i,j,k,GAMMATX_,q,dGammat_dx,idx[0]) ;
+                fill_second_deriv_tensor<Z4C_DER_ORDER>(this->_state,i,j,k,GTXX_,q,ddgtdd_dx2,idx[0]) ;
+                fill_deriv_vector<Z4C_DER_ORDER>(this->_state,i,j,k,GAMMATX_,q,dGammat_dx,idx[0]) ;
                 z4c_get_Ricci(
                     gtdd,chi, gtuu,Gammatddd,Gammatudd,GammatDu,dGammat_dx,ddgtdd_dx2, &W2Rdd
                 ) ; 
@@ -354,7 +354,7 @@ struct z4c_system_t
             // part 2
             {
                 double ddchi_dx2[6];
-                fill_second_deriv_scalar(this->_state,i,j,k,CHI_,q,ddchi_dx2,idx[0]) ; 
+                fill_second_deriv_scalar<Z4C_DER_ORDER>(this->_state,i,j,k,CHI_,q,ddchi_dx2,idx[0]) ; 
                 z4c_get_Ricci_conf(
                     gtdd, chi, gtuu, Gammatudd, dchi_dx, ddchi_dx2, &W2Rdd
                 ) ;
@@ -370,7 +370,7 @@ struct z4c_system_t
         {
             double theta_damp_fact = (theta_ad_r > 0) ? Kokkos::exp(-(r*r/(theta_ad_r*theta_ad_r))) : 1.0 ;
             double dtheta_dx_upw ; 
-            fill_deriv_scalar_upw(this->_state,i,j,k,THETA_,q,&dtheta_dx_upw,beta,idx[0]) ;
+            fill_deriv_scalar_upw<Z4C_DER_ORDER>(this->_state,i,j,k,THETA_,q,&dtheta_dx_upw,beta,idx[0]) ;
             z4c_get_theta_rhs(
                 alp, theta, Khat, rho, k1L, k2, theta_damp_fact, AA, Rtrace, dtheta_dx_upw, &dtheta 
             ) ; 
@@ -379,7 +379,7 @@ struct z4c_system_t
         // Atdd rhs 
         {
             double dAtdd_dx_upw[6] ;   
-            fill_deriv_tensor_upw(this->_state,i,j,k,ATXX_,q,dAtdd_dx_upw,beta,idx[0]) ; 
+            fill_deriv_tensor_upw<Z4C_DER_ORDER>(this->_state,i,j,k,ATXX_,q,dAtdd_dx_upw,beta,idx[0]) ; 
             z4c_get_Atdd_rhs(
                 gtdd, Atdd, alp, chi, Ktr, Strace,
                 Sij, gtuu, W2DiDjalp, DiDialp, W2Rdd, Rtrace, 
@@ -391,7 +391,7 @@ struct z4c_system_t
         // lapse rhs 
         {
             double dalp_dx_upw ; 
-            fill_deriv_scalar_upw(this->_state,i,j,k,ALP_,q,&dalp_dx_upw,beta,idx[0]) ; 
+            fill_deriv_scalar_upw<Z4C_DER_ORDER>(this->_state,i,j,k,ALP_,q,&dalp_dx_upw,beta,idx[0]) ; 
 
             z4c_get_alpha_rhs(
                 alp, Khat, dalp_dx_upw,
@@ -402,7 +402,7 @@ struct z4c_system_t
         double Bdriver[3] = {s(BDRIVERX_), s(BDRIVERY_), s(BDRIVERZ_) } ; 
         {
             double dbeta_dx_upw[3]; 
-            fill_deriv_vector_upw(this->_state,i,j,k,BETAX_,q,dbeta_dx_upw,beta,idx[0]) ;
+            fill_deriv_vector_upw<Z4C_DER_ORDER>(this->_state,i,j,k,BETAX_,q,dbeta_dx_upw,beta,idx[0]) ;
             z4c_get_beta_rhs(
                 Bdriver, dbeta_dx_upw, &dbetau
             ) ; 
@@ -412,10 +412,10 @@ struct z4c_system_t
         double dGammat_dx_upw[3];
         {
             double dKhat_dx[3], ddbeta_dx2[18], dtheta_dx[3] ; 
-            fill_deriv_scalar(this->_state,i,j,k,KHAT_,q,dKhat_dx,idx[0]) ;
-            fill_deriv_scalar(this->_state,i,j,k,THETA_,q,dtheta_dx,idx[0]) ; 
-            fill_second_deriv_vector(this->_state,i,j,k,BETAX_,q,ddbeta_dx2,idx[0]) ;
-            fill_deriv_vector_upw(this->_state,i,j,k,GAMMATX_,q,dGammat_dx_upw,beta,idx[0]) ;
+            fill_deriv_scalar<Z4C_DER_ORDER>(this->_state,i,j,k,KHAT_,q,dKhat_dx,idx[0]) ;
+            fill_deriv_scalar<Z4C_DER_ORDER>(this->_state,i,j,k,THETA_,q,dtheta_dx,idx[0]) ; 
+            fill_second_deriv_vector<Z4C_DER_ORDER>(this->_state,i,j,k,BETAX_,q,ddbeta_dx2,idx[0]) ;
+            fill_deriv_vector_upw<Z4C_DER_ORDER>(this->_state,i,j,k,GAMMATX_,q,dGammat_dx_upw,beta,idx[0]) ;
             
 
             z4c_get_Gammatilde_rhs(
@@ -439,7 +439,7 @@ struct z4c_system_t
         // B driver rhs 
         {
             double dBdr_dx_upw[3] ; 
-            fill_deriv_vector_upw(this->_state,i,j,k,BDRIVERX_,q,dBdr_dx_upw,beta,idx[0]) ;
+            fill_deriv_vector_upw<Z4C_DER_ORDER>(this->_state,i,j,k,BDRIVERX_,q,dBdr_dx_upw,beta,idx[0]) ;
             z4c_get_Bdriver_rhs(
                 Bdriver, etaL, dGammat, dBdr_dx_upw, dGammat_dx_upw, &dBdr
             ) ; 
@@ -555,7 +555,7 @@ struct z4c_system_t
         double W2Rdd[6] = {0.,0.,0.,0.,0.,0.} ;
         {
             double ddgtdd_dx2[36] ;
-            fill_second_deriv_tensor(this->_state,i,j,k,GTXX_,q,ddgtdd_dx2,idx0) ;
+            fill_second_deriv_tensor<Z4C_DER_ORDER>(this->_state,i,j,k,GTXX_,q,ddgtdd_dx2,idx0) ;
             z4c_get_Ricci_wave(chi, gtuu, ddgtdd_dx2, &W2Rdd) ;
         }
 
@@ -609,9 +609,9 @@ struct z4c_system_t
         } ;
 
         double dchi_dx[3] ;
-        fill_deriv_scalar(this->_state,i,j,k,CHI_,q,dchi_dx,idx0) ;
+        fill_deriv_scalar<Z4C_DER_ORDER>(this->_state,i,j,k,CHI_,q,dchi_dx,idx0) ;
         double dgtdd_dx[18] ;
-        fill_deriv_tensor(this->_state,i,j,k,GTXX_,q,dgtdd_dx,idx0) ;
+        fill_deriv_tensor<Z4C_DER_ORDER>(this->_state,i,j,k,GTXX_,q,dgtdd_dx,idx0) ;
 
         double Gammatddd[18], Gammatudd[18], GammatDu[3] ;
         z4c_get_first_Christoffel(dgtdd_dx, &Gammatddd) ;
@@ -621,7 +621,7 @@ struct z4c_system_t
         // (ii) g̃_k(i ∂_j) Γ̃^k + ½ Γ̃^k (Γ̃_ijk + Γ̃_jik)
         {
             double dGammat_dx[9] ;
-            fill_deriv_vector(this->_state,i,j,k,GAMMATX_,q,dGammat_dx,idx0) ;
+            fill_deriv_vector<Z4C_DER_ORDER>(this->_state,i,j,k,GAMMATX_,q,dGammat_dx,idx0) ;
             z4c_get_Ricci_dgamma(gtdd, chi, Gammatddd, GammatDu, dGammat_dx, &W2Rdd) ;
         }
         // (iii) Γ̃·Γ̃ contractions
@@ -629,7 +629,7 @@ struct z4c_system_t
         // Conformal correction
         {
             double ddchi_dx2[6] ;
-            fill_second_deriv_scalar(this->_state,i,j,k,CHI_,q,ddchi_dx2,idx0) ;
+            fill_second_deriv_scalar<Z4C_DER_ORDER>(this->_state,i,j,k,CHI_,q,ddchi_dx2,idx0) ;
             z4c_get_Ricci_conf(
                 gtdd, chi, gtuu, Gammatudd, dchi_dx, ddchi_dx2, &W2Rdd
             ) ;
@@ -648,6 +648,21 @@ struct z4c_system_t
         for (int a=0; a<18; ++a) {
             cs(GAMMATU_X_XX_ + a) = Gammatudd[a] ;
         }
+        #ifdef GRACE_Z4C_DIAG_SYMMETRY
+        // Mirror the Ricci + Rtrace into aux for the π_z symmetry audit.
+        // Picked up by check_symmetry.py / check_tensor_symmetry.py via
+        // the normal XDMF output pipeline.
+        {
+            auto a = subview(this->_aux, i, j, k, ALL(), q) ;
+            a(DBG_RTRACE_)   = Rtrace ;
+            a(DBG_RICCI_XX_) = W2Rdd[0] ;
+            a(DBG_RICCI_XY_) = W2Rdd[1] ;
+            a(DBG_RICCI_XZ_) = W2Rdd[2] ;
+            a(DBG_RICCI_YY_) = W2Rdd[3] ;
+            a(DBG_RICCI_YZ_) = W2Rdd[4] ;
+            a(DBG_RICCI_ZZ_) = W2Rdd[5] ;
+        }
+        #endif
     }
 
     // ---------------------------------------------------------------------
@@ -719,7 +734,7 @@ struct z4c_system_t
         // shift derivative (centered): needed by every tensor RHS with a
         // Lie-correction term and by the Γ̃ RHS
         double dbeta_dx[9] ;
-        fill_deriv_vector(this->_state,i,j,k,BETAX_,q,dbeta_dx,idx[0]) ;
+        fill_deriv_vector<Z4C_DER_ORDER>(this->_state,i,j,k,BETAX_,q,dbeta_dx,idx[0]) ;
 
         // zero upwind arguments — all upwind transport is handled in
         // compute_advective_update_impl
@@ -752,15 +767,19 @@ struct z4c_system_t
         double dchi_dx[3], dalp_dx[3] ;
         {
             double ddalp_dx2[6] ;
-            fill_deriv_scalar(this->_state,i,j,k,ALP_,q,dalp_dx,idx[0]) ;
-            fill_deriv_scalar(this->_state,i,j,k,CHI_,q,dchi_dx,idx[0]) ;
-            fill_second_deriv_scalar(this->_state,i,j,k,ALP_,q,ddalp_dx2,idx[0]) ;
+            fill_deriv_scalar<Z4C_DER_ORDER>(this->_state,i,j,k,ALP_,q,dalp_dx,idx[0]) ;
+            fill_deriv_scalar<Z4C_DER_ORDER>(this->_state,i,j,k,CHI_,q,dchi_dx,idx[0]) ;
+            fill_second_deriv_scalar<Z4C_DER_ORDER>(this->_state,i,j,k,ALP_,q,ddalp_dx2,idx[0]) ;
             z4c_get_DiDjalp(
                 gtdd, chi, gtuu, Gammatudd, dchi_dx, dalp_dx, ddalp_dx2,
                 &W2DiDjalp
             ) ;
             z4c_get_DiDialp(gtuu, W2DiDjalp, &DiDialp) ;
         }
+        #ifdef GRACE_Z4C_DIAG_SYMMETRY
+        // Mirror DiDialp into aux for the π_z symmetry audit.
+        this->_aux(VEC(i,j,k), DBG_DIDIALP_, q) = DiDialp ;
+        #endif
 
         // matter sources — loaded from scratch (filled by compute_matter_sources_impl)
         double const rho    = cs(SRC_RHO_) ;
@@ -801,11 +820,11 @@ struct z4c_system_t
 
         // Γ̃ RHS — needs extra centered derivatives and second derivative of β
         double dKhat_dx[3], dtheta_dx[3] ;
-        fill_deriv_scalar(this->_state,i,j,k,KHAT_ ,q,dKhat_dx ,idx[0]) ;
-        fill_deriv_scalar(this->_state,i,j,k,THETA_,q,dtheta_dx,idx[0]) ;
+        fill_deriv_scalar<Z4C_DER_ORDER>(this->_state,i,j,k,KHAT_ ,q,dKhat_dx ,idx[0]) ;
+        fill_deriv_scalar<Z4C_DER_ORDER>(this->_state,i,j,k,THETA_,q,dtheta_dx,idx[0]) ;
         {
             double ddbeta_dx2[18] ;
-            fill_second_deriv_vector(this->_state,i,j,k,BETAX_,q,ddbeta_dx2,idx[0]) ;
+            fill_second_deriv_vector<Z4C_DER_ORDER>(this->_state,i,j,k,BETAX_,q,ddbeta_dx2,idx[0]) ;
             z4c_get_Gammatilde_rhs(
                 alp, chi, Gammat, Si, k1L,
                 gtuu, Atuu, Gammatudd, GammatDu,
@@ -905,11 +924,11 @@ struct z4c_system_t
         // inverse spacing 
         double idx[3] = {_idx(0,q),_idx(1,q),_idx(2,q)} ; 
         // fill derivatives 
-        fill_deriv_scalar(this->_state,i,j,k,CHI_,q,dchi_dx,idx[0]) ; 
-        fill_deriv_scalar(this->_state,i,j,k,KHAT_,q,dKhat_dx,idx[0]) ; 
-        fill_deriv_scalar(this->_state,i,j,k,THETA_,q,dtheta_dx,idx[0]) ; 
-        fill_deriv_tensor(this->_state,i,j,k,GTXX_,q,dgtdd_dx,idx[0]) ;
-        fill_deriv_tensor(this->_state,i,j,k,ATXX_,q,dAtdd_dx,idx[0]) ;
+        fill_deriv_scalar<Z4C_DER_ORDER>(this->_state,i,j,k,CHI_,q,dchi_dx,idx[0]) ; 
+        fill_deriv_scalar<Z4C_DER_ORDER>(this->_state,i,j,k,KHAT_,q,dKhat_dx,idx[0]) ; 
+        fill_deriv_scalar<Z4C_DER_ORDER>(this->_state,i,j,k,THETA_,q,dtheta_dx,idx[0]) ; 
+        fill_deriv_tensor<Z4C_DER_ORDER>(this->_state,i,j,k,GTXX_,q,dgtdd_dx,idx[0]) ;
+        fill_deriv_tensor<Z4C_DER_ORDER>(this->_state,i,j,k,ATXX_,q,dAtdd_dx,idx[0]) ;
 
         double Gammatddd[18], Gammatudd[18], GammatDu[3]; 
         z4c_get_first_Christoffel(
@@ -927,18 +946,18 @@ struct z4c_system_t
         double W2Rdd[6] = {0.,0.,0.,0.,0.,0.} ;
         {
             double ddgtdd_dx2[36] ;
-            fill_second_deriv_tensor(this->_state,i,j,k,GTXX_,q,ddgtdd_dx2,idx[0]) ;
+            fill_second_deriv_tensor<Z4C_DER_ORDER>(this->_state,i,j,k,GTXX_,q,ddgtdd_dx2,idx[0]) ;
             z4c_get_Ricci_wave(chi, gtuu, ddgtdd_dx2, &W2Rdd) ;
         }
         {
             double dGammat_dx[9] ;
-            fill_deriv_vector(this->_state,i,j,k,GAMMATX_,q,dGammat_dx,idx[0]) ;
+            fill_deriv_vector<Z4C_DER_ORDER>(this->_state,i,j,k,GAMMATX_,q,dGammat_dx,idx[0]) ;
             z4c_get_Ricci_dgamma(gtdd, chi, Gammatddd, GammatDu, dGammat_dx, &W2Rdd) ;
         }
         z4c_get_Ricci_gammagamma(chi, gtuu, Gammatddd, Gammatudd, &W2Rdd) ;
         {
             double ddchi_dx2[6] ;
-            fill_second_deriv_scalar(this->_state,i,j,k,CHI_,q,ddchi_dx2,idx[0]) ;
+            fill_second_deriv_scalar<Z4C_DER_ORDER>(this->_state,i,j,k,CHI_,q,ddchi_dx2,idx[0]) ;
             z4c_get_Ricci_conf(
                 gtdd, chi, gtuu, Gammatudd, dchi_dx, ddchi_dx2, &W2Rdd
             ) ;
@@ -1027,11 +1046,11 @@ struct z4c_system_t
         // Centered first derivatives required by z4c_get_constraints
         double idx[3] = {_idx(0,q), _idx(1,q), _idx(2,q)} ;
         double dchi_dx[3], dKhat_dx[3], dtheta_dx[3], dgtdd_dx[18], dAtdd_dx[18] ;
-        fill_deriv_scalar(this->_state,i,j,k,CHI_,  q,dchi_dx  ,idx[0]) ;
-        fill_deriv_scalar(this->_state,i,j,k,KHAT_, q,dKhat_dx ,idx[0]) ;
-        fill_deriv_scalar(this->_state,i,j,k,THETA_,q,dtheta_dx,idx[0]) ;
-        fill_deriv_tensor(this->_state,i,j,k,GTXX_ ,q,dgtdd_dx ,idx[0]) ;
-        fill_deriv_tensor(this->_state,i,j,k,ATXX_ ,q,dAtdd_dx ,idx[0]) ;
+        fill_deriv_scalar<Z4C_DER_ORDER>(this->_state,i,j,k,CHI_,  q,dchi_dx  ,idx[0]) ;
+        fill_deriv_scalar<Z4C_DER_ORDER>(this->_state,i,j,k,KHAT_, q,dKhat_dx ,idx[0]) ;
+        fill_deriv_scalar<Z4C_DER_ORDER>(this->_state,i,j,k,THETA_,q,dtheta_dx,idx[0]) ;
+        fill_deriv_tensor<Z4C_DER_ORDER>(this->_state,i,j,k,GTXX_ ,q,dgtdd_dx ,idx[0]) ;
+        fill_deriv_tensor<Z4C_DER_ORDER>(this->_state,i,j,k,ATXX_ ,q,dAtdd_dx ,idx[0]) ;
 
         double H, Mi[3] ;
         z4c_get_constraints(
@@ -1081,15 +1100,15 @@ struct z4c_system_t
         // -- 
         double idx[3] = {_idx(0,q),_idx(1,q),_idx(2,q)} ; 
         // -- 
-        fill_deriv_scalar(this->_state,i,j,k,CHI_,q,dchi_dx,idx[0]) ;
-        fill_deriv_scalar(this->_state,i,j,k,THETA_,q,dtheta_dx,idx[0]) ;
-        fill_deriv_scalar(this->_state,i,j,k,KHAT_,q,dKhat_dx,idx[0]) ;
+        fill_deriv_scalar<Z4C_DER_ORDER>(this->_state,i,j,k,CHI_,q,dchi_dx,idx[0]) ;
+        fill_deriv_scalar<Z4C_DER_ORDER>(this->_state,i,j,k,THETA_,q,dtheta_dx,idx[0]) ;
+        fill_deriv_scalar<Z4C_DER_ORDER>(this->_state,i,j,k,KHAT_,q,dKhat_dx,idx[0]) ;
         // -- 
-        fill_deriv_tensor(this->_state,i,j,k,GTXX_,q,dgtdd_dx,idx[0]) ;
-        fill_deriv_tensor(this->_state,i,j,k,ATXX_,q,dAtdd_dx,idx[0]) ;
+        fill_deriv_tensor<Z4C_DER_ORDER>(this->_state,i,j,k,GTXX_,q,dgtdd_dx,idx[0]) ;
+        fill_deriv_tensor<Z4C_DER_ORDER>(this->_state,i,j,k,ATXX_,q,dAtdd_dx,idx[0]) ;
         // -- 
-        fill_second_deriv_scalar(this->_state,i,j,k,CHI_,q,ddchi_dx2,idx[0]) ; 
-        fill_second_deriv_tensor(this->_state,i,j,k,GTXX_,q,ddgtdd_dx2,idx[0]) ;
+        fill_second_deriv_scalar<Z4C_DER_ORDER>(this->_state,i,j,k,CHI_,q,ddchi_dx2,idx[0]) ; 
+        fill_second_deriv_tensor<Z4C_DER_ORDER>(this->_state,i,j,k,GTXX_,q,ddgtdd_dx2,idx[0]) ;
 
         double psi4re, psi4im ; 
         z4c_get_psi4(
@@ -1112,33 +1131,32 @@ struct z4c_system_t
         return 1. ; 
     } 
 
-    #if 0
-    // this is okay for 4th order FD, but 6th order is hard-coded as of now
     double KOKKOS_INLINE_FUNCTION
-    kreiss_olinger_operator(int i, int j, int k, int q, int iv, double idx[3]) const 
+    kreiss_olinger_operator(int i, int j, int k, int q, int iv, double idx[3]) const
     {
-        // Eq 63 of https://arxiv.org/pdf/gr-qc/0610128 with r = 3 
-        using namespace Kokkos ; 
-        auto u = subview(this->_state,ALL(),ALL(),ALL(),iv,q) ; 
-        double const dudx = (u(i-3,j,k) - 6*u(i-2,j,k) + 15*u(i-1,j,k) - 20*u(i,j,k) + 15*u(i+1,j,k) - 6*u(i+2,j,k) + u(i+3,j,k))*idx[0] ; 
-        double const dudy = (u(i,j-3,k) - 6*u(i,j-2,k) + 15*u(i,j-1,k) - 20*u(i,j,k) + 15*u(i,j+1,k) - 6*u(i,j+2,k) + u(i,j+3,k))*idx[1] ; 
-        double const dudz = (u(i,j,k-3) - 6*u(i,j,k-2) + 15*u(i,j,k-1) - 20*u(i,j,k) + 15*u(i,j,k+1) - 6*u(i,j,k+2) + u(i,j,k+3))*idx[2] ;
-        return (dudx+dudy+dudz) * (1./64.) ;  
+        // Eq 63 of https://arxiv.org/pdf/gr-qc/0610128 with r = Z4C_DER_ORDER/2 + 1.
+        // The KO truncation order is Z4C_DER_ORDER+1 (one above the FD order).
+        //
+        // The fd_diss_* body emits the raw (2r)-th-derivative weights whose
+        // centre coefficient alternates sign with r:
+        //   r=2 (Z4C_DER_ORDER=2): center +6,   pairs (-4, +1)
+        //   r=3 (Z4C_DER_ORDER=4): center -20,  pairs (+15, -6, +1)
+        //   r=4 (Z4C_DER_ORDER=6): center +70,  pairs (-56, +28, -8, +1)
+        // To get a *damping* operator at every order (i.e. one that always
+        // attenuates the Nyquist mode), the wrapper sign must alternate to
+        // cancel the centre's sign.
+        using namespace Kokkos ;
+        auto u = subview(this->_state,ALL(),ALL(),ALL(),iv,q) ;
+        double dudx, dudy, dudz;
+        fd_diss_x<Z4C_DER_ORDER>(u,i,j,k,idx[0],&dudx) ;
+        fd_diss_y<Z4C_DER_ORDER>(u,i,j,k,idx[1],&dudy) ;
+        fd_diss_z<Z4C_DER_ORDER>(u,i,j,k,idx[2],&dudz) ;
+        constexpr int    p_z4c   = Z4C_DER_ORDER / 2 + 1;
+        constexpr double ko_sign = (p_z4c % 2 == 0) ? -1.0 : +1.0;
+        constexpr double ko_norm = static_cast<double>(1u << (Z4C_DER_ORDER + 2)); // 2^(2*ng)
+        constexpr double ko_scale = ko_sign / ko_norm;
+        return (dudx+dudy+dudz) * ko_scale ;
     }
-    #else
-    double KOKKOS_INLINE_FUNCTION
-    kreiss_olinger_operator(int i, int j, int k, int q, int iv, double idx[3]) const 
-    {
-        // Eq 63 of https://arxiv.org/pdf/gr-qc/0610128 with r = 3 
-        using namespace Kokkos ; 
-        auto u = subview(this->_state,ALL(),ALL(),ALL(),iv,q) ; 
-        double dudx, dudy, dudz; 
-        fd_diss_x(u,i,j,k,idx[0],&dudx) ; 
-        fd_diss_y(u,i,j,k,idx[1],&dudy) ; 
-        fd_diss_z(u,i,j,k,idx[2],&dudz) ; 
-        return -(dudx+dudy+dudz) * (1./256.) ;  
-    }
-    #endif
 
     void KOKKOS_INLINE_FUNCTION 
     impose_algebraic_constraints(grace::var_array_t state, VEC(int i, int j, int k), int q) const 

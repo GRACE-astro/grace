@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -90,6 +90,7 @@ enum GRMHD_PRIMS_LOC_INDICES {
     BXL,
     BYL,
     BZL,
+    CS2L, /*only filled in flux comp*/
     NUM_PRIMS_LOC
 } ; 
 enum GRMHD_FLUX_LOC_INDICES : int {
@@ -151,12 +152,17 @@ atmo_params_t get_atmo_params()
     auto const cold_eos_type = 
         grace::get_param<std::string>("eos","hybrid_eos","cold_eos_type") ;  
     if( cold_eos_type == "piecewise_polytrope" ) {
-      atmo_params.ye_fl =   
+      atmo_params.ye_fl =
         grace::eos::get().get_eos<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>().ye_atmosphere() ;
-      atmo_params.temp_fl =   
+      atmo_params.temp_fl =
         grace::eos::get().get_eos<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>().temp_atmosphere() ;
+    } else if ( cold_eos_type == "tabulated" ) {
+      atmo_params.ye_fl =
+        grace::eos::get().get_eos<grace::hybrid_eos_t<grace::tabulated_cold_eos_t>>().ye_atmosphere() ;
+      atmo_params.temp_fl =
+        grace::eos::get().get_eos<grace::hybrid_eos_t<grace::tabulated_cold_eos_t>>().temp_atmosphere() ;
     } else {
-      ERROR("EOS implemented yet.") ;
+      ERROR("Unsupported cold_eos_type: " << cold_eos_type) ;
     }
   } else if ( eos_type == "tabulated" ) {
     atmo_params.ye_fl =   
@@ -216,12 +222,17 @@ excision_params_t get_excision_params()
       auto const cold_eos_type = 
           grace::get_param<std::string>("eos","hybrid_eos","cold_eos_type") ;  
       if( cold_eos_type == "piecewise_polytrope" ) {
-        excision_params.ye_ex =   
+        excision_params.ye_ex =
           grace::eos::get().get_eos<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>().ye_atmosphere() ;
-        excision_params.temp_ex =   
+        excision_params.temp_ex =
           grace::eos::get().get_eos<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>().temp_atmosphere() ;
+      } else if ( cold_eos_type == "tabulated" ) {
+        excision_params.ye_ex =
+          grace::eos::get().get_eos<grace::hybrid_eos_t<grace::tabulated_cold_eos_t>>().ye_atmosphere() ;
+        excision_params.temp_ex =
+          grace::eos::get().get_eos<grace::hybrid_eos_t<grace::tabulated_cold_eos_t>>().temp_atmosphere() ;
       } else {
-        ERROR("EOS implemented yet.") ;
+        ERROR("Unsupported cold_eos_type: " << cold_eos_type) ;
       }
     } else if ( eos_type == "tabulated" ) {
       excision_params.ye_ex =   
@@ -233,7 +244,7 @@ excision_params_t get_excision_params()
     return excision_params ; 
 }
 
-#ifdef GRACE_ENABLE_COWLING_METRIC
+#if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_COWLING
 #define FILL_METRIC_ARRAY(g, view, q, ...)                    \
 g = grace::metric_array_t{  { view(__VA_ARGS__,GXX_,q)   \
                           , view(__VA_ARGS__,GXY_,q)     \
@@ -283,78 +294,293 @@ consarr[STZL] = vview(__VA_ARGS__,SZ_,q);          \
 consarr[YESL] = vview(__VA_ARGS__,YESTAR_,q);      \
 consarr[ENTSL] = vview(__VA_ARGS__,ENTROPYSTAR_,q) 
 
-#define AM2 -0.0625
-#define AM1  0.5625
-#define A0   0.5625
-#define A1  -0.0625
+namespace grace {
+
+// Fourth-order Lagrange interpolation from cell centers to a face,
+// restricted to the 1D stencil along axis `idir`.  Coefficients:
+//   c_inner =  9/16 for the two cells adjacent to the face,
+//   c_outer = -1/16 for the two cells at distance 3/2 dx from the face.
+//
+// Pair-symmetric summation (inner pair, outer pair, then add) so the
+// result is bit-equivariant under the L<->R swap induced by the mirror
+// symmetries: at a mirror face the same expression sees operand pairs
+// that are either invariant (scalar component) or exact negations
+// (vector component) of their counterparts at the original face, and
+// the two-term inner sums commute exactly under IEEE.  Left-to-right
+// summation of all four terms would be non-associative across the
+// swap and seed a ~1 ulp drift per face that propagates through the
+// Riemann solver into the boundary flux.
+template <typename View>
+GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE double
+face_interp_4(View const& view,
+              VEC(int const i, int const j, int const k),
+              int const ivar, int const q, int const idir)
+{
+    constexpr double c_inner =  0.5625;   //  9/16
+    constexpr double c_outer = -0.0625;   // -1/16
+    int const di = utils::delta(0, idir);
+    int const dj = utils::delta(1, idir);
 #ifdef GRACE_3D
-#define COMPUTE_FCVAL_HELPER(mview,i,j,k,ivar,q,idir)                                          \
-  AM2*mview(i-2*utils::delta(0,idir),j-2*utils::delta(1,idir),k-2*utils::delta(2,idir),ivar,q) \
-+ AM1*mview(i-utils::delta(0,idir),j-utils::delta(1,idir),k-utils::delta(2,idir),ivar,q)       \
-+ A0*mview(i,j,k,ivar,q)                                                                       \
-+ A1*mview(i+utils::delta(0,idir),j+utils::delta(1,idir),k+utils::delta(2,idir),ivar,q)        
-#ifndef GRACE_ENABLE_COWLING_METRIC
-#define COMPUTE_FCVAL(g,mview,i,j,k,q,idir)                     \
-g = grace::metric_array_t{                                      \
-      {                                                         \
-          COMPUTE_FCVAL_HELPER(mview,i,j,k,GTXX_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GTXY_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GTXZ_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GTYY_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GTYZ_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GTZZ_,q,idir)         \
-      }                                                           \
-    , COMPUTE_FCVAL_HELPER(mview,i,j,k,CHI_,q,idir)             \
-    , {                                                         \
-          COMPUTE_FCVAL_HELPER(mview,i,j,k,BETAX_,q,idir)       \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,BETAY_,q,idir)       \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,BETAZ_,q,idir)       \
-      }                                                         \
-    , COMPUTE_FCVAL_HELPER(mview,i,j,k,ALP_,q,idir)             \
+    int const dk = utils::delta(2, idir);
+#endif
+    double const s_inner =
+          view(VEC(i -   di, j -   dj, k -   dk), ivar, q)
+        + view(VEC(i,        j,        k       ), ivar, q);
+    double const s_outer =
+          view(VEC(i - 2*di, j - 2*dj, k - 2*dk), ivar, q)
+        + view(VEC(i +   di, j +   dj, k +   dk), ivar, q);
+    return c_inner * s_inner + c_outer * s_outer;
 }
+
+// Build the face-centered metric by face_interp_4'ing each component of
+// the cell-centered metric stored in `state`.  Replaces the legacy
+// COMPUTE_FCVAL macro.
+template <typename View>
+GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE grace::metric_array_t
+compute_face_metric(View const& state,
+                    VEC(int const i, int const j, int const k),
+                    int const q, int const idir)
+{
+#if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_COWLING
+    return grace::metric_array_t{
+        { face_interp_4(state, VEC(i, j, k), GXX_, q, idir),
+          face_interp_4(state, VEC(i, j, k), GXY_, q, idir),
+          face_interp_4(state, VEC(i, j, k), GXZ_, q, idir),
+          face_interp_4(state, VEC(i, j, k), GYY_, q, idir),
+          face_interp_4(state, VEC(i, j, k), GYZ_, q, idir),
+          face_interp_4(state, VEC(i, j, k), GZZ_, q, idir) },
+        { face_interp_4(state, VEC(i, j, k), BETAX_, q, idir),
+          face_interp_4(state, VEC(i, j, k), BETAY_, q, idir),
+          face_interp_4(state, VEC(i, j, k), BETAZ_, q, idir) },
+        face_interp_4(state, VEC(i, j, k), ALP_, q, idir)
+    };
 #else
-#define COMPUTE_FCVAL(g,mview,i,j,k,q,idir)                     \
-g = grace::metric_array_t{                                      \
-      {                                                         \
-          COMPUTE_FCVAL_HELPER(mview,i,j,k,GXX_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GXY_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GXZ_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GYY_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GYZ_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GZZ_,q,idir)         \
-      }                                                         \
-    , {                                                         \
-          COMPUTE_FCVAL_HELPER(mview,i,j,k,BETAX_,q,idir)       \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,BETAY_,q,idir)       \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,BETAZ_,q,idir)       \
-      }                                                         \
-    , COMPUTE_FCVAL_HELPER(mview,i,j,k,ALP_,q,idir)             \
+    return grace::metric_array_t{
+        { face_interp_4(state, VEC(i, j, k), GTXX_, q, idir),
+          face_interp_4(state, VEC(i, j, k), GTXY_, q, idir),
+          face_interp_4(state, VEC(i, j, k), GTXZ_, q, idir),
+          face_interp_4(state, VEC(i, j, k), GTYY_, q, idir),
+          face_interp_4(state, VEC(i, j, k), GTYZ_, q, idir),
+          face_interp_4(state, VEC(i, j, k), GTZZ_, q, idir) },
+        face_interp_4(state, VEC(i, j, k), CHI_, q, idir),
+        { face_interp_4(state, VEC(i, j, k), BETAX_, q, idir),
+          face_interp_4(state, VEC(i, j, k), BETAY_, q, idir),
+          face_interp_4(state, VEC(i, j, k), BETAZ_, q, idir) },
+        face_interp_4(state, VEC(i, j, k), ALP_, q, idir)
+    };
+#endif
 }
-#endif 
-#else
-#define COMPUTE_FCVAL_HELPER(mview,i,j,ivar,q,idir)                   \
-  AM2*mview(i-2*utils::delta(0,idir),j-2*utils::delta(1,idir),ivar,q) \
-+ AM1*mview(i-utils::delta(0,idir),j-utils::delta(1,idir),ivar,q)     \
-+ A0*mview(i,j,ivar,q)                                                \
-+ A1*mview(i+utils::delta(0,idir),j+utils::delta(1,idir),ivar,q)        
-#define COMPUTE_FCVAL(g,mview,i,j,q,idir)                     \
-g = grace::metric_array_t{                                    \
-      {                                                       \
-          COMPUTE_FCVAL_HELPER(mview,i,j,GXX_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,GXY_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,GXZ_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,GYY_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,GYZ_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,GZZ_,q,idir)         \
-      }                                                       \
-    , {                                                       \
-          COMPUTE_FCVAL_HELPER(mview,i,j,BETAX_,q,idir)       \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,BETAY_,q,idir)       \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,BETAZ_,q,idir)       \
-      }                                                       \
-    , COMPUTE_FCVAL_HELPER(mview,i,j,ALP_,q,idir)             \
+
+} // namespace grace
+
+//*****************************************************************************************************
+// Constrained-Transport / GS-EMF inline helpers.
+//
+// These factor out two pieces of arithmetic that previously appeared in three
+// separate kernels each (compute_emfs / apply_fofc_correction / flag_fofc_cells
+// for the CT B-face update; compute_emfs / apply_fofc_correction for the GS
+// edge-EMF assembly).  Keeping a single implementation removes the risk of
+// one copy drifting from the others as the discretization evolves.
+//
+//   ct_update_B{x,y,z}_face : given a face-staggered B at (i,j,k), an EMF
+//        array, inverse spacings and dt*dtfact, return the post-CT face value.
+//
+//   gs_edge_emf_{x,y,z}     : given Eface (per-face EMF contributions),
+//        Ecenter (cell-centered E), and fluxes (used only for the DENS sign
+//        upwinding), assemble the Gardiner-Stone edge EMF at corner (i,j,k).
+//*****************************************************************************************************
+namespace grace {
+
+template <typename BFaceXView, typename EmfView, typename IdxView>
+GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE double
+ct_update_Bx_face(BFaceXView const& Bx, EmfView const& emf, IdxView const& idx,
+                  VEC(int const i, int const j, int const k), int const q,
+                  double const dt_eff)
+{
+    return Bx(VEC(i,j,k), BSX_, q) + dt_eff * (
+        (emf(VEC(i,j,k+1), 1, q) - emf(VEC(i,j,  k), 1, q)) * idx(2, q)
+      + (emf(VEC(i,j,k),   2, q) - emf(VEC(i,j+1,k), 2, q)) * idx(1, q)
+    );
 }
-#endif 
+
+template <typename BFaceYView, typename EmfView, typename IdxView>
+GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE double
+ct_update_By_face(BFaceYView const& By, EmfView const& emf, IdxView const& idx,
+                  VEC(int const i, int const j, int const k), int const q,
+                  double const dt_eff)
+{
+    return By(VEC(i,j,k), BSY_, q) + dt_eff * (
+        (emf(VEC(i+1,j,k), 2, q) - emf(VEC(i,j,  k), 2, q)) * idx(0, q)
+      + (emf(VEC(i,j,k),   0, q) - emf(VEC(i,j,k+1), 0, q)) * idx(2, q)
+    );
+}
+
+template <typename BFaceZView, typename EmfView, typename IdxView>
+GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE double
+ct_update_Bz_face(BFaceZView const& Bz, EmfView const& emf, IdxView const& idx,
+                  VEC(int const i, int const j, int const k), int const q,
+                  double const dt_eff)
+{
+    return Bz(VEC(i,j,k), BSZ_, q) + dt_eff * (
+        (emf(VEC(i,j+1,k), 0, q) - emf(VEC(i,j,k), 0, q)) * idx(1, q)
+      + (emf(VEC(i,j,k),   1, q) - emf(VEC(i+1,j,k), 1, q)) * idx(0, q)
+    );
+}
+
+#if GRACE_EMF_SCHEME == GRACE_EMF_SCHEME_GS
+//-----------------------------------------------------------------------------
+// Gardiner-Stone edge EMF assembly at corner (i,j,k).
+//
+// The three flavors differ only in which pair of face-direction indices feed
+// the dE/dperp upwinding and which Ecenter axis is read.  Kept as three
+// distinct functions (rather than one templated on idir) because the index
+// shuffles are not a simple permutation — staying explicit avoids subtle
+// off-by-ones.
+//
+// E^x edge at (i, j-1/2, k-1/2):
+//   N/S split runs in z (y-face contributions), E/W split runs in y
+//   (z-face contributions).  Sign of v^y selects the z-direction upwind,
+//   sign of v^z selects the y-direction upwind.
+//-----------------------------------------------------------------------------
+template <typename EfaceView, typename EcenterView, typename FluxView>
+GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE double
+gs_edge_emf_x(EfaceView const& Eface, EcenterView const& Ecenter,
+              FluxView const& fluxes,
+              VEC(int const i, int const j, int const k), int const q)
+{
+    // z-face contributions (idir=2, axis=0)
+    double const Exzf  = Eface(i, j,   k,   0, 2, q);
+    double const Exzfm = Eface(i, j-1, k,   0, 2, q);
+    // y-face contributions (idir=1, axis=0)
+    double const Exyf  = Eface(i, j,   k,   0, 1, q);
+    double const Exyfm = Eface(i, j,   k-1, 0, 1, q);
+    // Cell-centered E^x at the 4 corners of the edge.
+    double const ExNE = Ecenter(VEC(i, j,   k  ), 0, q);
+    double const ExNW = Ecenter(VEC(i, j-1, k  ), 0, q);
+    double const ExSE = Ecenter(VEC(i, j,   k-1), 0, q);
+    double const ExSW = Ecenter(VEC(i, j-1, k-1), 0, q);
+
+    double const Eavg = 0.25 * (Exzf + Exzfm + Exyf + Exyfm);
+
+    // dE/dz upwinded by v^y sign (face y at index j, j-? doesn't matter; we
+    // need *signs* on both sides of the edge in z).
+    double const Sy  = Kokkos::copysign(1., fluxes(i, j, k,   DENS_, 1, q));
+    double const Sym = Kokkos::copysign(1., fluxes(i, j, k-1, DENS_, 1, q));
+    double const dEdzN = (1.-Sy ) * (ExNE - Exzf )
+                       + (1.+Sy ) * (ExNW - Exzfm);
+    double const dEdzS = (1.-Sym) * (Exzf - ExSE)
+                       + (1.+Sym) * (Exzfm - ExSW);
+    double const dEdz  = (1./8.) * (dEdzS - dEdzN);
+
+    // dE/dy upwinded by v^z sign.
+    double const Sz  = Kokkos::copysign(1., fluxes(i, j,   k, DENS_, 2, q));
+    double const Szm = Kokkos::copysign(1., fluxes(i, j-1, k, DENS_, 2, q));
+    double const dEdyE = (1.-Sz ) * (ExNE - Exyf )
+                       + (1.+Sz ) * (ExSE - Exyfm);
+    double const dEdyW = (1.-Szm) * (Exyf  - ExNW)
+                       + (1.+Szm) * (Exyfm - ExSW);
+    double const dEdy  = (1./8.) * (dEdyW - dEdyE);
+
+    return Eavg + dEdz + dEdy;
+}
+
+//-----------------------------------------------------------------------------
+// E^y edge at (i-1/2, j, k-1/2):
+//   N/S split in z (x-face contributions), E/W split in x
+//   (z-face contributions).  Sign of v^x selects z-upwind, sign of v^z
+//   selects x-upwind.
+//-----------------------------------------------------------------------------
+template <typename EfaceView, typename EcenterView, typename FluxView>
+GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE double
+gs_edge_emf_y(EfaceView const& Eface, EcenterView const& Ecenter,
+              FluxView const& fluxes,
+              VEC(int const i, int const j, int const k), int const q)
+{
+    // z-face contributions (idir=2, axis=1)
+    double const Eyzf  = Eface(i,   j, k,   1, 2, q);
+    double const Eyzfm = Eface(i-1, j, k,   1, 2, q);
+    // x-face contributions (idir=0, axis=0 of E^y... matches compute_emfs).
+    // NB: compute_emfs reads Eface(...,0,0,q) for E^y E/W — the x-face
+    // contribution to E^y is stored in axis-0 slot of the x-face, by
+    // convention of getflux<0> writing vb_HLL[0]/[1] for the two orthogonal
+    // E components.
+    double const Eyxf  = Eface(i, j, k,   0, 0, q);
+    double const Eyxfm = Eface(i, j, k-1, 0, 0, q);
+    // Cell-centered E^y at the 4 corners.
+    double const EyNE = Ecenter(VEC(i,   j, k  ), 1, q);
+    double const EyNW = Ecenter(VEC(i-1, j, k  ), 1, q);
+    double const EySE = Ecenter(VEC(i,   j, k-1), 1, q);
+    double const EySW = Ecenter(VEC(i-1, j, k-1), 1, q);
+
+    double const Eavg = 0.25 * (Eyzf + Eyzfm + Eyxf + Eyxfm);
+
+    double const Sx  = Kokkos::copysign(1., fluxes(i, j, k,   DENS_, 0, q));
+    double const Sxm = Kokkos::copysign(1., fluxes(i, j, k-1, DENS_, 0, q));
+    double const dEdzN = (1.-Sx ) * (EyNE - Eyzf )
+                       + (1.+Sx ) * (EyNW - Eyzfm);
+    double const dEdzS = (1.-Sxm) * (Eyzf - EySE)
+                       + (1.+Sxm) * (Eyzfm - EySW);
+    double const dEdz  = (1./8.) * (dEdzS - dEdzN);
+
+    double const Sz  = Kokkos::copysign(1., fluxes(i,   j, k, DENS_, 2, q));
+    double const Szm = Kokkos::copysign(1., fluxes(i-1, j, k, DENS_, 2, q));
+    double const dEdxE = (1.-Sz ) * (EyNE - Eyxf )
+                       + (1.+Sz ) * (EySE - Eyxfm);
+    double const dEdxW = (1.-Szm) * (Eyxf  - EyNW)
+                       + (1.+Szm) * (Eyxfm - EySW);
+    double const dEdx  = (1./8.) * (dEdxW - dEdxE);
+
+    return Eavg + dEdz + dEdx;
+}
+
+//-----------------------------------------------------------------------------
+// E^z edge at (i-1/2, j-1/2, k):
+//   N/S split in y (x-face contributions), E/W split in x
+//   (y-face contributions).  Sign of v^x selects y-upwind, sign of v^y
+//   selects x-upwind.
+//-----------------------------------------------------------------------------
+template <typename EfaceView, typename EcenterView, typename FluxView>
+GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE double
+gs_edge_emf_z(EfaceView const& Eface, EcenterView const& Ecenter,
+              FluxView const& fluxes,
+              VEC(int const i, int const j, int const k), int const q)
+{
+    // y-face contributions (idir=1, axis=1)
+    double const Ezyf  = Eface(i,   j, k, 1, 1, q);
+    double const Ezyfm = Eface(i-1, j, k, 1, 1, q);
+    // x-face contributions (idir=0, axis=1 of x-face for E^z component).
+    // compute_emfs reads Eface(...,1,0,q); see note in gs_edge_emf_y.
+    double const Ezxf  = Eface(i, j,   k, 1, 0, q);
+    double const Ezxfm = Eface(i, j-1, k, 1, 0, q);
+    // Cell-centered E^z at the 4 corners.
+    double const EzNE = Ecenter(VEC(i,   j,   k), 2, q);
+    double const EzNW = Ecenter(VEC(i-1, j,   k), 2, q);
+    double const EzSE = Ecenter(VEC(i,   j-1, k), 2, q);
+    double const EzSW = Ecenter(VEC(i-1, j-1, k), 2, q);
+
+    double const Eavg = 0.25 * (Ezyf + Ezyfm + Ezxf + Ezxfm);
+
+    double const Sx  = Kokkos::copysign(1., fluxes(i, j,   k, DENS_, 0, q));
+    double const Sxm = Kokkos::copysign(1., fluxes(i, j-1, k, DENS_, 0, q));
+    double const dEdyN = (1.-Sx ) * (EzNE - Ezyf )
+                       + (1.+Sx ) * (EzNW - Ezyfm);
+    double const dEdyS = (1.-Sxm) * (Ezyf - EzSE)
+                       + (1.+Sxm) * (Ezyfm - EzSW);
+    double const dEdy  = (1./8.) * (dEdyS - dEdyN);
+
+    double const Sy  = Kokkos::copysign(1., fluxes(i,   j, k, DENS_, 1, q));
+    double const Sym = Kokkos::copysign(1., fluxes(i-1, j, k, DENS_, 1, q));
+    double const dEdxE = (1.-Sy ) * (EzNE - Ezxf )
+                       + (1.+Sy ) * (EzSE - Ezxfm);
+    double const dEdxW = (1.-Sym) * (Ezxf  - EzNW)
+                       + (1.+Sym) * (Ezxfm - EzSW);
+    double const dEdx  = (1./8.) * (dEdxW - dEdxE);
+
+    return Eavg + dEdy + dEdx;
+}
+#endif // GS
+
+} // namespace grace
 
 struct grmhd_id_t {
   double rho;

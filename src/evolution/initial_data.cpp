@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,19 +29,16 @@
 
 #include <grace/evolution/initial_data.hh>
 #include <grace/config/config_parser.hh>
-#include <grace/physics/grace_physical_systems.hh>
 #include <grace/amr/grace_amr.hh>
 #include <grace/system/grace_system.hh>
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/coordinates/coordinates.hh>
 #include <grace/utils/grace_utils.hh>
 #include <grace/data_structures/index_helpers.hh>
-#ifdef GRACE_ENABLE_GRMHD
 //#include <grace/physics/admbase.hh>
 #include <grace/physics/grmhd.hh>
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/eos_storage.hh>
-#endif
 #ifdef GRACE_ENABLE_M1
 #include <grace/physics/m1_helpers.hh>
 #include <grace/physics/m1.hh>
@@ -58,9 +55,9 @@ void set_initial_data() {
         auto const cold_eos_type = 
             get_param<std::string>("eos","hybrid_eos","cold_eos_type") ;  
         if( cold_eos_type == "piecewise_polytrope" ) {
-            set_initial_data_impl<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>() ; 
+            set_initial_data_impl<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>() ;
         } else if ( cold_eos_type == "tabulated" ) {
-            ERROR("Not implemented yet.") ;
+            set_initial_data_impl<grace::hybrid_eos_t<grace::tabulated_cold_eos_t>>() ;
         }
     } else if ( eos_type == "tabulated" ) {
         set_initial_data_impl<grace::tabulated_eos_t>() ; 
@@ -74,15 +71,7 @@ void set_initial_data_impl() {
     Kokkos::Profiling::pushRegion("ID") ; 
     using namespace grace ;
 
-    #ifdef GRACE_ENABLE_SCALAR_ADV 
-    set_scalar_advection_initial_data() ; 
-    #endif 
-    #ifdef GRACE_ENABLE_BURGERS
-    set_burgers_initial_data() ; 
-    #endif 
-    #ifdef GRACE_ENABLE_GRMHD
     set_grmhd_initial_data<eos_t>();
-    #endif 
     Kokkos::fence() ; 
     #ifdef GRACE_ENABLE_M1
     set_m1_initial_data<eos_t>();
@@ -93,6 +82,7 @@ void set_initial_data_impl() {
 template                            \
 void set_initial_data_impl<EOS>()
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::tabulated_cold_eos_t>) ;
 INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;
 INSTANTIATE_TEMPLATE(grace::ideal_gas_eos_t) ;
 #undef INSTANTIATE_TEMPLATE

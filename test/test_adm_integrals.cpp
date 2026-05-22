@@ -27,7 +27,7 @@
  *            r = 12  -> M_ADM ~ 1.04167
  *            r = 16  -> M_ADM = 1.03125
  *
- *        This test is gated on GRACE_ENABLE_Z4C_METRIC because the
+ *        This test is gated on GRACE_METRIC_EVOL == Z4 because the
  *        diagnostic itself only does anything when Z4c is built in.
  *
  * @date 2026-04-28
@@ -38,7 +38,7 @@
 
 #include <grace_config.h>
 
-#ifdef GRACE_ENABLE_Z4C_METRIC
+#if GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4
 
 #include <grace/IO/diagnostics/adm_integrals.hh>
 #include <grace/IO/spherical_surfaces.hh>
@@ -112,4 +112,4 @@ TEST_CASE("ADM-mass integral on analytic Schwarzschild puncture",
     REQUIRE(M_at_rmax > M_punct - 1e-3);
 }
 
-#endif  // GRACE_ENABLE_Z4C_METRIC
+#endif  // GRACE_METRIC_EVOL == GRACE_METRIC_EVOL_Z4

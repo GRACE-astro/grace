@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,6 +31,7 @@
 
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/tabulated_eos.hh>
+#include <grace/physics/eos/tabulated_cold_eos.hh>
 
 
 #include <Kokkos_Core.hpp>
@@ -40,7 +41,17 @@ namespace grace {
 /**
  * @brief Reads the eos table and returns the tabulated_eos object
  */
-grace::tabulated_eos_t read_eos_table() ; 
+grace::tabulated_eos_t read_eos_table() ;
+
+/**
+ * @brief Reads a GRACE-format cold table (v2 with `# key=value` metadata,
+ *        or v1 legacy) and returns a tabulated_cold_eos_t suitable for use
+ *        as the cold backbone of hybrid_eos_t.  The temperature and Y_e
+ *        columns of the table are not used and may be set to bogus values
+ *        by the generator.  The pressure / eps / cs² columns supply the
+ *        barotrope.
+ */
+grace::tabulated_cold_eos_t read_tabulated_cold_eos(std::string const& cold_tab_fname) ;
 
 
 }

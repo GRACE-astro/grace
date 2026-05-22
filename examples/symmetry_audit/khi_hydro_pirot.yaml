@@ -1,0 +1,94 @@
+#=============================================================================
+# Symmetry-audit Tier-1 HYDRO test.
+#
+# Pure-hydro KHI (sigma_pol = 0 disables the magnetic field) on a small
+# periodic Cartesian box.  The IC is bit-exactly pi-rotation symmetric about
+# the origin:
+#
+#   rho, p     : scalars     -> invariant
+#   v          : polar vec   -> (vx, vy, vz) -> (-vx, -vy, +vz)
+#   B          : 0           -> trivial
+#
+# This exercises the hydro pipeline (recon, hydro Riemann branches, C2P-hydro,
+# RK, periodic BCs) under proper-rotation symmetry.  Pair with the magnetic
+# blast wave (blast_xmirror.yaml) to cover the MHD pipeline under improper
+# (reflection) symmetry.
+#
+# Verify with:
+#   examples/symmetry_audit/tools/check_symmetry.py <run-dir>/desc_xy.xmf \
+#       --transform pirot --var zvec --time all --tol 1e-13
+#=============================================================================
+name: "khi_hydro_pirot"
+amr: {
+  npoints_block_x: 64,
+  npoints_block_y: 64,
+  npoints_block_z: 8,
+
+  # Centered domain — required for pi-rot to map cell-centers to cell-centers
+  # exactly.  Box must contain the shear layer at y=0.
+  xmin: -0.5,
+  xmax:  0.5,
+  ymin: -0.5,
+  ymax:  0.5,
+  zmin: -0.0625,
+  zmax:  0.0625,
+
+  periodic_x: true,
+  periodic_z: true,
+
+  n_ghostzones: 4,
+  initial_refinement_level: 1,
+
+  max_refinement_level: 7,
+  regrid_every: -1,
+  regrid_at_postinitial: false
+}
+
+IO: {
+  plane_surface_output_cell_variables: ["hydro","c2p_err"],
+  plane_surface_output_every: 10,
+
+  info_output_every: 2,
+  info_output_max_reductions: ["rho", "press"],
+  info_output_min_reductions: ["rho", "press"],
+
+  scalar_output_every: 10,
+  scalar_output_minmax: ["rho","press","eps"],
+
+  output_use_hdf5: true,
+  hdf5_compression_level: 0,
+  hdf5_chunk_size: 8192,
+
+  output_extra_quantities: true,
+
+  xy_plane_offset: 1e-5
+}
+
+evolution: {
+  time_stepper: "rk4",
+  cfl_factor: 0.4,
+  final_time: 0.5
+}
+
+grmhd: {
+  id_type: "khi",
+  B_field_initialization: "direct",
+  khi: {
+    sigma_pol: 0.0      # pure hydro -- enables pi-rot symmetry
+  },
+  c2p: {
+    use_c2p_entropy_backup: false
+  }
+}
+
+system: {
+  console_log_level: "info",
+  n_device_streams: 4
+}
+
+eos: {
+  eos_type: "ideal_gas",
+  ideal_gas_eos: {
+    gamma: 1.6666667
+  }
+}

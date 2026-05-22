@@ -87,7 +87,7 @@ void apply_reflux_pass()
     Kokkos::fence();
     grace::reflux_correct_emfs(ctx);
     Kokkos::fence();
-    grace::parallel::mpi_barrier();
+    parallel::mpi_barrier();
 }
 
 } // namespace

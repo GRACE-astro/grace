@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,7 +32,6 @@
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/coordinates/coordinate_systems.hh>
 #include <grace/utils/grace_utils.hh>
-#include <grace/IO/vtk_output.hh>
 #include <grace/IO/scalar_output.hh>
 #include <grace/parallel/mpi_wrappers.hh>
 #include <iostream>
@@ -43,11 +42,6 @@ TEST_CASE("Reductions", "[reductions]")
     using namespace grace::variables ; 
     using namespace grace ; 
     using namespace Kokkos ; 
-    #if defined(GRACE_ENABLE_SCALAR_ADV) or defined(GRACE_ENABLED_BURGERS)
-    int const DENS = U ; 
-    int const DENS_ = U ; 
-    #endif
-
     auto& state  = grace::variable_list::get().getstate()  ;
     auto& coord_system = grace::coordinate_system::get() ; 
     size_t nx,ny,nz; 
@@ -86,21 +80,17 @@ TEST_CASE("Reductions", "[reductions]")
             true
         ) ; 
         double const sigma = 0.1 ;
-        double const r = sqrt( EXPR(
+        double const r = std::sqrt( EXPR(
             math::int_pow<2>(pcoords[0]), + math::int_pow<2>(pcoords[1]), + math::int_pow<2>(pcoords[2])
-        )) ; 
-        h_state_mirror(VEC(i,j,k),DENS,q) = exp(- 0.5 * math::int_pow<2>(r)/math::int_pow<2>(sigma)) / sigma / sqrt(2*M_PI) ; 
+        )) ;
+        h_state_mirror(VEC(i,j,k),DENS_,q) = std::exp(- 0.5 * math::int_pow<2>(r)/math::int_pow<2>(sigma)) / sigma / std::sqrt(2*M_PI) ;
     }
     /* copy data to device */
     Kokkos::deep_copy(state,h_state_mirror); 
     /* Compute reductions  */
     IO::compute_reductions() ; 
     /* Check results */
-    #if defined(GRACE_ENABLE_SCALAR_ADV) or defined(GRACE_ENABLED_BURGERS)
-    std::string const vname = "U" ; 
-    #else 
-    std::string const vname = "dens" ; 
-    #endif  
+    std::string const vname = "dens" ;
     double const umax = IO::detail::_minmax_reduction_vars_results[vname].max_val; 
     double const umin = IO::detail::_minmax_reduction_vars_results[vname].min_val;
     double const unorm =  IO::detail::_norm2_reduction_vars_results[vname] ; 

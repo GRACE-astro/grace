@@ -174,7 +174,7 @@ void save_particles_to_checkpoint(hid_t file_id, hid_t dxpl) {
     long long offset_ll  = 0;
     long long n_global_ll = 0;
     MPI_Exscan   (&n_local_ll, &offset_ll,   1, MPI_LONG_LONG, MPI_SUM, comm);
-    MPI_Allreduce(&n_local_ll, &n_global_ll, 1, MPI_LONG_LONG, MPI_SUM, comm);
+    parallel::mpi_allreduce(&n_local_ll, &n_global_ll, 1, sc_MPI_SUM, comm);
     if (rank == 0) offset_ll = 0;
 
     herr_t err;
@@ -369,10 +369,10 @@ bool load_particles_from_checkpoint(hid_t file_id) {
         uint32_t global_max_lo = 0;
         int      any_local     = any_with_tag ? 1 : 0;
         int      any_global    = 0;
-        MPI_Allreduce(&local_max_lo, &global_max_lo, 1,
-                      MPI_UINT32_T, MPI_MAX, comm);
-        MPI_Allreduce(&any_local,    &any_global,    1,
-                      MPI_INT,       MPI_LOR, comm);
+        // uint32_t === unsigned int on all platforms GRACE supports — the
+        // template wrapper deduces `unsigned` and routes to sc_MPI_UNSIGNED.
+        parallel::mpi_allreduce(&local_max_lo, &global_max_lo, 1, sc_MPI_MAX, comm);
+        parallel::mpi_allreduce(&any_local,    &any_global,    1, sc_MPI_LOR, comm);
         restored_counter = any_global ? global_max_lo + 1 : 0;
     }
     tr.set_id_counter(restored_counter);

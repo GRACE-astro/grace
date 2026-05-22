@@ -12,7 +12,7 @@ grmhd:
 
   id_type: 
     type: keyword 
-    allowed: ["minkowski_vacuum", "shocktube", "magnetic_rotor", "bondi_flow", "orszag_tang_vortex", "fmtorus", "tov", "blastwave", "gas_cloud","puncture","lorene_bns", "two_punctures", "fuka","current_sheet"]
+    allowed: ["minkowski_vacuum", "shocktube", "magnetic_rotor", "bondi_flow", "orszag_tang_vortex", "fmtorus", "tov", "blastwave", "gas_cloud","puncture","lorene_bns", "two_punctures", "fuka","current_sheet","khi"]
     default: "minkowski_vacuum"
     description: > 
       Initial data type 
@@ -506,13 +506,6 @@ grmhd:
       description: >
         Scale of magnetic field 
     
-    perturbation_amplitude:
-      type: double 
-      range: "[0,*)"
-      default: 0.0
-      description: >
-        Pressure perturbation scale, currently broken
-
     rho_power:
       type: double 
       range: "(*,*)"

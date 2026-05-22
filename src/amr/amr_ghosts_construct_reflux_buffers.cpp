@@ -8,7 +8,7 @@
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
- * Copyright (C) 2023 Carlo Musolino
+ * Copyright (C) 2023-2026 Carlo Musolino and GRACE Contributors
  *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -582,25 +582,44 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
     rcv_keys = std::vector<std::vector<comm_key_t>>(nproc) ;
 
     for( int i=0; i<_reflux_coarse_face_descs.size(); ++i) {
-        auto const& dsc =  _reflux_coarse_face_descs[i] ; 
-        // loop over sides 
+        auto const& dsc =  _reflux_coarse_face_descs[i] ;
+        // loop over sides
         for( int is=0; is<2; ++is ) {
-            // if remote we must exchange 
+            // if remote we must exchange
             if ( dsc.is_remote[is] ) {
-                // send and receive 
-                int8_t elem_id = dsc.owner_rank[is] < rank 
+                // send and receive
+                int8_t elem_id = dsc.owner_rank[is] < rank
                     ? dsc.face_id[is] : dsc.face_id[1-is] ;
-                // we send the other qid 
+                // we send the other qid
+                // NOTE: brace-init, not paren-init — paren-init of aggregates
+                // (C++20) leaves padding bits indeterminate, which can break
+                // hash/equality when the key is later looked up using brace-init
+                // (which zero-fills padding). Symptom: keys are inserted but
+                // find()/operator[] miss them.
                 snd_keys[dsc.owner_rank[is]].push_back(
-                    comm_key_t(dsc.qid[1-is], elem_id)
-                ) ; 
-                // we receive this qid 
-                rcv_keys[dsc.owner_rank[is]].push_back(
-                    comm_key_t(dsc.qid[is], elem_id)
+                    comm_key_t{dsc.qid[1-is], elem_id}
                 ) ;
-            } 
-        } // loop over sides 
-    } // coarse face desc 
+                // we receive this qid
+                rcv_keys[dsc.owner_rank[is]].push_back(
+                    comm_key_t{dsc.qid[is], elem_id}
+                ) ;
+                #ifdef DEBUG_REFLUX_BUILD
+                std::printf("[REFLUX_BUILD COARSE/COLLECT rank=%d] desc=%d is=%d "
+                            "qid_local=%lu qid_remote=%lu rem_rank=%d "
+                            "fid_local=%d fid_remote=%d elem_id=%d "
+                            "snd_key=(%lu,%d) rcv_key=(%lu,%d)\n",
+                            rank, i, is,
+                            (unsigned long)dsc.qid[1-is],
+                            (unsigned long)dsc.qid[is],
+                            (int)dsc.owner_rank[is],
+                            (int)dsc.face_id[1-is], (int)dsc.face_id[is],
+                            (int)elem_id,
+                            (unsigned long)dsc.qid[1-is], (int)elem_id,
+                            (unsigned long)dsc.qid[is], (int)elem_id);
+                #endif
+            }
+        } // loop over sides
+    } // coarse face desc
     /************************************************************************************************/
     // sort and deduplicate the send and receive keys 
     std::tie(send_lookup,rank_send_counts) = cpb.sort_and_dedup(snd_keys) ;
@@ -615,20 +634,20 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
         for( int is=0; is<2; ++is ) {
             
             if ( dsc.is_remote[is] ) {
-                ASSERT(!dsc.is_remote[1-is], "both sides remote!") ; 
-                // remote owner rank id 
+                ASSERT(!dsc.is_remote[1-is], "both sides remote!") ;
+                // remote owner rank id
                 auto r = dsc.owner_rank[is] ;
-                // send and receive 
-                int8_t elem_id = r < rank 
-                    ? dsc.face_id[is] : dsc.face_id[1-is] ; 
-                // send: we need to register into the send list 
+                // send and receive
+                int8_t elem_id = r < rank
+                    ? dsc.face_id[is] : dsc.face_id[1-is] ;
+                // send: we need to register into the send list
                 // other qid (the local one!)
                 comm_key_t snd_key{
                     dsc.qid[1-is], elem_id
-                } ; 
+                } ;
                 hanging_remote_reflux_desc_t snd_desc{} ;
                 snd_desc.qid = dsc.qid[1-is] ;
-                snd_desc.rank = r ; 
+                snd_desc.rank = r ;
                 snd_desc.elem_id =  dsc.face_id[1-is] ;
                 snd_desc.buf_id = send_lookup[r][snd_key];
                 _reflux_coarse_face_snd.push_back(snd_desc) ;
@@ -636,8 +655,64 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                 // receive: we write back the bufid into the desc
                 comm_key_t rcv_key{
                     dsc.qid[is], elem_id
-                } ; 
-                dsc.bid[is] = recv_lookup[r][rcv_key] ; 
+                } ;
+                #ifdef DEBUG_REFLUX_BUILD
+                {
+                    auto rit = recv_lookup[r].find(rcv_key);
+                    auto sit = send_lookup[r].find(snd_key);
+                    std::printf("[REFLUX_BUILD COARSE/LOOKUP rank=%d] desc=%d is=%d "
+                                "snd_key=(%lu,%d) rcv_key=(%lu,%d) "
+                                "snd_lookup_size=%zu snd_found=%d snd_bid=%zu "
+                                "rcv_lookup_size=%zu rcv_found=%d rcv_bid=%zu\n",
+                                rank, i, is,
+                                (unsigned long)dsc.qid[1-is], (int)elem_id,
+                                (unsigned long)dsc.qid[is],   (int)elem_id,
+                                send_lookup[r].size(),
+                                (int)(sit != send_lookup[r].end()),
+                                (sit != send_lookup[r].end()) ? sit->second : (size_t)-1,
+                                recv_lookup[r].size(),
+                                (int)(rit != recv_lookup[r].end()),
+                                (rit != recv_lookup[r].end()) ? rit->second : (size_t)-1);
+                    // Dump ALL entries of recv_lookup[r] on the very first
+                    // miss so we can confirm whether the queried key is
+                    // actually in the map (and rule out hash drift vs
+                    // missing-entry).  Also print hashes so we can compare
+                    // the lookup key's hash against every stored key's hash.
+                    static bool dumped_once = false;
+                    if (rit == recv_lookup[r].end() && !dumped_once) {
+                        dumped_once = true;
+                        comm_key_hash hasher;
+                        size_t const query_hash = hasher(rcv_key);
+                        std::printf("  [RCV_LOOKUP_FULL_DUMP r=%d] query=(qid=%lu,elem=%d) "
+                                    "query_hash=%zu (bucket=%zu of %zu)\n",
+                                    r,
+                                    (unsigned long)rcv_key.qid, (int)rcv_key.elem_id,
+                                    query_hash,
+                                    query_hash % recv_lookup[r].bucket_count(),
+                                    recv_lookup[r].bucket_count());
+                        size_t dump = 0;
+                        for (auto const& kv : recv_lookup[r]) {
+                            size_t const stored_hash = hasher(kv.first);
+                            std::printf("    entry %zu: qid=%lu elem=%d -> bid=%zu "
+                                        "stored_hash=%zu (bucket=%zu) "
+                                        "match_qid=%d match_elem=%d match_eq=%d "
+                                        "match_hash=%d\n",
+                                        dump,
+                                        (unsigned long)kv.first.qid,
+                                        (int)kv.first.elem_id,
+                                        kv.second,
+                                        stored_hash,
+                                        stored_hash % recv_lookup[r].bucket_count(),
+                                        (int)(kv.first.qid == rcv_key.qid),
+                                        (int)(kv.first.elem_id == rcv_key.elem_id),
+                                        (int)(kv.first == rcv_key),
+                                        (int)(stored_hash == query_hash));
+                            ++dump;
+                        }
+                    }
+                }
+                #endif
+                dsc.bid[is] = recv_lookup[r][rcv_key] ;
             }
         } // loop over sides 
     } // loop over coarse 
@@ -648,7 +723,15 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
     GRACE_VERBOSE("[REFLUX] We have {} coarse faces which need refluxing", _reflux_coarse_face_descs.size()) ; 
     /************************************************************************************************/
     // allocate buffers 
+    send_size_flux = nx * nx * nvars_hrsc ; 
     send_size_emf = nx*nx*2 ; 
+    #ifdef GRACE_SAME_LEVEL_FACE_AVERAGE
+    size_t total_snd_coarse, total_recv_coarse ; 
+    std::tie(total_snd_coarse,_reflux_snd_coarse_size,_reflux_snd_coarse_off) = cpb.get_offsets_and_sizes(rank_send_counts,send_size_flux) ; 
+    std::tie(total_recv_coarse,_reflux_rcv_coarse_size,_reflux_rcv_coarse_off) = cpb.get_offsets_and_sizes(rank_recv_counts,send_size_flux) ;
+    make_rflux_array(_reflux_coarse_snd_buf,"reflux_coarse_send",_reflux_snd_coarse_off,total_snd_coarse,nx,nvars_hrsc) ; 
+    make_rflux_array(_reflux_coarse_recv_buf,"reflux_coarse_receive",_reflux_rcv_coarse_off,total_recv_coarse,nx,nvars_hrsc) ;
+    #endif 
     size_t total_snd_emf_coarse, total_recv_emf_coarse ; 
     std::tie(total_snd_emf_coarse,_reflux_snd_emf_coarse_size,_reflux_snd_emf_coarse_off) = cpb.get_offsets_and_sizes(rank_send_counts,send_size_emf) ; 
     std::tie(total_recv_emf_coarse,_reflux_rcv_emf_coarse_size,_reflux_rcv_emf_coarse_off) = cpb.get_offsets_and_sizes(rank_recv_counts,send_size_emf) ;
@@ -796,7 +879,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
     size_t total_snd_emf_edge, total_rcv_emf_edge;
     std::tie(total_snd_emf_edge,_reflux_snd_emf_edge_size,_reflux_snd_emf_edge_off) = cpb.get_offsets_and_sizes(rank_send_counts,send_size_emf) ; 
     std::tie(total_rcv_emf_edge,_reflux_rcv_emf_edge_size,_reflux_rcv_emf_edge_off) = cpb.get_offsets_and_sizes(rank_recv_counts,send_size_emf) ; 
-
+    
     make_erflux_array(_reflux_emf_edge_snd_buf,"reflux_emf_edge_send",_reflux_snd_emf_edge_off,total_snd_emf_edge,nx) ; 
     make_erflux_array(_reflux_emf_edge_recv_buf,"reflux_emf_edge_receive",_reflux_rcv_emf_edge_off,total_rcv_emf_edge,nx) ;
 
