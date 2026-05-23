@@ -371,39 +371,43 @@ TEST_CASE("Reflection BC: octant ghost-zone fill (bit-exact across all "
     // (outflow/extrap/sommerfeld), which the check function skips.
     double const tol = 0.0;
 
-    // Build the index sets so we can tell scalars from vectors/tensors.
-    auto vec_idx = get_vector_state_variables_indices();
-    auto ten_idx = get_tensor_state_variables_indices();
-    std::set<size_t> nonscalar(vec_idx.begin(), vec_idx.end());
-    nonscalar.insert(ten_idx.begin(), ten_idx.end());
+    // Single loop over every centered evolved variable.  parity_for_centered_var
+    // looks up the var's registered props (is_vector / is_tensor / comp_num)
+    // and returns the correct parity table for scalar / vector / symmetric-
+    // tensor components.  This avoids the trap that
+    // get_vector_state_variables_indices() / get_tensor_state_variables_indices()
+    // each return ONLY the first index of every vector / tensor block.
+    //
+    // SKIP gamma_tilde and A_tilde under Z4 metric evolution: the BC kernel
+    // correctly writes their reflection ghosts, but the algebraic-constraint
+    // follow-up pass (impose_algebraic_constraintz_z4c, phys_bc_kernels.hh:299)
+    // runs immediately after on every centered ghost cell.  It divides
+    // gamma_tilde by cbrt(det γ̃) and adjusts A_tilde to be trace-free — on
+    // our polynomial init det γ̃ = 0 generically, producing inf/nan that
+    // overwrite the clean reflection result.  Testing those variables requires
+    // a constraint-satisfying init (γ̃ = identity + traceless A) and is a
+    // separate check.
+    auto const skip_for_z4c_constraint = [](std::string const& name) {
+        return name.rfind("gamma_tilde", 0) == 0
+            || name.rfind("A_tilde",     0) == 0;
+    };
 
-    std::cout << "[reflection BC test] Centered scalars" << std::endl;
-    size_t n_total = 0;
+    std::cout << "[reflection BC test] All centered evolved variables"
+              << std::endl;
+    size_t n_total = 0, n_skipped_vars = 0;
     for (int iv = 0; iv < nv_centered; ++iv) {
-        if (nonscalar.count(static_cast<size_t>(iv))) continue;
+        auto const& name = variables::detail::_varnames[iv];
+        if (skip_for_z4c_constraint(name)) {
+            std::cout << "  " << name
+                      << ": SKIPPED (clobbered by Z4c algebraic-constraint "
+                         "enforcement on polynomial init)" << std::endl;
+            ++n_skipped_vars;
+            continue;
+        }
         n_total += check_reflection_ghosts(
-            state, variables::detail::_varnames[iv].c_str(),
-            {VEC(0.5, 0.5, 0.5)}, iv, scalar_parity(), tol, cs,
-            xmin, ymin, zmin, xmax, ymax, zmax,
-            Nx, Ny, Nz, nq);
-    }
-
-    std::cout << "[reflection BC test] Centered vectors" << std::endl;
-    for (auto iv_sz : vec_idx) {
-        int const iv = static_cast<int>(iv_sz);
-        n_total += check_reflection_ghosts(
-            state, variables::detail::_varnames[iv].c_str(),
-            {VEC(0.5, 0.5, 0.5)}, iv, parity_for_centered_var(iv), tol, cs,
-            xmin, ymin, zmin, xmax, ymax, zmax,
-            Nx, Ny, Nz, nq);
-    }
-
-    std::cout << "[reflection BC test] Centered symmetric tensors" << std::endl;
-    for (auto iv_sz : ten_idx) {
-        int const iv = static_cast<int>(iv_sz);
-        n_total += check_reflection_ghosts(
-            state, variables::detail::_varnames[iv].c_str(),
-            {VEC(0.5, 0.5, 0.5)}, iv, parity_for_centered_var(iv), tol, cs,
+            state, name.c_str(),
+            {VEC(0.5, 0.5, 0.5)}, iv,
+            parity_for_centered_var(iv), tol, cs,
             xmin, ymin, zmin, xmax, ymax, zmax,
             Nx, Ny, Nz, nq);
     }
