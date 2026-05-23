@@ -22,7 +22,7 @@ amr: {
 IO: {
   # 2D out 
   plane_surface_output_cell_variables: ["hydro"],
-  plane_surface_output_every: 100,
+  plane_surface_output_every: 10,
   do_initial_output: true,
 
   # console out 
@@ -31,7 +31,7 @@ IO: {
   info_output_min_reductions: ["rho", "press", "Bvec[1]"],
 
   # scalar out 
-  scalar_output_every: 50,
+  scalar_output_every: 5,
   scalar_output_minmax: ["rho","press","eps", "Bdiv"],
 
   # hdf5 settings 

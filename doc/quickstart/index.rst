@@ -113,27 +113,35 @@ Run your first simulation
 GRACE ships several ready-to-run parameter files under ``examples/``,
 organized by problem class (``z4c/``, ``grmhd/``, ``cowling_grmhd/``,
 ``symmetry_audit/``).  A good first run is the Balsara MHD shocktube on
-a fixed flat background.  The shipped configuration uses a 3D grid
-(``32³`` cells per block, 5 stacked trees, refinement level 1), which
-completes in about a minute on a single GPU; on a CPU laptop expect a
-few minutes.
+a fixed flat background.  Two sized variants are provided:
 
-For a faster smoke test on CPU:
+- ``shocktubes/balsara1_cpu_tutorial.yaml`` — small grid (10 cells per
+  block, refinement level 0, narrow slab), runs in **about 17 s on 4
+  CPU cores**; recommended for the first tutorial pass.
+- ``shocktubes/balsara1.yaml`` — canonical resolution (``32³`` per block,
+  level 1, 1.3 M cells); GPU-friendly, takes a few minutes on a CPU
+  laptop.
 
-- Lower ``npoints_block_x = npoints_block_y = npoints_block_z`` together
-  (GRACE requires cubic blocks; e.g. set all three to ``16`` or ``8``).
-- Narrow the domain extents **proportionally** along all axes
-  (``xmin / xmax``, ``ymin / ymax``, ``zmin / zmax``) so the tree size
-  shrinks without spawning extra trees along the long axis; reduce
-  ``final_time`` correspondingly.
-- And / or drop ``initial_refinement_level`` from ``1`` to ``0``.
+For the tutorial run, use the small one:
 
 .. code-block:: bash
 
     mkdir run-shocktube && cd run-shocktube
-    cp ../examples/cowling_grmhd/shocktubes/balsara1.yaml .
+    cp ../examples/cowling_grmhd/shocktubes/balsara1_cpu_tutorial.yaml .
 
-    mpirun -n 2 ../build/grace --grace-parfile ./balsara1.yaml
+    # OpenMP backend: one MPI rank, threads driven by OMP_NUM_THREADS
+    export OMP_NUM_THREADS=4
+    mpirun -n 1 ../build/grace --grace-parfile ./balsara1_cpu_tutorial.yaml
+
+If you need to make it faster still (or slower for better-resolved output),
+the relevant knobs on a Balsara-style shocktube are:
+
+- Lower ``npoints_block_x = npoints_block_y = npoints_block_z`` together
+  (GRACE requires cubic blocks; e.g. set all three to ``8``).
+- Narrow the domain extents **proportionally** along all axes so the
+  tree size shrinks without spawning extra trees along the long axis;
+  reduce ``final_time`` correspondingly.
+- And / or drop ``initial_refinement_level``.
 
 You should see GRACE print a banner, the configuration summary, then a stream
 of evolution-step log lines. When the run finishes you'll have a populated
@@ -155,12 +163,41 @@ Scalar diagnostic files (``.dat``) are plain text and can be plotted directly:
                             skiprows=1, unpack=True)
    plt.plot(t, val)
    plt.xlabel("t")
-   plt.ylabel("∫ dens dV")
+   plt.ylabel(r"$\int \rho \, dV$")
    plt.savefig("dens_integral.png")
 
 Volume and plane data are written as HDF5 with companion XDMF descriptors
-that ParaView can open directly. To generate the descriptors, use the helper
-shipped with GRACEpy (see :doc:`../python_interface/index`).
+that ParaView can open directly.  To generate the descriptors, use the
+helper shipped with GRACEpy (see :doc:`../python_interface/index`).
+
+To plot a 1D slice of a plane field (e.g. :math:`\rho` along ``x`` on
+the equatorial plane), GRACEpy's XDMF reader gives you the cell-centered
+data + coordinates of the whole plane; masking by the smallest
+:math:`|y|`, :math:`|z|` picks out the central row:
+
+.. code-block:: python
+
+   import numpy as np
+   import matplotlib.pyplot as plt
+   import grace_tools.vtk_reader_utils as gtv
+
+   reader = gtv.grace_xmf_reader("./output_surface/desc_xy.xmf")
+   t = reader.available_times()
+   xyz, rho = reader.get_var("rho", t[-1])
+
+   # pick the central cell-row in (y, z) on the xy plane
+   y0 = np.amin(np.abs(xyz[:, 1]))
+   z0 = np.amin(np.abs(xyz[:, 2]))
+   tol = 1e-10
+   mask = (np.abs(xyz[:, 1] - y0) < tol) & (np.abs(xyz[:, 2] - z0) < tol)
+
+   plt.scatter(xyz[mask, 0], rho[mask], marker=".")
+   plt.xlabel(r"$x$")
+   plt.ylabel(r"$\rho$")
+   plt.savefig("balsara1_rho.png")
+
+The same pattern works for ``"press"``, ``"Bvec"``, etc. — see
+:doc:`../userguide/index` for the variable conventions.
 
 
 What to read next
