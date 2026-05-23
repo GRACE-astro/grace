@@ -45,30 +45,111 @@ the module that owns it.
    params-particles
 
 
-Output Data Formats 
-*********************
+Output Data Formats
+*******************
 
-There are a few different kinds of output in GRACE. 
+GRACE has six independent output streams, each gated by its own
+"every-N-iterations" parameter under the ``IO`` schema section.  Set the
+``_every`` parameter to ``-1`` to disable that stream entirely (this is
+the default for everything except the info banner).
 
-First, there is scalar output. This encompasses reductions of any registered variable (auxiliary or evolved) in GRACE.
-Possible reductions are: coordinate volume integral, L2 norm, max and min. The output frequency of all scalar quantities is controlled by a single parameter, 
-and all output can be found in the same directory. Output files contain three columns: iteration, simulation time, and the value. 
+.. list-table::
+   :header-rows: 1
+   :widths: 18 22 22 38
 
-The second kind of output is also in the form of a timeseries and comprises all spherical surface integrals. These are implemented 
-as custom modules in GRACE which have their own parameters. One example is the ``gw_integrals`` module, which simply takes the names 
-of registered surfaces where integrals should be performed, and outputs the spherical harmonic decomposition of the Penrose-Newman scalar 
-onto these surfaces. The output frequency here is controlled by the diagnostic output frequency, and the corresponding files are placed in 
-the same directory as scalars. 
+   * - Stream
+     - Frequency parameter
+     - Directory
+     - Format
+   * - **Info**
+     - ``info_output_every`` (default ``10``)
+     - console + ``./logs/``
+     - Banner + per-step lines on stdout; per-rank files
+       ``grace_log_<rank>.{out,err}``.
+   * - **Scalar**
+     - ``scalar_output_every``
+     - ``./output_scalar/``
+     - ASCII ``.dat``, three columns ``iter  time  value``.
+   * - **Diagnostic**
+     - ``diagnostic_output_every``
+     - ``./output_scalar/``
+     - ASCII ``.dat``, per-module schema (see below).
+   * - **Plane slice**
+     - ``plane_surface_output_every``
+     - ``./output_surface/``
+     - Parallel HDF5 + XDMF;
+       ``surface_out_plane_{xy,xz,yz}_<iter>.h5``.
+   * - **Volume**
+     - ``volume_output_every``
+     - ``./output_volume/``
+     - Parallel HDF5 + XDMF; ``volume_out_<iter>.h5``.
+   * - **Sphere**
+     - ``sphere_surface_output_every``
+     - ``./output_spheres/``
+     - Parallel HDF5 + XDMF, point data on the registered detectors;
+       ``surface_out_sphere_<name>_<iter>.h5``.
 
-Other outputs are performed in HDF5 by default, with the legacy (deprecated) option of native VTK. GRACE supports volume and plane surface output (in xy, xz, and yz planes), as
-well as output of point data on spherical surfaces. All this data can be easily visualized in `ParaView <https://www.paraview.org/>`_ through the use of XDMF descriptors (see the :doc:`related page <../python_interface/index>` on how to generate them),
-as well as in python through the vtk Python interface.
+All directory and basename defaults above are settable via the
+``IO::*_base_directory`` / ``*_base_filename`` parameters.
+
+Scalar reductions
+~~~~~~~~~~~~~~~~~
+
+For any registered evolved or auxiliary variable listed under
+``IO::scalar_output_*``, GRACE emits one ``.dat`` file per (variable,
+reduction) pair in ``./output_scalar/``:
+
+- ``<basename><varname>_min.dat`` / ``_max.dat`` — minimum / maximum over
+  the active domain
+- ``<basename><varname>_norm2.dat`` — :math:`L^2` norm
+- ``<basename><varname>_integral.dat`` — coordinate-volume integral
+
+The reduction set per variable is selected by listing the variable under
+the corresponding ``IO::scalar_output_minmax`` / ``scalar_output_norm2`` /
+``scalar_output_integral`` lists.
+
+Volume, plane-slice, and sphere HDF5
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+3-D volume, plane-slice, and spherical-surface outputs are written as
+parallel HDF5 with companion XDMF descriptors that ParaView opens
+directly.  Variable selection per stream is controlled by:
+
+- ``IO::volume_output_cell_variables``
+- ``IO::plane_surface_output_cell_variables``
+- ``IO::sphere_surface_output_cell_variables``
+
+To generate XDMF descriptors, use the helper shipped with GRACEpy (see
+:doc:`../python_interface/index`).  Native VTK output exists as a
+legacy / deprecated path enabled via ``IO::output_use_hdf5: false``.
+
+Per-module diagnostic timeseries
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Several modules emit dedicated ASCII timeseries gated by
+``diagnostic_output_every`` (one row per output iteration).  These land
+in ``./output_scalar/`` alongside the scalar reductions:
+
+- ``gw_integrals``: spherical-harmonic decomposition of the Weyl scalar
+  :math:`\Psi_4` on each registered extraction sphere (one file per
+  ``(detector, ℓ, m)`` triple); Z4 metric evolution only.
+- ``adm_integrals``: ADM mass / linear / angular momentum surface
+  integrals on each registered ADM sphere; Z4 metric evolution only.
+- ``outflows``: ejecta mass-flux integrals on each registered sphere —
+  ``Mdot_unbound_geo``, ``Mdot_unbound_bern``, ``Mdot_tot``.
+- ``bh_diagnostics``: per-BH horizon-flux scalars — ``Mdot``, ``Edot``,
+  ``Ldot``, ``Phi`` (magnetic flux).
+- ``mhd_diagnostics``: GRMHD bulk diagnostics in ``grmhd_diagnostics.dat``
+  (disk mass over a configurable rho threshold, etc.).
+- ``mag_energy``: domain-integrated electromagnetic energy in
+  ``E_em.dat``.
+- ``co_tracker``: compact-object positions.
 
 Reflection symmetries and diagnostic output
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 When ``amr::reflection_symmetries`` is enabled along one or more axes, GRACE only stores and evolves the active subdomain (e.g. the upper hemisphere :math:`z \geq 0` for :math:`z` reflection symmetry).
-For diagnostics that are written to dedicated output files, namely the ones produced by the ``mhd_diagnostics`` module (``disk_mass.dat``), the magnetic energy diagnostic (``E_em.dat``),
+For diagnostics that are written to dedicated output files, namely the ones produced by the ``mhd_diagnostics`` module (``grmhd_diagnostics.dat``), the magnetic energy diagnostic (``E_em.dat``),
 the ``outflows`` module (``Mdot_*.dat``), and the ``gw_integrals`` / ``adm_integrals`` spherical decompositions, GRACE automatically rescales the reported values to the
 full physical domain. The user therefore does not need to apply any post-processing correction: the numbers in these files are already full-domain physical values.
 
@@ -109,8 +190,11 @@ GRMHD primitives
 - ``ye`` — electron fraction
 - ``zvec[0..2]`` — the velocity-like variable :math:`z^i = W v^i`, where
   :math:`W` is the Lorentz factor and :math:`v^i` the standard Eulerian
-  velocity.  GRACE stores :math:`z^i` (not :math:`v^i`) because it removes
-  the unbounded :math:`W` singularity from primitive recovery.
+  velocity.  GRACE reconstructs :math:`z^i` (not :math:`v^i`) at faces
+  because :math:`v^i` is bounded by the speed of light and the
+  reconstructor can over- or undershoot near :math:`v \to c`, where
+  :math:`W \to \infty`; :math:`z^i` is unbounded above and lets the
+  reconstruction work without artificial clamping.
 - ``Bvec[0..2]`` — **cell-centered** magnetic field, derived from the
   face-staggered evolved field by face-to-cell averaging.
 
