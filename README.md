@@ -31,8 +31,7 @@ systems.
 ## Quickstart
 
 ```bash
-git clone --recurse-submodules --shallow-submodules \
-          https://github.com/GRACE-astro/grace.git
+git clone --recursive https://github.com/GRACE-astro/grace.git
 cd grace
 cmake -B build -S . -G Ninja \
       -DCMAKE_BUILD_TYPE=Release \

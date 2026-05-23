@@ -39,8 +39,7 @@ main build.  Self-contained, reproducible, zero version-mismatch issues.
 
 .. code-block:: bash
 
-    git clone --recurse-submodules --shallow-submodules \
-              https://github.com/GRACE-astro/grace.git grace-src
+    git clone --recursive https://github.com/GRACE-astro/grace.git grace-src
     cd grace-src
     cmake -B build -S . \
           -DGRACE_USE_BUNDLED_DEPS=ON \
