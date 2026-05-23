@@ -76,6 +76,7 @@ add_grace_test(cks_coordinate_test test_coordinates_cks.cpp)
 add_grace_test(regrid_test test_regridding.cpp)
 add_grace_test(bc_test test_bc.cpp)
 add_grace_test(bc_test_unigrid test_bc_unigrid.cpp)
+add_grace_test(reflect_bc_test test_reflect_bc.cpp)
 add_grace_test(scalar_reductions_test test_scalar_reductions.cpp)
 add_grace_test(hdf5_output_test test_hdf5_IO.cpp)
 # TODO: test_eos.cpp uses several EOS API methods that have since been
@@ -213,6 +214,21 @@ add_test(NAME bc_test_cartesian COMMAND
         mpirun -n 2 ./bc_test --grace-parfile ./configs/regrid_test_cartesian.yaml )
 set_tests_properties(bc_test_unigrid_cartesian bc_test_cartesian
                      PROPERTIES LABELS "mpi;bc")
+
+# Reflection BC ghost-zone fill on the octant [0,1]^3 with symmetries on all
+# three axes.  Catches the reflect_bc_t::apply int8-overflow / uninit-ijk
+# class of bugs that fault on discrete CUDA but go silent on unified-memory
+# APUs (see commit history May-2026).  Covers centered scalars, vectors,
+# symmetric tensors, and the three face-staggered B components.
+add_test(NAME reflect_bc_test_unigrid COMMAND
+        mpirun -n 1 ./reflect_bc_test --grace-parfile ./configs/reflect_bc_unigrid.yaml )
+set_tests_properties(reflect_bc_test_unigrid PROPERTIES LABELS "fast;bc;reflection")
+
+# Same coverage on an FMR layout (one level of refinement on a box that
+# contains the origin), exercising reflection BCs at multiple AMR levels.
+add_test(NAME reflect_bc_test_fmr COMMAND
+        mpirun -n 1 ./reflect_bc_test --grace-parfile ./configs/reflect_bc_fmr.yaml )
+set_tests_properties(reflect_bc_test_fmr PROPERTIES LABELS "fast;bc;reflection;amr")
 
 # BC + ghost-zone test on a deeper FMR layout (4 boxes, 7 levels max, ngz=4):
 # exercises the FMR ghost-fill P/R path (polynomial cell-centered + B = curl A

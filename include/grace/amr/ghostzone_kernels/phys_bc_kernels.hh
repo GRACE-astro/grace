@@ -42,17 +42,21 @@
 
 namespace grace { namespace amr {
 
-struct reflect_bc_t 
+struct reflect_bc_t
 {
+    // Source indices use `int`, not `int8_t`, because reflection passes the
+    // full interior index along non-reflected axes (unlike outflow_bc_t /
+    // extrap_bc_t which take small stencil deltas -1/0/+1). For grids where
+    // ngz + n exceeds 127 int8_t would silently wrap; safer to keep this `int`.
     template< typename view_t >
       void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
       apply (
             view_t view,
             VEC( size_t i, size_t j, size_t k),
-            VEC( int8_t is, int8_t js, int8_t ks), double f
+            VEC( int is, int js, int ks), double f
       ) const
       {
-        view(i,j,k) = f*view(is,js,ks) ; 
+        view(i,j,k) = f*view(is,js,ks) ;
       }
 } ;
 

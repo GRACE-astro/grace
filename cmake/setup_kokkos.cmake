@@ -81,6 +81,13 @@ if( GRACE_ENABLE_OMP )
     find_package(OpenMP REQUIRED)
 endif()
 
-if ( GRACE_ENABLE_CUDA ) 
-    add_compile_options(--expt-relaxed-constexpr)
+if ( GRACE_ENABLE_CUDA )
+    # `--expt-relaxed-constexpr` is an nvcc-only flag; clang-CUDA allows
+    # constexpr host/device calls without it (and rejects the flag with
+    # an error).  Only add it when the C++ compiler is *not* clang.
+    if ( CMAKE_CXX_COMPILER_ID STREQUAL "Clang" )
+        message(STATUS "clang-CUDA detected; skipping --expt-relaxed-constexpr (clang allows it by default)")
+    else()
+        add_compile_options(--expt-relaxed-constexpr)
+    endif()
 endif()

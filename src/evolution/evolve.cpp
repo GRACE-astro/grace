@@ -853,8 +853,18 @@ void compute_fluxes(
     #ifndef GRACE_FLUX_LB
       #define GRACE_FLUX_LB Kokkos::LaunchBounds<256, 2>
     #endif
+    // GRACE_LB_ARG expands to ", <LB>" or to nothing, depending on whether
+    // the active perf-tuning header asked us to drop launch_bounds entirely
+    // (GRACE_NO_LB).  Letting the policy template omit the LaunchBounds
+    // parameter is preferable to passing LaunchBounds<0,0>, whose behaviour
+    // is unspecified by NVIDIA's CUDA C++ Programming Guide.
+    #ifdef GRACE_NO_LB
+      #define GRACE_LB_ARG(LB) /* no launch bounds */
+    #else
+      #define GRACE_LB_ARG(LB) , LB
+    #endif
     using flux_policy_t =
-        MDRangePolicy< Rank<GRACE_NSPACEDIM+1>, GRACE_FLUX_LB > ;
+        MDRangePolicy< Rank<GRACE_NSPACEDIM+1> GRACE_LB_ARG(GRACE_FLUX_LB) > ;
     // FOFC widening: compute one extra HO flux on each side of the interior
     // so that the FOFC test at one ghost cell deep on each axis has a valid
     // F(i)/F(i+1) pair.  Requires ngz >= recon_half_width + 1 (4 for
@@ -1479,12 +1489,14 @@ void update_fd(
     #ifndef GRACE_Z4C_CURV_LB
       #define GRACE_Z4C_CURV_LB Kokkos::LaunchBounds<256, 1>
     #endif
+    // GRACE_LB_ARG (defined earlier in this file) expands to ", <LB>" or to
+    // nothing when GRACE_NO_LB is set by the active perf-tuning header.
     using adv_policy_t =
-        MDRangePolicy< Rank<GRACE_NSPACEDIM+1>, GRACE_Z4C_ADV_LB > ;
+        MDRangePolicy< Rank<GRACE_NSPACEDIM+1> GRACE_LB_ARG(GRACE_Z4C_ADV_LB) > ;
     using curv_pre_policy_t =
-        MDRangePolicy< Rank<GRACE_NSPACEDIM+1>, GRACE_Z4C_CURV_PRE_LB > ;
+        MDRangePolicy< Rank<GRACE_NSPACEDIM+1> GRACE_LB_ARG(GRACE_Z4C_CURV_PRE_LB) > ;
     using curv_policy_t =
-        MDRangePolicy< Rank<GRACE_NSPACEDIM+1>, GRACE_Z4C_CURV_LB > ;
+        MDRangePolicy< Rank<GRACE_NSPACEDIM+1> GRACE_LB_ARG(GRACE_Z4C_CURV_LB) > ;
     // Tile chosen so the product = 256 = MaxThreadsPerBlock above.
     // Shape (16,4,4,1) on LayoutLeft data: one wavefront of 64 lanes covers
     // 16 contiguous i × 4 j × 1 k = four full 128B cache lines.  q=1 so a

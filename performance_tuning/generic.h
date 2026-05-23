@@ -8,13 +8,22 @@
 // backends, so the values below remain correct when this header is active
 // on CPU.
 //
-// On CUDA, the source default of GRACE_Z4C_ADV_LB = LaunchBounds<256, 4>
-// caps per-thread regs at 64, which ptxas rejects because the Z4c
-// advective lambda inlines ~222 regs of stencil state.  Override here
-// with <256, 1> so the generic path still *builds* on unknown CUDA GPUs;
-// performance on a real target should be reclaimed with a dedicated
-// tuning header selected via -DGRACE_PERF_TUNING=<name>.
+// On CUDA, the source defaults are AMD-tuned and ptxas rejects them
+// (GRACE_FLUX_LB = LaunchBounds<256, 2> and GRACE_Z4C_ADV_LB =
+// LaunchBounds<256, 4> both cap regs/thread below what the kernels
+// inline to).  Since the generic header by definition has no
+// arch-specific knowledge, the safest fallback is to *omit* the
+// launch_bounds template parameter entirely — the policy templates
+// then default to no __launch_bounds__ attribute on the kernel and the
+// device compiler picks its own heuristic occupancy.  This guarantees
+// the code compiles on any CUDA GPU.  Performance on a real target
+// should be reclaimed by selecting a dedicated tuning header via
+// -DGRACE_PERF_TUNING=<name>.
+//
+// The GRACE_NO_LB sentinel below is consumed by src/evolution/evolve.cpp:
+// when defined, all flux + Z4c policies drop the LaunchBounds template
+// argument entirely instead of passing Kokkos::LaunchBounds<0, 0>
+// (whose behaviour is unspecified per NVIDIA's CUDA C++ Programming
+// Guide, even though de-facto compilers treat it as a no-op).
 
-#define GRACE_Z4C_ADV_LB      Kokkos::LaunchBounds<256, 1>
-#define GRACE_Z4C_CURV_PRE_LB Kokkos::LaunchBounds<256, 1>
-#define GRACE_Z4C_CURV_LB     Kokkos::LaunchBounds<256, 1>
+#define GRACE_NO_LB

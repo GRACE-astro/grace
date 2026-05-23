@@ -20,6 +20,10 @@
 // low occupancy is the lesser evil on A100.  Re-measure with nsight-compute
 // and split the lambda further if we want more headroom.
 
+// Same register-pressure story for the GRMHD flux kernel: source default
+// of <256, 2> caps regs at 128 on NVIDIA, but getflux + WENO5
+// reconstruction inlines to ~255 regs.  Drop to <256, 1>.
+#define GRACE_FLUX_LB         Kokkos::LaunchBounds<256, 1>
 #define GRACE_Z4C_ADV_LB      Kokkos::LaunchBounds<256, 1>
 #define GRACE_Z4C_CURV_PRE_LB Kokkos::LaunchBounds<256, 1>
 #define GRACE_Z4C_CURV_LB     Kokkos::LaunchBounds<256, 1>

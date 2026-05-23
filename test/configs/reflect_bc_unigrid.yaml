@@ -1,0 +1,44 @@
+# Config for the reflection-BC unit test.  Octant domain [0, 1]^3 with
+# reflection symmetries on all three axes.  The reflection BC kernel
+# fills ghost cells at physical x,y,z < 0 by mirroring (with the
+# appropriate parity sign) the interior cell at the reflected position.
+#
+# Single-tree unigrid, small block — the test fills the state with a
+# linear polynomial of physical coords, NaN-poisons the ghosts, applies
+# BCs, and checks every ghost cell at x,y,z < 0 equals the polynomial
+# evaluated at the reflected interior point.
+
+name: "grace"
+
+amr: {
+  npoints_block_x: 8,
+  npoints_block_y: 8,
+  npoints_block_z: 8,
+
+  xmin: 0.0,
+  xmax: 1.0,
+  ymin: 0.0,
+  ymax: 1.0,
+  zmin: 0.0,
+  zmax: 1.0,
+
+  reflection_symmetries: { x: true, y: true, z: true },
+
+  n_ghostzones: 4,
+  initial_refinement_level: 0,
+  regrid_every: -1,
+  regrid_at_postinitial: false
+}
+
+IO: {
+  info_output_every: 1
+}
+
+system: {
+  console_log_level: "info",
+  n_device_streams: 1
+}
+
+checkpoints: {
+  checkpoint_at_termination: false
+}
