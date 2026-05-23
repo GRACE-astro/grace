@@ -119,17 +119,15 @@ a fixed flat background.  The shipped configuration uses a 3D grid
 completes in about a minute on a single GPU; on a CPU laptop expect a
 few minutes.
 
-The shocktube is fundamentally 1D — only the ``x``-axis carries the shock
-structure, the ``y`` and ``z`` extents are just thin slabs to make the
-problem three-dimensional.  For a faster CPU smoke test, narrow the slab
-and drop the transverse resolution by editing the YAML before running:
+For a faster smoke test on CPU:
 
-- shrink ``npoints_block_y`` and ``npoints_block_z`` (e.g. ``8`` each)
-- optionally narrow the transverse extents (``ymin / ymax``,
-  ``zmin / zmax``) to keep the cell aspect ratio reasonable
-- and / or lower ``initial_refinement_level``
-
-The resulting run completes in seconds on a single CPU core.
+- Lower ``npoints_block_x = npoints_block_y = npoints_block_z`` together
+  (GRACE requires cubic blocks; e.g. set all three to ``16`` or ``8``).
+- Narrow the domain extents **proportionally** along all axes
+  (``xmin / xmax``, ``ymin / ymax``, ``zmin / zmax``) so the tree size
+  shrinks without spawning extra trees along the long axis; reduce
+  ``final_time`` correspondingly.
+- And / or drop ``initial_refinement_level`` from ``1`` to ``0``.
 
 .. code-block:: bash
 
