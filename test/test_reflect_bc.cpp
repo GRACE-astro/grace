@@ -58,12 +58,21 @@
 
 namespace {
 
-// Linear polynomial of physical coords.  Preserved bit-exactly by every
-// AMR prolongation/restriction operator (Lagrange-4, second-order, etc.)
-// because they all collapse to identity on degree-1 inputs.
-inline double h_func(double x, double y, double z)
+// Linear polynomial of physical coords whose coefficients depend on the
+// variable's unique id.  Linear is preserved bit-exactly by every AMR
+// prolongation/restriction operator (Lagrange-4, second-order, etc.) — they
+// collapse to identity on degree-1 inputs.  Making the coefficients vary per
+// variable means any cross-variable contamination (e.g. reflection reads
+// from the wrong View, wrong slot of the same View, wrong staggering)
+// surfaces as a numerical mismatch instead of accidentally matching the
+// other variable's polynomial.
+inline double h_func_for_var(int var_id, double x, double y, double z)
 {
-    return 8.5 * x - 5.1 * y + 2.0 * z - 3.14;
+    double const a = 8.5  + 0.13 * var_id;
+    double const b = -5.1 - 0.07 * var_id;
+    double const c = 2.0  + 0.19 * var_id;
+    double const d = -3.14 + 0.31 * var_id;
+    return a * x + b * y + c * z + d;
 }
 
 // Per-axis reflection parity for a single variable component.  parity[k]
@@ -141,6 +150,7 @@ void init_view_polynomial(
     ViewT&                                                  view,
     std::array<double, GRACE_NSPACEDIM> const&              cc,
     int                                                      var_idx,
+    int                                                      var_id,
     long Nx, long Ny, long Nz, long nq,
     CoordSysT&                                              cs)
 {
@@ -154,7 +164,7 @@ void init_view_polynomial(
                  static_cast<size_t>(j),
                  static_cast<size_t>(k))},
             static_cast<size_t>(q), cc, /*include_gzs*/ true);
-        h(VEC(i, j, k), var_idx, q) = h_func(p[0], p[1], p[2]);
+        h(VEC(i, j, k), var_idx, q) = h_func_for_var(var_id, p[0], p[1], p[2]);
     }
     Kokkos::deep_copy(view, h);
 }
@@ -200,6 +210,7 @@ size_t check_reflection_ghosts(
     char const*                                              tag,
     std::array<double, GRACE_NSPACEDIM> const&              cc,
     int                                                      var_idx,
+    int                                                      var_id,
     axis_parity_t const&                                    parity,
     double                                                   tol,
     CoordSysT&                                              cs,
@@ -247,7 +258,7 @@ size_t check_reflection_ghosts(
         double const zr = refl_z ? (2.0 * zmin - p[2]) : p[2];
 
         double const sign     = parity_product(parity, refl_x, refl_y, refl_z);
-        double const expected = sign * h_func(xr, yr, zr);
+        double const expected = sign * h_func_for_var(var_id, xr, yr, zr);
         double const got      = h(VEC(i, j, k), var_idx, q);
 
         ++n_checked;
@@ -334,18 +345,27 @@ TEST_CASE("Reflection BC: octant ghost-zone fill (bit-exact across all "
               << "  nq=" << nq
               << "  nv_centered=" << nv_centered << std::endl;
 
+    // Unique per-variable polynomial id.  Centered vars use their evolved
+    // index; face-staggered B uses an offset past nv_centered so each
+    // (View, var_idx) pair gets a distinct polynomial.  Any cross-variable
+    // contamination (reflection reads from the wrong view or the wrong slot
+    // of the right view) now surfaces as a numerical mismatch.
+    int const id_BSX = nv_centered + 0;
+    int const id_BSY = nv_centered + 1;
+    int const id_BSZ = nv_centered + 2;
+
     // ---- INITIALISE ALL VIEWS WITH h_func AT EACH CELL'S PHYSICAL COORD ----
     for (int iv = 0; iv < nv_centered; ++iv) {
-        init_view_polynomial(state, {VEC(0.5, 0.5, 0.5)}, iv,
+        init_view_polynomial(state, {VEC(0.5, 0.5, 0.5)}, iv, /*var_id*/ iv,
                              Nx, Ny, Nz, nq, cs);
     }
     init_view_polynomial(stag.face_staggered_fields_x, {VEC(0.0, 0.5, 0.5)},
-                         BSX_, Nx_facex, Ny_facex, Nz_facex, nq, cs);
+                         BSX_, id_BSX, Nx_facex, Ny_facex, Nz_facex, nq, cs);
     init_view_polynomial(stag.face_staggered_fields_y, {VEC(0.5, 0.0, 0.5)},
-                         BSY_, Nx_facey, Ny_facey, Nz_facey, nq, cs);
+                         BSY_, id_BSY, Nx_facey, Ny_facey, Nz_facey, nq, cs);
 #ifdef GRACE_3D
     init_view_polynomial(stag.face_staggered_fields_z, {VEC(0.5, 0.5, 0.0)},
-                         BSZ_, Nx_facez, Ny_facez, Nz_facez, nq, cs);
+                         BSZ_, id_BSZ, Nx_facez, Ny_facez, Nz_facez, nq, cs);
 #endif
 
     // ---- NaN-POISON GHOSTS ----
@@ -406,7 +426,7 @@ TEST_CASE("Reflection BC: octant ghost-zone fill (bit-exact across all "
         }
         n_total += check_reflection_ghosts(
             state, name.c_str(),
-            {VEC(0.5, 0.5, 0.5)}, iv,
+            {VEC(0.5, 0.5, 0.5)}, iv, /*var_id*/ iv,
             parity_for_centered_var(iv), tol, cs,
             xmin, ymin, zmin, xmax, ymax, zmax,
             Nx, Ny, Nz, nq);
@@ -415,20 +435,20 @@ TEST_CASE("Reflection BC: octant ghost-zone fill (bit-exact across all "
     std::cout << "[reflection BC test] Face-staggered B" << std::endl;
     n_total += check_reflection_ghosts(
         stag.face_staggered_fields_x, "BSX",
-        {VEC(0.0, 0.5, 0.5)}, BSX_,
+        {VEC(0.0, 0.5, 0.5)}, BSX_, id_BSX,
         face_staggered_B_parity(STAG_FACEX), tol, cs,
         xmin, ymin, zmin, xmax, ymax, zmax,
         Nx_facex, Ny_facex, Nz_facex, nq);
     n_total += check_reflection_ghosts(
         stag.face_staggered_fields_y, "BSY",
-        {VEC(0.5, 0.0, 0.5)}, BSY_,
+        {VEC(0.5, 0.0, 0.5)}, BSY_, id_BSY,
         face_staggered_B_parity(STAG_FACEY), tol, cs,
         xmin, ymin, zmin, xmax, ymax, zmax,
         Nx_facey, Ny_facey, Nz_facey, nq);
 #ifdef GRACE_3D
     n_total += check_reflection_ghosts(
         stag.face_staggered_fields_z, "BSZ",
-        {VEC(0.5, 0.5, 0.0)}, BSZ_,
+        {VEC(0.5, 0.5, 0.0)}, BSZ_, id_BSZ,
         face_staggered_B_parity(STAG_FACEZ), tol, cs,
         xmin, ymin, zmin, xmax, ymax, zmax,
         Nx_facez, Ny_facez, Nz_facez, nq);
