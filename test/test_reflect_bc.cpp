@@ -136,13 +136,13 @@ inline double parity_product(axis_parity_t const& p,
 //   {0.0,0.5,0.5} → face-x staggered
 //   {0.5,0.0,0.5} → face-y staggered
 //   {0.5,0.5,0.0} → face-z staggered
-template <typename ViewT>
+template <typename ViewT, typename CoordSysT>
 void init_view_polynomial(
     ViewT&                                                  view,
     std::array<double, GRACE_NSPACEDIM> const&              cc,
     int                                                      var_idx,
     long Nx, long Ny, long Nz, long nq,
-    grace::coordinate_system_impl_t&                        cs)
+    CoordSysT&                                              cs)
 {
     auto h = Kokkos::create_mirror_view(view);
     for (long q = 0; q < nq; ++q)
@@ -194,7 +194,7 @@ void nan_poison_ghosts(
 //
 // Returns the number of cells checked, and writes a one-line summary to
 // stdout.  Per-cell mismatches are reported via Catch2 INFO + CHECK.
-template <typename ViewT>
+template <typename ViewT, typename CoordSysT>
 size_t check_reflection_ghosts(
     ViewT const&                                            view,
     char const*                                              tag,
@@ -202,7 +202,7 @@ size_t check_reflection_ghosts(
     int                                                      var_idx,
     axis_parity_t const&                                    parity,
     double                                                   tol,
-    grace::coordinate_system_impl_t&                        cs,
+    CoordSysT&                                              cs,
     double xmin, double ymin, double zmin,
     double xmax, double ymax, double zmax,
     long Nx, long Ny, long Nz, long nq)
@@ -382,7 +382,7 @@ TEST_CASE("Reflection BC: octant ghost-zone fill (bit-exact across all "
     for (int iv = 0; iv < nv_centered; ++iv) {
         if (nonscalar.count(static_cast<size_t>(iv))) continue;
         n_total += check_reflection_ghosts(
-            state, detail::_varnames[iv].c_str(),
+            state, variables::detail::_varnames[iv].c_str(),
             {VEC(0.5, 0.5, 0.5)}, iv, scalar_parity(), tol, cs,
             xmin, ymin, zmin, xmax, ymax, zmax,
             Nx, Ny, Nz, nq);
@@ -392,7 +392,7 @@ TEST_CASE("Reflection BC: octant ghost-zone fill (bit-exact across all "
     for (auto iv_sz : vec_idx) {
         int const iv = static_cast<int>(iv_sz);
         n_total += check_reflection_ghosts(
-            state, detail::_varnames[iv].c_str(),
+            state, variables::detail::_varnames[iv].c_str(),
             {VEC(0.5, 0.5, 0.5)}, iv, parity_for_centered_var(iv), tol, cs,
             xmin, ymin, zmin, xmax, ymax, zmax,
             Nx, Ny, Nz, nq);
@@ -402,7 +402,7 @@ TEST_CASE("Reflection BC: octant ghost-zone fill (bit-exact across all "
     for (auto iv_sz : ten_idx) {
         int const iv = static_cast<int>(iv_sz);
         n_total += check_reflection_ghosts(
-            state, detail::_varnames[iv].c_str(),
+            state, variables::detail::_varnames[iv].c_str(),
             {VEC(0.5, 0.5, 0.5)}, iv, parity_for_centered_var(iv), tol, cs,
             xmin, ymin, zmin, xmax, ymax, zmax,
             Nx, Ny, Nz, nq);
