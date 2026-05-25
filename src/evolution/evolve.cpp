@@ -27,6 +27,8 @@
 
 #include <grace_config.h>
 
+#include <limits>
+
 #include <grace/evolution/evolve.hh>
 #include <grace/evolution/refluxing.hh>
 #include <grace/evolution/auxiliaries.hh>
@@ -490,6 +492,7 @@ void flag_fofc_cells(
     auto atmo     = get_atmo_params() ;
     auto excision = get_excision_params() ;
     auto c2p_pars = get_c2p_params() ;
+    auto fofc_pars = get_fofc_params() ;
     // Force c2p_is_lenient = true everywhere during the dry-run: a
     // Kokkos::abort would defeat FOFC's purpose, which is precisely to
     // catch tentative states the inversion can't handle.  alp_bh_thresh
@@ -554,6 +557,39 @@ void flag_fofc_cells(
         /************************************************************************************/
 
         /************************************************************************************/
+        // Discrete maximum principle (Jacobs+2025, Zanotti+2015).  
+        // Flag the cell when the tentative D or tau lies outside the 27-cell neighborhood
+        // [min/dmp_M, max*dmp_M] window of the base state. Catches "thin
+        // air" extrema (e.g. dissipative LLF leakage into atmospheric
+        // cells) that satisfy a lenient c2p but are clearly unphysical.
+        bool dmp_violated = false ;
+        if (fofc_pars.dmp_enable) {
+            double const inv_M = 1.0 / fofc_pars.dmp_M ;
+            constexpr int loc_idx[2] = { DENS_, TAU_ } ;
+            for (int n = 0; n < 2; ++n) {
+                int const ivar = loc_idx[n] ;
+                double vmax = -std::numeric_limits<double>::max() ;
+                double vmin =  std::numeric_limits<double>::max() ;
+                for (int kt = -1; kt <= 1; ++kt) {
+                    for (int jt = -1; jt <= 1; ++jt) {
+                        for (int it = -1; it <= 1; ++it) {
+                            double const v =
+                                new_state(VEC(i+it, j+jt, k+kt), ivar, q) ;
+                            vmax = Kokkos::fmax(vmax, v) ;
+                            vmin = Kokkos::fmin(vmin, v) ;
+                        }
+                    }
+                }
+                double const test = cons[ivar] ;
+                if (test > fofc_pars.dmp_M * vmax || test < vmin * inv_M) {
+                    dmp_violated = true ;
+                    break ;
+                }
+            }
+        }
+        /************************************************************************************/
+
+        /************************************************************************************/
         metric_array_t metric ;
         FILL_METRIC_ARRAY(metric, old_state, q, VEC(i,j,k)) ;
 
@@ -565,11 +601,11 @@ void flag_fofc_cells(
         bool const floored = conservs_to_prims<eos_t>(
             cons, prims, metric, eos,
             atmo, excision, c2p_pars, rtp,
-            c2p_errors ) ;
+            c2p_errors, true /* dry run */) ;
         /************************************************************************************/
 
         /************************************************************************************/
-        if (floored) {
+        if (floored || dmp_violated) {
             // 6 faces touching cell (i,j,k):
             Kokkos::atomic_or(&fofc_faces(VEC(i,  j,  k  ), 0, q), int8_t{1});  // -x face
             Kokkos::atomic_or(&fofc_faces(VEC(i+1,j,  k  ), 0, q), int8_t{1});  // +x face

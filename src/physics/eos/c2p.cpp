@@ -115,7 +115,7 @@ limit_primitives(
 }
 
 template< typename eos_t >
-static void KOKKOS_INLINE_FUNCTION 
+static bool KOKKOS_INLINE_FUNCTION 
 limit_conservatives(
     grace::grmhd_cons_array_t&  cons,
     metric_array_t const& metric,
@@ -123,7 +123,8 @@ limit_conservatives(
     c2p_err_t& err
 ) 
 { 
-    
+    bool any_applied{false} ; 
+
     double rhoL = cons[DENSL] ; 
     double yeL  = cons[YESL]  / (cons[DENSL]) ;  
 
@@ -138,6 +139,7 @@ limit_conservatives(
     {
         cons[TAUL] = epsmin * cons[DENSL] + 0.5 * B2L ; 
         err.set(c2p_err_enum_t::C2P_RESET_TAU) ; 
+        any_applied = true ; 
     }
     // This is the dominant energy condition, see 
     // e.g. Galeazzi+2014 (C13) (https://arxiv.org/pdf/1306.4953)
@@ -149,8 +151,9 @@ limit_conservatives(
         cons[STYL] *= fact ;
         cons[STZL] *= fact ;
         err.set(c2p_err_enum_t::C2P_RESET_STILDE) ;  
+        any_applied = true ; 
     }
-
+    return any_applied ; 
 }
 
 template< typename eos_t >
@@ -192,7 +195,8 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
                   , excision_params_t const& excision
                   , c2p_params_t const& c2p_pars
                   , double * rtp
-                  , c2p_err_t& c2p_err)
+                  , c2p_err_t& c2p_err
+                  , bool dry_run )
 {
 
     using c2p_mhd_t    = kastaun_c2p_t<eos_t>     ;
@@ -251,8 +255,10 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
     ) ; 
 
     // enforce limits on conserved variables
-    limit_conservatives(cons,metric,eos,c2p_err) ; 
-    
+    floored |= limit_conservatives(cons,metric,eos,c2p_err) ; 
+    // if limits fired we are done here for fofc 
+    if ( floored && dry_run ) return floored ; 
+
     /* If D ≥ atmosphere we solve; cells strictly below the buffered floor
        fall through to c2p_failed and are atmosphered via the post-c2p path.
        Strict `<` here matches the post-c2p trigger at line ~330 so a cell
@@ -284,7 +290,7 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
                     || (beta <= c2p_pars.beta_fallback) ;
 
         // backup if needed and allowed
-        if ( c2p_distrust and c2p_pars.use_ent_backup ) {
+        if ( c2p_distrust and c2p_pars.use_ent_backup and (!dry_run) ) {
             // save the energy-inversion primitives in case the backup
             // diverges and we need to roll back
             grace::grmhd_prims_array_t prims_save = prims ;

@@ -1,12 +1,12 @@
 # Cowling TOV
 # A0 model from Font+ 2001 (gr-qc/0110047)
 # Resolution is:
-# 256 / 48 / 2 / 2^4 = 0.1666667 Msun
+# 256 / 48 / 2 / 2^4 = 0.125 Msun
 name: "A0"
 amr: {
-  npoints_block_x: 48,
-  npoints_block_y: 48,
-  npoints_block_z: 48,
+  npoints_block_x: 64,
+  npoints_block_y: 64,
+  npoints_block_z: 64,
   xmin: -128.0,
   xmax: 128.0,
   ymin: -128.0,
@@ -94,7 +94,7 @@ system: {
 }
 evolution: {
   time_stepper: "rk3",
-  cfl_factor: 0.2,
+  cfl_factor: 0.25,
   final_walltime: 23,
   termination_condition: "walltime"
 }
@@ -104,7 +104,7 @@ grmhd: {
 
   tov: {
     rho_c: 1.28e-3,
-    press_floor: 1e-15,
+    press_floor: 1.6384e-22,
     dr: 1e-3
   },
 
@@ -113,8 +113,8 @@ grmhd: {
     # according to the 
     # adiabat of the initial
     # data evaluated at rho_fl 
-    temp_fl:  1e-10,
-    rho_fl: 1.e-12
+    temp_fl:  1.28e-10,
+    rho_fl: 1.28e-12
   },
 
   c2p: {

@@ -120,12 +120,37 @@ grmhd:
       description: >
         Directly use entropy backup if beta<fallback_threshold
     bh_alp_thresh:
-      type: double 
+      type: double
       range: "(0,*)"
       default: 0.2
       description: >
         If alp <= thresh we are inside a BH and c2p errors become lenient
-  
+
+  fofc:
+    type: schema
+    description: >
+      First-Order Flux Correction parameters
+    dmp_enable:
+      type: bool
+      default: true
+      description: >
+        Enforce a discrete maximum principle (Felker & Stone 2018) on the
+        tentative post-substep cons during flag_fofc_cells: cells where the
+        tentative D or tau would create a new extremum relative to their
+        27-cell neighborhood (with slack dmp_M) are flagged for FOFC even if
+        the dry-run c2p would not have floored them. This catches "thin air"
+        ignition where dissipative-flux accumulation in low-density regions
+        pumps a cell's conservatives out of physical range before c2p notices.
+    dmp_M:
+      type: double
+      range: "(1,*)"
+      default: 1.2
+      description: >
+        Slack multiplier in the DMP test: the tentative conservative may
+        exceed the neighborhood max by up to a factor dmp_M (and fall below
+        the neighborhood min by 1/dmp_M) before FOFC is triggered. AthenaK's
+        default is 1.2.
+
   B_field_initialization:
     type: keyword
     allowed: ["none", "from_Avec", "direct"]

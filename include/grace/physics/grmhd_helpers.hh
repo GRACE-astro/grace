@@ -58,8 +58,18 @@ struct c2p_params_t {
   double alp_bh_thresh ; //!< alp theshold for BH horizon
 } ; 
 /**
+ * @brief FOFC parameters
+ *
+ * Discrete-maximum-principle (DMP) settings for flag_fofc_cells. Mirrors
+ * AthenaK's dyn_grmhd <mhd>/enforce_maximum + dmp_M (Felker & Stone 2018).
+ */
+struct fofc_params_t {
+  bool   dmp_enable ;  //!< Apply DMP check on tentative D / tau
+  double dmp_M      ;  //!< Slack multiplier for the DMP threshold
+} ;
+/**
  * @brief Excision parameters
- * 
+ *
  */
 struct excision_params_t {
     double rho_ex ;         //!< Excision rho
@@ -193,6 +203,17 @@ c2p_params_t get_c2p_params()
   c2p_params.use_ent_backup = grace::get_param<bool>("grmhd","c2p","use_c2p_entropy_backup") ;
   c2p_params.alp_bh_thresh = grace::get_param<double>("grmhd","c2p","bh_alp_thresh") ;
   return c2p_params ; 
+}
+
+/** @brief Get FOFC DMP parameters from the parameter store.
+ */
+GRACE_ALWAYS_INLINE
+fofc_params_t get_fofc_params()
+{
+  fofc_params_t fofc_params ;
+  fofc_params.dmp_enable = grace::get_param<bool>  ("grmhd","fofc","dmp_enable") ;
+  fofc_params.dmp_M      = grace::get_param<double>("grmhd","fofc","dmp_M") ;
+  return fofc_params ;
 }
 
 /** @brief Get excision settings
