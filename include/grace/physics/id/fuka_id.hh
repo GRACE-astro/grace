@@ -80,16 +80,15 @@ struct fuka_id_t {
                 tabulated_in_use = (get_param<std::string>("eos","hybrid_eos","cold_eos_type") == "tabulated") ;
             }
             if (tabulated_in_use) {
-                bool const force_mu = get_param<bool>("eos","tabulated_eos","force_mu") ;
-                if (!force_mu) {
+                auto const baryon_mass_kw = get_param<std::string>("eos","tabulated_eos","baryon_mass") ;
+                if (baryon_mass_kw != "m_u") {
                     GRACE_WARN("FUKA initial data with a tabulated EOS is "
                           "constructed assuming that the baryon mass is m_u = 931.494 MeV/c^2. "
-                          "The eos module in GRACE uses the CompOSE convention by default "
-                          "where the baryon mass is the neutron mass, which is what you are "
-                          "doing now. You should be aware that the baryon mass of the stars "
-                         "in this simulation will not match what fuka reports. And you should make "
-                         "sure that the cold tables used in GRACE and FUKA use the same convention, "
-                         "otherwise the ID will be **inconsistent!**. See the Python docs.") ;
+                          "You have eos.tabulated_eos.baryon_mass = '{}' (e.g. m_n is the strict "
+                          "CompOSE convention). The baryon mass of the stars in this simulation will "
+                          "not match what FUKA reports. Make sure that the cold tables used in GRACE "
+                          "and FUKA use the same convention, otherwise the ID will be **inconsistent!** "
+                          "See the Python docs.", baryon_mass_kw) ;
                 }
             }
         }
