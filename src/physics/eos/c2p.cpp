@@ -320,8 +320,7 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
         // EPS_TOO_LOW clamp that doesn't trip the T<T_atm strict-less-than
         // test downstream would silently exit with floored=false, hiding
         // surface cells whose high-order flux pushed below the EOS floor.
-        if (   c2p_ret.test(c2p_sig_enum_t::C2P_EPS_TOO_LOW)
-            || c2p_ret.test(c2p_sig_enum_t::C2P_EPS_TOO_HIGH)
+        if (   c2p_ret.test(c2p_sig_enum_t::C2P_EPS_TOO_HIGH)
             || c2p_ret.test(c2p_sig_enum_t::C2P_RHO_TOO_LOW)
             || c2p_ret.test(c2p_sig_enum_t::C2P_RHO_TOO_HIGH)
             || c2p_ret.test(c2p_sig_enum_t::C2P_VEL_TOO_HIGH) ) {
@@ -372,7 +371,8 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
         c2p_err.set(c2p_err_enum_t::C2P_RESET_STILDE)  ;
         c2p_err.set(c2p_err_enum_t::C2P_RESET_ENTROPY) ;
         c2p_err.set(c2p_err_enum_t::C2P_T_FLOORED)     ;
-        floored = true ;
+        // don't trigger fofc on floored temperature 
+        /*floored = true ;*/ 
     } else {
         /* Limit lorentz fact and magnetization  */
         c2p_sig_t c2p_sig ;
@@ -448,7 +448,7 @@ conservs_to_prims<EOS>( grace::grmhd_cons_array_t&  \
                       , excision_params_t const& excision \
                       , c2p_params_t const& c2p_pars \
                       , double * rtp \
-                      , c2p_err_t& c2p_err \ 
+                      , c2p_err_t& c2p_err \
                       , bool dry_run ) 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::tabulated_cold_eos_t>) ;

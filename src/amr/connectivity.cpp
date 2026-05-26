@@ -31,6 +31,7 @@
 
 #include <grace/amr/connectivities_impl.hh>
 #include <grace/amr/connectivity.hh>
+#include <grace/system/print.hh>
 #include <grace/utils/affine_transformation.hh>
 
 
@@ -316,17 +317,45 @@ connectivity_impl_t::connectivity_impl_t() {
           zmin{ params["amr"]["zmin"].as<double>() } ,
           zmax{ params["amr"]["zmax"].as<double>() }   ;
   bool periodic_x{ params["amr"]["periodic_x"].as<bool>() } ,
-        periodic_y{ params["amr"]["periodic_y"].as<bool>() } , 
-        periodic_z{ params["amr"]["periodic_z"].as<bool>() } ; 
+        periodic_y{ params["amr"]["periodic_y"].as<bool>() } ,
+        periodic_z{ params["amr"]["periodic_z"].as<bool>() } ;
 
-  #ifndef GRACE_3D 
+  // Warn if any per-axis cells-per-block isn't a power of 2. Non-power-of-2
+  // values give a non-FP-exact `dx = tree_extent / (npoints_block * 2^L)`,
+  // which breaks bit-exact cubic symmetry of cell coordinates and
+  // continuously pumps the cubic m=4 perturbation mode at the FP roundoff
+  // level. The reorganized cell-center formula (see cell_locations.hh)
+  // mitigates this but cannot remove it entirely for non-power-of-2 N.
+  // For convergence studies on sharp-surface problems (TOV, BNS), prefer
+  // power-of-2 npoints_block at every axis.
+  auto is_pow2 = [](int64_t n) { return n > 0 && (n & (n - 1)) == 0; };
+  int64_t const nbx = params["amr"]["npoints_block_x"].as<int64_t>();
+  int64_t const nby = params["amr"]["npoints_block_y"].as<int64_t>();
+  #ifdef GRACE_3D
+  int64_t const nbz = params["amr"]["npoints_block_z"].as<int64_t>();
+  #else
+  int64_t const nbz = 1;
+  #endif
+  if (!is_pow2(nbx) || !is_pow2(nby) || (GRACE_NSPACEDIM == 3 && !is_pow2(nbz))) {
+      GRACE_WARN("amr.npoints_block_{{x,y,z}} = {{{}, {}, {}}}: at least one "
+                 "axis is not a power of 2. Cell coordinates will not be "
+                 "bit-exactly cubic-symmetric, and the cubic m=4 perturbation "
+                 "mode will be continuously pumped at FP-roundoff amplitude. "
+                 "For sharp-surface problems (TOV, BNS) this can drive slow "
+                 "central-density drifts and discrete c2p reorganization "
+                 "events on multi-thousand-Mt timescales. Use power-of-2 "
+                 "values per axis to obtain bit-exact cubic symmetry.",
+                 nbx, nby, nbz);
+  }
+
+  #ifndef GRACE_3D
     pconn_ = detail::new_cartesian_connectivity(xmin, xmax, periodic_x
-                                                ,ymin, ymax, periodic_y) ; 
-  #else 
+                                                ,ymin, ymax, periodic_y) ;
+  #else
     pconn_ = detail::new_cartesian_connectivity( xmin, xmax, periodic_x
                                                 ,ymin, ymax, periodic_y
-                                                ,zmin, zmax, periodic_z) ; 
-  #endif 
+                                                ,zmin, zmax, periodic_z) ;
+  #endif
   t2t_polarity_.resize(pconn_->num_trees * P4EST_FACES) ; 
   for( auto& x: t2t_polarity_ ) x = 0 ; 
   #elif defined(GRACE_SPHERICAL_COORDINATES)
