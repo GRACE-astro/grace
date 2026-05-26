@@ -1,0 +1,138 @@
+# A0 TOV — same as A0_z4c.yaml but with x and y reflection symmetries
+# disabled, to test whether the closed-cavity nature of the octant is
+# amplifying the cubic-symmetric (m=4) numerical mode of the discretized
+# star. z-reflection is kept for cost.
+#
+# Predictions if reflection-cavity amplification is the mechanism:
+#   - Same K_eff drift (interior truncation)
+#   - Smaller cold-floor violation magnitude (cubic mode can radiate out)
+#   - m=4 angular phase smears / rotates over time instead of being locked
+#   - "Discrete events" at t ~ 2500 are weaker or absent
+name: "A0_z4c_no_xy_reflection"
+amr: {
+  npoints_block_x: 64,
+  npoints_block_y: 64,
+  npoints_block_z: 64,
+  xmin: -128.0,
+  xmax:  128.0,
+  ymin: -128.0,
+  ymax:  128.0,
+  zmin:    0.0,
+  zmax:  128.0,
+
+  reflection_symmetries: {
+    x: false,
+    y: false,
+    z: true
+  },
+
+  n_ghostzones: 4,
+  initial_refinement_level: 1,
+
+  max_refinement_level: 7,
+
+  regrid_every: -1,
+
+  n_fmr_boxes: 3,
+  fmr_boxes: [
+    {
+      target_level_delta: 1,
+      x_min: -64,
+      x_max:  64,
+      y_min: -64,
+      y_max:  64,
+      z_min:   0,
+      z_max:  64
+    },
+    {
+      target_level_delta: 2,
+      x_min: -32,
+      x_max:  32,
+      y_min: -32,
+      y_max:  32,
+      z_min:   0,
+      z_max:  32
+    },
+    {
+      target_level_delta: 3,
+      x_min: -16,
+      x_max:  16,
+      y_min: -16,
+      y_max:  16,
+      z_min:   0,
+      z_max:  16
+    }
+  ]
+}
+
+IO: {
+  plane_surface_output_cell_variables: ["hydro", "metric", "c2p_err"],
+  plane_surface_output_every: 500,
+
+  sphere_surface_output_every: -1,
+
+  info_output_every: 2,
+  info_output_max_reductions: ["rho"],
+  info_output_min_reductions: ["alp"],
+  info_output_norm2_reductions: ["z4c_H"],
+
+  scalar_output_every: 10,
+  scalar_output_minmax: ["rho","press","eps","alp"],
+  scalar_output_norm2: ["z4c_H"],
+  scalar_output_integral: ["dens"],
+
+  output_use_hdf5: true,
+  hdf5_compression_level: 0,
+  hdf5_chunk_size: 8192,
+  output_extra_quantities: true
+}
+system: {
+  console_log_level: "info",
+  file_log_level: "info",
+  n_device_streams: 4
+}
+evolution: {
+  time_stepper: "rk3",
+  cfl_factor: 0.25,
+  final_walltime: 23,
+  termination_condition: "walltime"
+}
+
+grmhd: {
+  id_type: "tov",
+
+  tov: {
+    rho_c: 1.28e-3,
+    press_floor: 1.6384e-22,
+    dr: 1e-3
+  },
+
+  atmosphere: {
+    temp_fl:  1.28e-10,
+    rho_fl: 1.28e-12
+  },
+
+  c2p: {
+    tolerance: 1e-10,
+    max_lorentz: 50,
+    use_c2p_entropy_backup: false
+  },
+
+  B_field_initialization: "none"
+}
+
+z4c: {
+  eps_diss: 0.1,
+  eta: 1.4
+}
+
+eos: {
+  eos_type: "ideal_gas",
+
+  ideal_gas_eos: {
+    gamma: 2.0,
+    kappa_id: 100.0
+  },
+
+  eps_maximum: 1.e+05
+}

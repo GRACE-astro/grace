@@ -380,7 +380,7 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
             prims, metric, eos, c2p_pars.max_w, c2p_pars.max_sigma, c2p_sig
         ) ;
         c2p_handle_signals<eos_t>(c2p_sig, c2p_is_lenient, c2p_err) ;
-        // FOFC trigger: W or σ had to be clamped — count as flooring.
+        // FOFC trigger: W or sigma had to be clamped — count as flooring.
         if (   c2p_sig.test(c2p_sig_enum_t::C2P_VEL_TOO_HIGH)
             || c2p_sig.test(c2p_sig_enum_t::C2P_SIGMA_TOO_HIGH) ) {
             floored = true ;
