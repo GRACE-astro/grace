@@ -178,28 +178,17 @@ TEST_CASE("Checkpoint round-trip is bit-exact on evolved state",
         print_result("EdgeCenteredDataYZ", r_edge_yz,  sstate.edge_staggered_fields_yz.size());
     }
 
-    SECTION("CellCenteredData") {
-        REQUIRE(r_state.n_diff == 0);
-    }
-    SECTION("CornerCenteredData") {
-        REQUIRE(r_corner.n_diff == 0);
-    }
-    SECTION("FaceCenteredDataX") {
-        REQUIRE(r_face_x.n_diff == 0);
-    }
-    SECTION("FaceCenteredDataY") {
-        REQUIRE(r_face_y.n_diff == 0);
-    }
-    SECTION("FaceCenteredDataZ") {
-        REQUIRE(r_face_z.n_diff == 0);
-    }
-    SECTION("EdgeCenteredDataXY") {
-        REQUIRE(r_edge_xy.n_diff == 0);
-    }
-    SECTION("EdgeCenteredDataXZ") {
-        REQUIRE(r_edge_xz.n_diff == 0);
-    }
-    SECTION("EdgeCenteredDataYZ") {
-        REQUIRE(r_edge_yz.n_diff == 0);
-    }
+    // Catch2 SECTION blocks would re-run the entire test body once per
+    // section, which would attempt multiple save+load cycles and trip the
+    // max_n_checkpoints=1 cleanup logic. Use sequential CHECKs instead
+    // (Catch2 will still report each failure individually, the test fails
+    // as a whole if any one is non-zero).
+    CHECK(r_state.n_diff   == 0);
+    CHECK(r_corner.n_diff  == 0);
+    CHECK(r_face_x.n_diff  == 0);
+    CHECK(r_face_y.n_diff  == 0);
+    CHECK(r_face_z.n_diff  == 0);
+    CHECK(r_edge_xy.n_diff == 0);
+    CHECK(r_edge_xz.n_diff == 0);
+    CHECK(r_edge_yz.n_diff == 0);
 }
