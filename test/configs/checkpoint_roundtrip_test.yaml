@@ -63,7 +63,7 @@ checkpoints: {
   iteration_interval: 1000000,        # don't auto-write during evolution
   checkpoint_at_startup: false,
   checkpoint_at_termination: false,
-  max_n_checkpoints: 1
+  max_n_checkpoints: 3
 }
 
 evolution: {
