@@ -1,0 +1,108 @@
+# Small TOV setup for the checkpoint round-trip test.  The point is to fill
+# both the hydro evolved set (D, S_i, τ, B_face, etc.) and the full Z4c
+# evolved set (γ̃, Ã, χ, θ, Γ̃^i, K̂, α, β, B^i shift driver) with non-trivial,
+# spatially-varying values so a missing or lossy field will fail the bit-exact
+# diff. No actual evolution is run — the test writes a checkpoint immediately
+# after ID and reads it back.
+name: "checkpoint_roundtrip"
+amr: {
+  npoints_block_x: 8,
+  npoints_block_y: 8,
+  npoints_block_z: 8,
+  xmin: -16.0,
+  xmax:  16.0,
+  ymin: -16.0,
+  ymax:  16.0,
+  zmin: -16.0,
+  zmax:  16.0,
+
+  reflection_symmetries: {x: false, y: false, z: false},
+
+  n_ghostzones: 4,
+  initial_refinement_level: 1,
+
+  max_refinement_level: 3,
+  regrid_every: -1,
+  regrid_at_postinitial: false,
+
+  # One FMR box anchored at the lower corner of the domain so refinement
+  # actually applies (target_level_delta=1 is relative to the initial
+  # refinement; the box has to be inside the initial domain extent and
+  # placed asymmetrically so it produces real C-F interfaces).
+  n_fmr_boxes: 1,
+  fmr_boxes: [
+    {
+      target_level_delta: 1,
+      x_min: -16.0,
+      x_max:   0.0,
+      y_min: -16.0,
+      y_max:   0.0,
+      z_min: -16.0,
+      z_max:   0.0
+    }
+  ]
+}
+
+IO: {
+  info_output_every: -1,
+  volume_output_cell_variables: [],
+  output_extra_quantities: false
+}
+
+system: {
+  console_log_level: "info",
+  file_log_level: "info",
+  flush_logs_based_on_severity: false,
+  n_device_streams: 1
+}
+
+checkpoints: {
+  # Write to a known path under the build/test directory so cleanup is easy.
+  checkpoint_dir: "./checkpoint_roundtrip_test_data",
+  interval_kind: "iteration",
+  iteration_interval: 1000000,        # don't auto-write during evolution
+  checkpoint_at_startup: false,
+  checkpoint_at_termination: false,
+  max_n_checkpoints: 1
+}
+
+evolution: {
+  time_stepper: "rk3",
+  cfl_factor: 0.25,
+  final_walltime: 1,
+  termination_condition: "walltime"
+}
+
+grmhd: {
+  id_type: "tov",
+  tov: {
+    rho_c: 1.28e-3,
+    press_floor: 1.6384e-22,
+    dr: 1e-3
+  },
+  atmosphere: {
+    temp_fl:  1.28e-10,
+    rho_fl:   1.28e-12,
+    atmo_tol: 0.1
+  },
+  c2p: {
+    tolerance: 1e-10,
+    max_lorentz: 50,
+    use_c2p_entropy_backup: false
+  },
+  B_field_initialization: "none"
+}
+
+z4c: {
+  eps_diss: 0.1,
+  eta: 1.4
+}
+
+eos: {
+  eos_type: "ideal_gas",
+  ideal_gas_eos: {
+    gamma: 2.0,
+    kappa_id: 100.0
+  },
+  eps_maximum: 1.0e+05
+}

@@ -315,16 +315,26 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
             //       diverged — leave c2p_failed=true and atmosphere will
             //       handle it below.
         }
-        // FOFC trigger: any primitive clamp during the converged inversion
-        // (or its backup) counts as a flooring event. Without this, e.g. an
-        // EPS_TOO_LOW clamp that doesn't trip the T<T_atm strict-less-than
-        // test downstream would silently exit with floored=false, hiding
-        // surface cells whose high-order flux pushed below the EOS floor.
+        // FOFC trigger: any primitive clamp that signals real high-order
+        // failure (runaway-hot, rho out of range, superluminal) flags the
+        // cell for first-order fallback. Bottom-of-table clamps
+        // (EPS_TOO_LOW, T_FLOORED) are deliberately excluded for hybrid /
+        // tabulated EOSes: those produce self-consistent floored EOS states
+        // and FOFC there destroys magnetic-field structure in rarefaction
+        // regions of the star. For ideal-gas EOS there is no algebraic
+        // cold-curve protection, so EPS_TOO_LOW is treated as a real
+        // signal and DOES trigger FOFC (preserves the production Gamma=2
+        // BNS / TOV behavior locked in for the paper).
         if (   c2p_ret.test(c2p_sig_enum_t::C2P_EPS_TOO_HIGH)
             || c2p_ret.test(c2p_sig_enum_t::C2P_RHO_TOO_LOW)
             || c2p_ret.test(c2p_sig_enum_t::C2P_RHO_TOO_HIGH)
             || c2p_ret.test(c2p_sig_enum_t::C2P_VEL_TOO_HIGH) ) {
             floored = true ;
+        }
+        if constexpr (is_ideal_gas_v<eos_t>) {
+            if (c2p_ret.test(c2p_sig_enum_t::C2P_EPS_TOO_LOW)) {
+                floored = true ;
+            }
         }
         // handle the return signals from within the
         // c2p operators
@@ -371,8 +381,15 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
         c2p_err.set(c2p_err_enum_t::C2P_RESET_STILDE)  ;
         c2p_err.set(c2p_err_enum_t::C2P_RESET_ENTROPY) ;
         c2p_err.set(c2p_err_enum_t::C2P_T_FLOORED)     ;
-        // don't trigger fofc on floored temperature 
-        /*floored = true ;*/ 
+        // EOS-aware FOFC gating: for ideal-gas there's no algebraic
+        // cold-curve protection, so a T-floor IS a real failure signal
+        // and triggers FOFC (preserves production Gamma=2 paper behavior).
+        // For hybrid / tabulated, T-floor is the benign bottom-of-table
+        // clamp; skip FOFC so the high-order EMF/CT path keeps the
+        // magnetic-field structure in rarefaction regions intact.
+        if constexpr (is_ideal_gas_v<eos_t>) {
+            floored = true ;
+        }
     } else {
         /* Limit lorentz fact and magnetization  */
         c2p_sig_t c2p_sig ;

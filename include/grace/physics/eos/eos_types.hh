@@ -52,6 +52,26 @@ template<> struct has_ye<tabulated_eos_t>                          { constexpr s
 template< typename eos_t >
 inline constexpr bool has_ye_v = has_ye<eos_t>::value ;
 
+// Compile-time predicate: true iff the EOS has no built-in cold-curve
+// concept (i.e. the only sensible epsilon floor is eps >= 0, not
+// eps >= eps_cold(rho)). Used by c2p.cpp to gate the FOFC trigger on
+// bottom-of-EOS-table clamps:
+//   - ideal-gas:  eps clamps and T-floor ARE robustness signals
+//                 (no algebraic floor protects us, anything below the
+//                  configured min is a real failure) -> trigger FOFC
+//   - hybrid / tabulated: clamps to the cold curve / table bottom are
+//                 benign self-consistent EOS clamps; FOFC there destroys
+//                 magnetic-field structure in rarefaction regions -> skip
+template < typename eos_t >
+struct is_ideal_gas {
+    constexpr static bool value = false ;
+} ;
+
+template<> struct is_ideal_gas<ideal_gas_eos_t> { constexpr static bool value = true ; } ;
+
+template< typename eos_t >
+inline constexpr bool is_ideal_gas_v = is_ideal_gas<eos_t>::value ;
+
 } // namespace grace
 
 #endif
