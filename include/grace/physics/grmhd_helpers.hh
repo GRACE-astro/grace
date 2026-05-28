@@ -68,6 +68,20 @@ struct fofc_params_t {
   double dmp_M      ;  //!< Slack multiplier for the DMP threshold
 } ;
 /**
+ * @brief Riemann-solver parameters
+ *
+ * Only the Rusanov / LLF flux gets a wavespeed floor: in atmosphere / near-
+ * vacuum the local fast-magnetosonic speed collapses to ~c_s ~ 1e-3 and the
+ * Rusanov dissipation budget along with it, letting sub-grid noise grow into
+ * blastwaves at high resolution. Flooring cmin = cmax >= rusanov_wavespeed_floor
+ * restores LLF-like artificial viscosity exactly where the physical wavespeed
+ * is too small to provide it, without touching HLLE (where cmin, cmax carry
+ * upwind direction info).
+ */
+struct riemann_params_t {
+  double rusanov_wavespeed_floor ;  //!< Floor on cmin=cmax in the Rusanov flux
+} ;
+/**
  * @brief Excision parameters
  *
  */
@@ -214,6 +228,17 @@ fofc_params_t get_fofc_params()
   fofc_params.dmp_enable = grace::get_param<bool>  ("grmhd","fofc","dmp_enable") ;
   fofc_params.dmp_M      = grace::get_param<double>("grmhd","fofc","dmp_M") ;
   return fofc_params ;
+}
+
+/** @brief Get Riemann-solver parameters from the parameter store.
+ */
+GRACE_ALWAYS_INLINE
+riemann_params_t get_riemann_params()
+{
+  riemann_params_t riemann_params ;
+  riemann_params.rusanov_wavespeed_floor =
+    grace::get_param<double>("grmhd","riemann","rusanov_wavespeed_floor") ;
+  return riemann_params ;
 }
 
 /** @brief Get excision settings

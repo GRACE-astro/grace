@@ -126,6 +126,25 @@ grmhd:
       description: >
         If alp <= thresh we are inside a BH and c2p errors become lenient
 
+  riemann:
+    type: schema
+    description: >
+      Riemann-solver parameters
+    rusanov_wavespeed_floor:
+      type: double
+      range: "[0,*)"
+      default: 0.0
+      description: >
+        Floor on cmin = cmax in the Rusanov / LLF flux.  In atmosphere /
+        near-vacuum the physical fast-magnetosonic speed collapses to
+        ~c_s ~ 1e-3 and the Rusanov dissipation budget along with it,
+        letting sub-grid noise grow into blastwaves at high resolution.
+        Flooring cmax at a small physical scale (e.g. 1e-2) restores
+        LLF-like artificial viscosity in the atmosphere without affecting
+        the bulk (where cmax >> floor).  Default 0 preserves bit-for-bit
+        legacy behavior.  Only applies to the Rusanov path; HLLE is
+        unchanged (its cmin, cmax carry upwind direction info).
+
   fofc:
     type: schema
     description: >
