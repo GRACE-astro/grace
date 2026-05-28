@@ -139,11 +139,26 @@ grmhd:
         near-vacuum the physical fast-magnetosonic speed collapses to
         ~c_s ~ 1e-3 and the Rusanov dissipation budget along with it,
         letting sub-grid noise grow into blastwaves at high resolution.
-        Flooring cmax at a small physical scale (e.g. 1e-2) restores
-        LLF-like artificial viscosity in the atmosphere without affecting
-        the bulk (where cmax >> floor).  Default 0 preserves bit-for-bit
-        legacy behavior.  Only applies to the Rusanov path; HLLE is
-        unchanged (its cmin, cmax carry upwind direction info).
+        Flooring cmax at a small physical scale (e.g. 1.0) restores
+        LLF-like artificial viscosity, but only where the density-gate
+        below allows.  Default 0 preserves bit-for-bit legacy behavior.
+        Only applies to the Rusanov path (FOFC LLF fallback in HLLD bulk
+        runs); HLLE is unchanged (its cmin, cmax carry upwind direction
+        info).
+    rusanov_floor_rho_threshold:
+      type: double
+      range: "[0,*)"
+      default: 0.0
+      description: >
+        Density gate for rusanov_wavespeed_floor.  The floor is only
+        applied when min(rho_L, rho_R) at the face is BELOW this value,
+        so dissipation is injected only at atmosphere / near-vacuum
+        faces and the B-field / disk-fluff structure at higher density
+        is left untouched (those faces use the natural Rusanov-max|lambda|).
+        A sensible production setting is ~10 * atmosphere.rho_fl so that
+        only true atmosphere faces are floored.  Default 0 disables the
+        gate (no floor applied anywhere); set very large to recover the
+        ungated behaviour where the floor applies unconditionally.
 
   fofc:
     type: schema

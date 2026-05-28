@@ -871,7 +871,17 @@ struct grmhd_equations_system_t
                     Kokkos::max(Kokkos::fabs(cml), Kokkos::fabs(cmr)),
                     Kokkos::max(Kokkos::fabs(cpl), Kokkos::fabs(cpr))
                 ) ;
-                cmax = Kokkos::max(cmax, this->riemann_params.rusanov_wavespeed_floor) ;
+                /* Density-gated floor: only inject extra dissipation when the
+                 * face is in atmosphere territory (min(rho_L, rho_R) below the
+                 * threshold). This restores LLF-like atmosphere safety without
+                 * smearing B-field structure at the NS surface / disk fluff,
+                 * which has physical wavespeeds and shouldn't be over-diffused.
+                 * Setting rusanov_floor_rho_threshold = 0 disables the gate
+                 * (no floor anywhere); setting it large applies the floor
+                 * unconditionally (legacy ungated behaviour). */
+                if (Kokkos::min(rhol, rhor) < this->riemann_params.rusanov_floor_rho_threshold) {
+                    cmax = Kokkos::max(cmax, this->riemann_params.rusanov_wavespeed_floor) ;
+                }
                 cmin = cmax ;
             } else {
                 /* HLLE: cmin, cmax carry upwind direction info (both >=0,    *

@@ -79,7 +79,8 @@ struct fofc_params_t {
  * upwind direction info).
  */
 struct riemann_params_t {
-  double rusanov_wavespeed_floor ;  //!< Floor on cmin=cmax in the Rusanov flux
+  double rusanov_wavespeed_floor ;        //!< Floor value on cmin=cmax in the Rusanov flux
+  double rusanov_floor_rho_threshold ;    //!< Only apply the floor when min(rhoL,rhoR) < this
 } ;
 /**
  * @brief Excision parameters
@@ -238,6 +239,8 @@ riemann_params_t get_riemann_params()
   riemann_params_t riemann_params ;
   riemann_params.rusanov_wavespeed_floor =
     grace::get_param<double>("grmhd","riemann","rusanov_wavespeed_floor") ;
+  riemann_params.rusanov_floor_rho_threshold =
+    grace::get_param<double>("grmhd","riemann","rusanov_floor_rho_threshold") ;
   return riemann_params ;
 }
 
