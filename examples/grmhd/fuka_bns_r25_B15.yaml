@@ -176,7 +176,7 @@ eos: {
     table_filename: "/u/cmusolino/eos/compose/sfho/sfho.h5",
     table_format: "compose",
     cold_table_filename: "/u/cmusolino/eos/compose/sfho/sfho_cold_mu.grace",
-    force_mu: true
+    baryon_mass: "m_u"
   },
   eps_maximum: 1.e+05
 }

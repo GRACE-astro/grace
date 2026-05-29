@@ -92,6 +92,7 @@ add_grace_test(emf_reflux_test test_reflux.cpp)
 add_grace_test(flux_reflux_test test_flux_reflux.cpp)
 add_grace_test(ct_flux_conservation_test test_ct_flux_conservation.cpp)
 add_grace_test(fofc_conservation_test test_fofc_conservation.cpp)
+add_grace_test(checkpoint_roundtrip_test test_checkpoint_roundtrip.cpp)
 add_grace_test(test_sph_int test_spherical_surface.cpp)
 add_grace_test(interp_on_sphere_test test_interpolation_on_sphere.cpp)
 add_grace_test(grid_interpolator_test test_grid_interpolator.cpp)
@@ -269,6 +270,18 @@ add_test(NAME fofc_conservation_test_fmr COMMAND
 set_tests_properties(flux_reflux_test_fmr ct_flux_conservation_test_fmr
                      fofc_conservation_test_fmr
                      PROPERTIES LABELS "mpi;conservation;amr")
+
+# Checkpoint round-trip — small TOV initial data, write checkpoint, scribble
+# state with a sentinel, load checkpoint, assert every evolved field is
+# bit-exact against a pre-write snapshot. Catches lossy HDF5 round-trips and
+# missing/forgotten state in the checkpoint write set. Run at np=1 and np=2
+# to also exercise the collective MPI-IO write/read path.
+add_test(NAME checkpoint_roundtrip_test_np1 COMMAND
+        mpirun -n 1 ./checkpoint_roundtrip_test --grace-parfile ./configs/checkpoint_roundtrip_test.yaml )
+add_test(NAME checkpoint_roundtrip_test_np2 COMMAND
+        mpirun -n 2 ./checkpoint_roundtrip_test --grace-parfile ./configs/checkpoint_roundtrip_test.yaml )
+set_tests_properties(checkpoint_roundtrip_test_np1 checkpoint_roundtrip_test_np2
+                     PROPERTIES LABELS "mpi;checkpoint;io")
 
 # ----- Physics units -------------------------------------------------------
 # TODO: norm2 reduction's definition has changed (now appears to be RMS

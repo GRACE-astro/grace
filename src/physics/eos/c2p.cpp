@@ -115,7 +115,7 @@ limit_primitives(
 }
 
 template< typename eos_t >
-static void KOKKOS_INLINE_FUNCTION 
+static bool KOKKOS_INLINE_FUNCTION 
 limit_conservatives(
     grace::grmhd_cons_array_t&  cons,
     metric_array_t const& metric,
@@ -123,7 +123,8 @@ limit_conservatives(
     c2p_err_t& err
 ) 
 { 
-    
+    bool any_applied{false} ; 
+
     double rhoL = cons[DENSL] ; 
     double yeL  = cons[YESL]  / (cons[DENSL]) ;  
 
@@ -138,6 +139,7 @@ limit_conservatives(
     {
         cons[TAUL] = epsmin * cons[DENSL] + 0.5 * B2L ; 
         err.set(c2p_err_enum_t::C2P_RESET_TAU) ; 
+        any_applied = true ; 
     }
     // This is the dominant energy condition, see 
     // e.g. Galeazzi+2014 (C13) (https://arxiv.org/pdf/1306.4953)
@@ -149,8 +151,9 @@ limit_conservatives(
         cons[STYL] *= fact ;
         cons[STZL] *= fact ;
         err.set(c2p_err_enum_t::C2P_RESET_STILDE) ;  
+        any_applied = true ; 
     }
-
+    return any_applied ; 
 }
 
 template< typename eos_t >
@@ -192,7 +195,8 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
                   , excision_params_t const& excision
                   , c2p_params_t const& c2p_pars
                   , double * rtp
-                  , c2p_err_t& c2p_err)
+                  , c2p_err_t& c2p_err
+                  , bool dry_run )
 {
 
     using c2p_mhd_t    = kastaun_c2p_t<eos_t>     ;
@@ -251,8 +255,10 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
     ) ; 
 
     // enforce limits on conserved variables
-    limit_conservatives(cons,metric,eos,c2p_err) ; 
-    
+    floored |= limit_conservatives(cons,metric,eos,c2p_err) ; 
+    // if limits fired we are done here for fofc 
+    if ( floored && dry_run ) return floored ; 
+
     /* If D ≥ atmosphere we solve; cells strictly below the buffered floor
        fall through to c2p_failed and are atmosphered via the post-c2p path.
        Strict `<` here matches the post-c2p trigger at line ~330 so a cell
@@ -284,7 +290,7 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
                     || (beta <= c2p_pars.beta_fallback) ;
 
         // backup if needed and allowed
-        if ( c2p_distrust and c2p_pars.use_ent_backup ) {
+        if ( c2p_distrust and c2p_pars.use_ent_backup and (!dry_run) ) {
             // save the energy-inversion primitives in case the backup
             // diverges and we need to roll back
             grace::grmhd_prims_array_t prims_save = prims ;
@@ -309,17 +315,26 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
             //       diverged — leave c2p_failed=true and atmosphere will
             //       handle it below.
         }
-        // FOFC trigger: any primitive clamp during the converged inversion
-        // (or its backup) counts as a flooring event. Without this, e.g. an
-        // EPS_TOO_LOW clamp that doesn't trip the T<T_atm strict-less-than
-        // test downstream would silently exit with floored=false, hiding
-        // surface cells whose high-order flux pushed below the EOS floor.
-        if (   c2p_ret.test(c2p_sig_enum_t::C2P_EPS_TOO_LOW)
-            || c2p_ret.test(c2p_sig_enum_t::C2P_EPS_TOO_HIGH)
+        // FOFC trigger: any primitive clamp that signals real high-order
+        // failure (runaway-hot, rho out of range, superluminal) flags the
+        // cell for first-order fallback. Bottom-of-table clamps
+        // (EPS_TOO_LOW, T_FLOORED) are deliberately excluded for hybrid /
+        // tabulated EOSes: those produce self-consistent floored EOS states
+        // and FOFC there destroys magnetic-field structure in rarefaction
+        // regions of the star. For ideal-gas EOS there is no algebraic
+        // cold-curve protection, so EPS_TOO_LOW is treated as a real
+        // signal and DOES trigger FOFC (preserves the production Gamma=2
+        // BNS / TOV behavior locked in for the paper).
+        if (   c2p_ret.test(c2p_sig_enum_t::C2P_EPS_TOO_HIGH)
             || c2p_ret.test(c2p_sig_enum_t::C2P_RHO_TOO_LOW)
             || c2p_ret.test(c2p_sig_enum_t::C2P_RHO_TOO_HIGH)
             || c2p_ret.test(c2p_sig_enum_t::C2P_VEL_TOO_HIGH) ) {
             floored = true ;
+        }
+        if constexpr (is_ideal_gas_v<eos_t>) {
+            if (c2p_ret.test(c2p_sig_enum_t::C2P_EPS_TOO_LOW)) {
+                floored = true ;
+            }
         }
         // handle the return signals from within the
         // c2p operators
@@ -366,7 +381,15 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
         c2p_err.set(c2p_err_enum_t::C2P_RESET_STILDE)  ;
         c2p_err.set(c2p_err_enum_t::C2P_RESET_ENTROPY) ;
         c2p_err.set(c2p_err_enum_t::C2P_T_FLOORED)     ;
-        floored = true ;
+        // EOS-aware FOFC gating: for ideal-gas there's no algebraic
+        // cold-curve protection, so a T-floor IS a real failure signal
+        // and triggers FOFC (preserves production Gamma=2 paper behavior).
+        // For hybrid / tabulated, T-floor is the benign bottom-of-table
+        // clamp; skip FOFC so the high-order EMF/CT path keeps the
+        // magnetic-field structure in rarefaction regions intact.
+        if constexpr (is_ideal_gas_v<eos_t>) {
+            floored = true ;
+        }
     } else {
         /* Limit lorentz fact and magnetization  */
         c2p_sig_t c2p_sig ;
@@ -374,7 +397,7 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
             prims, metric, eos, c2p_pars.max_w, c2p_pars.max_sigma, c2p_sig
         ) ;
         c2p_handle_signals<eos_t>(c2p_sig, c2p_is_lenient, c2p_err) ;
-        // FOFC trigger: W or σ had to be clamped — count as flooring.
+        // FOFC trigger: W or sigma had to be clamped — count as flooring.
         if (   c2p_sig.test(c2p_sig_enum_t::C2P_VEL_TOO_HIGH)
             || c2p_sig.test(c2p_sig_enum_t::C2P_SIGMA_TOO_HIGH) ) {
             floored = true ;
@@ -442,7 +465,8 @@ conservs_to_prims<EOS>( grace::grmhd_cons_array_t&  \
                       , excision_params_t const& excision \
                       , c2p_params_t const& c2p_pars \
                       , double * rtp \
-                      , c2p_err_t& c2p_err ) 
+                      , c2p_err_t& c2p_err \
+                      , bool dry_run ) 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::tabulated_cold_eos_t>) ;
 INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;

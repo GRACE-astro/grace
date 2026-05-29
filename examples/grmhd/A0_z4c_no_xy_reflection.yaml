@@ -1,24 +1,30 @@
-# Dynamical spacetime TOV
-# A0 model from Font+ 2001 (gr-qc/0110047)
-# Resolution is:
-# 128 / 64 / 2 / 2^3 = 0.125 Msun
-name: "A0_z4c"
+# A0 TOV — same as A0_z4c.yaml but with x and y reflection symmetries
+# disabled, to test whether the closed-cavity nature of the octant is
+# amplifying the cubic-symmetric (m=4) numerical mode of the discretized
+# star. z-reflection is kept for cost.
+#
+# Predictions if reflection-cavity amplification is the mechanism:
+#   - Same K_eff drift (interior truncation)
+#   - Smaller cold-floor violation magnitude (cubic mode can radiate out)
+#   - m=4 angular phase smears / rotates over time instead of being locked
+#   - "Discrete events" at t ~ 2500 are weaker or absent
+name: "A0_z4c_no_xy_reflection"
 amr: {
   npoints_block_x: 64,
   npoints_block_y: 64,
   npoints_block_z: 64,
-  xmin: 0.0,
-  xmax: 128.0,
-  ymin: 0.0,
-  ymax: 128.0,
-  zmin: 0.0,
-  zmax: 128.0,
+  xmin: -128.0,
+  xmax:  128.0,
+  ymin: -128.0,
+  ymax:  128.0,
+  zmin:    0.0,
+  zmax:  128.0,
 
   reflection_symmetries: {
-    x: true,
-    y: true,
+    x: false,
+    y: false,
     z: true
-  }, 
+  },
 
   n_ghostzones: 4,
   initial_refinement_level: 1,
@@ -26,35 +32,35 @@ amr: {
   max_refinement_level: 7,
 
   regrid_every: -1,
-  
+
   n_fmr_boxes: 3,
   fmr_boxes: [
     {
       target_level_delta: 1,
-      x_min: 0,
-      x_max: 64,
-      y_min: 0,
-      y_max: 64,
-      z_min: 0,
-      z_max: 64
+      x_min: -64,
+      x_max:  64,
+      y_min: -64,
+      y_max:  64,
+      z_min:   0,
+      z_max:  64
     },
     {
       target_level_delta: 2,
-      x_min: 0,
-      x_max: 32,
-      y_min: 0,
-      y_max: 32,
-      z_min: 0,
-      z_max: 32
+      x_min: -32,
+      x_max:  32,
+      y_min: -32,
+      y_max:  32,
+      z_min:   0,
+      z_max:  32
     },
     {
       target_level_delta: 3,
-      x_min: 0,
-      x_max: 16,
-      y_min: 0,
-      y_max: 16,
-      z_min: 0,
-      z_max: 16
+      x_min: -16,
+      x_max:  16,
+      y_min: -16,
+      y_max:  16,
+      z_min:   0,
+      z_max:  16
     }
   ]
 }
@@ -79,7 +85,6 @@ IO: {
   hdf5_compression_level: 0,
   hdf5_chunk_size: 8192,
   output_extra_quantities: true
-
 }
 system: {
   console_log_level: "info",
@@ -103,10 +108,6 @@ grmhd: {
   },
 
   atmosphere: {
-    # This is chosen 
-    # according to the 
-    # adiabat of the initial
-    # data evaluated at rho_fl 
     temp_fl:  1.28e-10,
     rho_fl: 1.28e-12
   },
@@ -130,8 +131,8 @@ eos: {
 
   ideal_gas_eos: {
     gamma: 2.0,
-    kappa_id: 100
+    kappa_id: 100.0
   },
 
-  eps_maximum: 1.e+05,
+  eps_maximum: 1.e+05
 }

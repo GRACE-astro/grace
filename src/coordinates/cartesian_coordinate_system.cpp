@@ -25,14 +25,15 @@
  * 
  */
 
-#include <grace/amr/grace_amr.hh> 
+#include <grace/amr/grace_amr.hh>
 #include <grace/coordinates/coordinate_systems.hh>
+#include <grace/coordinates/cell_locations.hh>
 #include <grace/errors/assert.hh>
 #include <grace/coordinates/cartesian_coordinate_systems.hh>
 #include <grace/utils/grace_utils.hh>
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/config/config_parser.hh>
-#include <grace/errors/error.hh> 
+#include <grace/errors/error.hh>
 
 #include <array> 
 #include <cstring>
@@ -162,18 +163,28 @@ cartesian_coordinate_system_impl_t::get_physical_coordinates_sph(
     return cart_to_sph(xyz) ; 
 }
 
-std::array<double, GRACE_NSPACEDIM> GRACE_HOST 
+std::array<double, GRACE_NSPACEDIM> GRACE_HOST
 cartesian_coordinate_system_impl_t::get_physical_coordinates(
       int const itree
     , std::array<double, GRACE_NSPACEDIM> const& logical_coordinates ) const
 {
-    auto const tree_coords = amr::get_tree_vertex(itree,0UL) ; 
-    auto const dx_tree     = amr::get_tree_spacing(itree) ;
+    // FP-symmetric grouping (see cell_locations.hh). Per-cell round-off
+    // is bounded at one ulp, independent of cell index, preserving bit-exact
+    // mirror symmetry about the tree midpoint when (xmin, xmax) are FP-exact.
+    // Replaces the naive `logical * dx_tree + tree_min` form whose error grew
+    // linearly with the logical coordinate -- driving FP-asymmetric pumping
+    // of the cubic m=4 mode at non-power-of-2 cells-per-block.
+    using grace::coordinates::fp_symmetric_phys_from_logical;
+    auto const tree_min = amr::get_tree_vertex(itree, 0UL);
+    auto const dx_tree  = amr::get_tree_spacing(itree);
     return {VEC(
-        logical_coordinates[0] * dx_tree[0] + tree_coords[0],
-        logical_coordinates[1] * dx_tree[1] + tree_coords[1],
-        logical_coordinates[2] * dx_tree[2] + tree_coords[2]
-    )} ; 
+        fp_symmetric_phys_from_logical(logical_coordinates[0],
+                                       tree_min[0], tree_min[0] + dx_tree[0]),
+        fp_symmetric_phys_from_logical(logical_coordinates[1],
+                                       tree_min[1], tree_min[1] + dx_tree[1]),
+        fp_symmetric_phys_from_logical(logical_coordinates[2],
+                                       tree_min[2], tree_min[2] + dx_tree[2])
+    )} ;
 }
 
 std::array<double, GRACE_NSPACEDIM> GRACE_HOST 

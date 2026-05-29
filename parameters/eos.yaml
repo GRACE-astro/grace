@@ -114,15 +114,16 @@ eos:
       default: "blah.grace"
       description: >
         Cold slice table file name
-    force_mu:
-      type: bool
-      default: true
+    baryon_mass:
+      type: keyword
+      allowed: ["m_u", "m_n"]
+      default: "m_u"
       description: >
         Baryonic mass convention for the nb <-> rho conversion on the cold
-        EOS table.  When true (default), uses the atomic mass unit (m_u);
-        when false, uses the neutron mass.  Must match the convention used
-        when the cold table was generated.  Use false only when importing
-        FUKA initial data that itself uses the neutron-mass convention.
+        EOS table. "m_u" (atomic mass unit, default) matches FUKA / LORENE /
+        Margherita. "m_n" (neutron mass) is strict CompOSE. Must match the
+        convention used when the cold table was generated. Note: the choice
+        also controls the eps redefinition applied to CompOSE tables on read.
     sanitize_axes:
       type: bool
       default: true

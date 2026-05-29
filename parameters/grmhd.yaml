@@ -120,12 +120,71 @@ grmhd:
       description: >
         Directly use entropy backup if beta<fallback_threshold
     bh_alp_thresh:
-      type: double 
+      type: double
       range: "(0,*)"
       default: 0.2
       description: >
         If alp <= thresh we are inside a BH and c2p errors become lenient
-  
+
+  riemann:
+    type: schema
+    description: >
+      Riemann-solver parameters
+    rusanov_wavespeed_floor:
+      type: double
+      range: "[0,*)"
+      default: 0.0
+      description: >
+        Floor on cmin = cmax in the Rusanov / LLF flux.  In atmosphere /
+        near-vacuum the physical fast-magnetosonic speed collapses to
+        ~c_s ~ 1e-3 and the Rusanov dissipation budget along with it,
+        letting sub-grid noise grow into blastwaves at high resolution.
+        Flooring cmax at a small physical scale (e.g. 1.0) restores
+        LLF-like artificial viscosity, but only where the density-gate
+        below allows.  Default 0 preserves bit-for-bit legacy behavior.
+        Only applies to the Rusanov path (FOFC LLF fallback in HLLD bulk
+        runs); HLLE is unchanged (its cmin, cmax carry upwind direction
+        info).
+    rusanov_floor_rho_threshold:
+      type: double
+      range: "[0,*)"
+      default: 0.0
+      description: >
+        Density gate for rusanov_wavespeed_floor.  The floor is only
+        applied when min(rho_L, rho_R) at the face is BELOW this value,
+        so dissipation is injected only at atmosphere / near-vacuum
+        faces and the B-field / disk-fluff structure at higher density
+        is left untouched (those faces use the natural Rusanov-max|lambda|).
+        A sensible production setting is ~10 * atmosphere.rho_fl so that
+        only true atmosphere faces are floored.  Default 0 disables the
+        gate (no floor applied anywhere); set very large to recover the
+        ungated behaviour where the floor applies unconditionally.
+
+  fofc:
+    type: schema
+    description: >
+      First-Order Flux Correction parameters
+    dmp_enable:
+      type: bool
+      default: true
+      description: >
+        Enforce a discrete maximum principle (Fields et al. 2025) on the
+        tentative post-substep cons during flag_fofc_cells: cells where the
+        tentative D or tau would create a new extremum relative to their
+        27-cell neighborhood (with slack dmp_M) are flagged for FOFC even if
+        the dry-run c2p would not have floored them. This catches "thin air"
+        ignition where dissipative-flux accumulation in low-density regions
+        pumps a cell's conservatives out of physical range before c2p notices.
+    dmp_M:
+      type: double
+      range: "(1,*)"
+      default: 1.2
+      description: >
+        Slack multiplier in the DMP test: the tentative conservative may
+        exceed the neighborhood max by up to a factor dmp_M (and fall below
+        the neighborhood min by 1/dmp_M) before FOFC is triggered. AthenaK's
+        default is 1.2.
+
   B_field_initialization:
     type: keyword
     allowed: ["none", "from_Avec", "direct"]

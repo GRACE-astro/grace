@@ -89,6 +89,7 @@ struct grmhd_equations_system_t
         excision_params = get_excision_params() ;
         atmo_params = get_atmo_params() ;
         c2p_params = get_c2p_params() ;
+        riemann_params = get_riemann_params() ;
         dcoords = grace::coordinate_system::get().get_device_coord_system();
     } ;
 
@@ -527,10 +528,12 @@ struct grmhd_equations_system_t
     atmo_params_t atmo_params;
     //! Parameters for excision
     excision_params_t excision_params; 
-    //! con2prim parameters 
-    c2p_params_t c2p_params ; 
-    //! Coordinate helper 
-    grace::device_coordinate_system dcoords ; 
+    //! con2prim parameters
+    c2p_params_t c2p_params ;
+    //! Riemann-solver parameters (currently: Rusanov wavespeed floor)
+    riemann_params_t riemann_params ;
+    //! Coordinate helper
+    grace::device_coordinate_system dcoords ;
     /***********************************************************************/
     /**
      * @brief Compute fluxes for gmrmhd equations.
@@ -853,13 +856,37 @@ struct grmhd_equations_system_t
                 /* LLF / Rusanov: symmetric diffusion with the largest local  *
                  * |fast magnetosonic speed| of either state. Matches the     *
                  * GRMHD literature. The result is less diffusive than the    *
-                 * fixed-c LLF and more diffusive than upwind HLL.            */
+                 * fixed-c LLF and more diffusive than upwind HLL.            *
+                 *                                                            *
+                 * Wavespeed floor: in atmosphere / near-vacuum the physical  *
+                 * fast-magnetosonic speed collapses to ~c_s ~ 1e-3 and the   *
+                 * Rusanov dissipation budget along with it, letting sub-grid *
+                 * noise grow into blastwaves at high resolution.  Flooring   *
+                 * cmin=cmax >= rusanov_wavespeed_floor restores LLF-like     *
+                 * artificial viscosity where the physical wavespeed is too   *
+                 * small to provide it. Default 0 preserves bit-for-bit       *
+                 * legacy behavior; opt in via grmhd.riemann.                 *
+                 * rusanov_wavespeed_floor.                                   */
                 cmax = Kokkos::max(
                     Kokkos::max(Kokkos::fabs(cml), Kokkos::fabs(cmr)),
                     Kokkos::max(Kokkos::fabs(cpl), Kokkos::fabs(cpr))
                 ) ;
+                /* Density-gated floor: only inject extra dissipation when the
+                 * face is in atmosphere territory (min(rho_L, rho_R) below the
+                 * threshold). This restores LLF-like atmosphere safety without
+                 * smearing B-field structure at the NS surface / disk fluff,
+                 * which has physical wavespeeds and shouldn't be over-diffused.
+                 * Setting rusanov_floor_rho_threshold = 0 disables the gate
+                 * (no floor anywhere); setting it large applies the floor
+                 * unconditionally (legacy ungated behaviour). */
+                if (Kokkos::min(rhol, rhor) < this->riemann_params.rusanov_floor_rho_threshold) {
+                    cmax = Kokkos::max(cmax, this->riemann_params.rusanov_wavespeed_floor) ;
+                }
                 cmin = cmax ;
             } else {
+                /* HLLE: cmin, cmax carry upwind direction info (both >=0,    *
+                 * asymmetric).  We do NOT floor here — that would inject     *
+                 * wrong-direction dissipation.                               */
                 cmin = -Kokkos::min(0., Kokkos::min(cml,cmr)) ;
                 cmax =  Kokkos::max(0., Kokkos::max(cpl,cpr)) ;
             }

@@ -54,6 +54,7 @@
 #include <Kokkos_Core.hpp>
 
 #include <grace/physics/id/import_kadath.hh>
+#include <grace/physics/id/fuka_unit_constants.hh>
 
 #ifdef KADATH_EXPORTERS_PARALLEL
 #include <omp.h>
@@ -84,6 +85,15 @@ void KadathImporter(const std::string kadath_id, const std::string  filename,
   #endif 
   GRACE_TRACE("Utilizing parallel exporters");
 
+  // FUKA-geo <-> GRACE-geo unit conversion. FUKA uses legacy Margherita
+  // constants (LENGTHGF = 6.77269e-6 cm^-1), GRACE uses CODATA-2018 +
+  // IAU-2015 (LENGTHGF = 6.77220e-6 cm^-1). Mismatch is 73 ppm in length
+  // / 213 ppm in density. Applied at the import boundary: coordinates are
+  // converted GRACE -> FUKA before the pointwise query so we read at the
+  // intended physical point, and returned tensors are converted FUKA ->
+  // GRACE before storage. See include/grace/physics/id/fuka_unit_constants.hh.
+  using rescale = grace::fuka_units::fuka_to_grace_rescale_t;
+
   auto interp_data_helper = [&]<typename reader_t, bool has_matter = false>(reader_t& input_reader,
                                   std::vector<double> const & xgrid,
                                   std::vector<double> const & ygrid,
@@ -92,17 +102,22 @@ void KadathImporter(const std::string kadath_id, const std::string  filename,
     {
       using kadath_output_t =
         std::vector<std::array<double, NUM_VOUT + NUM_MATTER * static_cast<int>(has_matter)>>;
-    
+
       #pragma omp parallel for firstprivate(input_reader)
       for (size_t idx = 0; idx < xgrid.size(); ++idx) {
-        size_t const i = idx%(nx+2*ngz); 
+        size_t const i = idx%(nx+2*ngz);
         size_t const j = (idx/(nx+2*ngz)) % (ny+2*ngz) ;
-        size_t const k = 
+        size_t const k =
                 (idx/(nx+2*ngz)/(ny+2*ngz)) % (nz+2*ngz) ;
-        size_t const q = 
-                (idx/(nx+2*ngz)/(ny+2*ngz)/(nz+2*ngz)) ; 
-        auto all_data_pt = input_reader.export_pointwise(xgrid[idx], ygrid[idx], zgrid[idx]) ;
-        data(K_ALPHA,i,j,k,q) = all_data_pt[K_ALPHA] ; 
+        size_t const q =
+                (idx/(nx+2*ngz)/(ny+2*ngz)/(nz+2*ngz)) ;
+        // GRACE-geo query coords -> FUKA-geo for the pointwise export.
+        double const x_F = xgrid[idx] / rescale::length;
+        double const y_F = ygrid[idx] / rescale::length;
+        double const z_F = zgrid[idx] / rescale::length;
+        auto all_data_pt = input_reader.export_pointwise(x_F, y_F, z_F) ;
+        // alpha, beta^i, gamma_ij are dimensionless: no rescale.
+        data(K_ALPHA,i,j,k,q) = all_data_pt[K_ALPHA] ;
 
         data(K_BETAX,i,j,k,q) = all_data_pt[K_BETAX] ;
         data(K_BETAY,i,j,k,q) = all_data_pt[K_BETAY] ;
@@ -115,24 +130,28 @@ void KadathImporter(const std::string kadath_id, const std::string  filename,
         data(K_GYZ,i,j,k,q) = all_data_pt[K_GYZ] ;
         data(K_GZZ,i,j,k,q) = all_data_pt[K_GZZ] ;
 
-        data(K_KXX,i,j,k,q) = all_data_pt[K_KXX] ;
-        data(K_KXY,i,j,k,q) = all_data_pt[K_KXY] ;
-        data(K_KXZ,i,j,k,q) = all_data_pt[K_KXZ] ;
-        data(K_KYY,i,j,k,q) = all_data_pt[K_KYY] ;
-        data(K_KYZ,i,j,k,q) = all_data_pt[K_KYZ] ;
-        data(K_KZZ,i,j,k,q) = all_data_pt[K_KZZ] ;
+        // K_ij has units [1/L]: rescale by inv_length.
+        data(K_KXX,i,j,k,q) = all_data_pt[K_KXX] * rescale::inv_length ;
+        data(K_KXY,i,j,k,q) = all_data_pt[K_KXY] * rescale::inv_length ;
+        data(K_KXZ,i,j,k,q) = all_data_pt[K_KXZ] * rescale::inv_length ;
+        data(K_KYY,i,j,k,q) = all_data_pt[K_KYY] * rescale::inv_length ;
+        data(K_KYZ,i,j,k,q) = all_data_pt[K_KYZ] * rescale::inv_length ;
+        data(K_KZZ,i,j,k,q) = all_data_pt[K_KZZ] * rescale::inv_length ;
         if (has_matter) {
-          // Store FUKA's rho and eps directly so the full matter state is
-          // preserved bit-for-bit; previously we packed e = rho*(1+eps) and
-          // re-inverted via GRACE's cold table, which biased rho whenever the
-          // two cold EOSs disagreed.
-          data(K_RHO,i,j,k,q) =  all_data_pt[K_RHO] * ( 1. + all_data_pt[K_EPS] ) ;
+          // Pack e = rho*(1+eps) in GRACE-geo. rho has units [M/L^3] so
+          // rescale by density factor; eps is dimensionless. Downstream
+          // (fuka_id_t::operator()) inverts via GRACE's cold EOS to recover
+          // rho, so e must be in GRACE-geo for the inversion to be
+          // self-consistent with the GRACE-converted EOS table.
+          double const rho_grace = all_data_pt[K_RHO] * rescale::density ;
+          data(K_RHO  ,i,j,k,q) = rho_grace * ( 1. + all_data_pt[K_EPS] ) ;
 
+          // v^i is dimensionless: no rescale.
           data(K_RHO+1,i,j,k,q) =  all_data_pt[K_VELX] ;
           data(K_RHO+2,i,j,k,q) =  all_data_pt[K_VELY] ;
           data(K_RHO+3,i,j,k,q) =  all_data_pt[K_VELZ] ;
         }
-        
+
 
       }
     };

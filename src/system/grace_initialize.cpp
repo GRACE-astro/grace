@@ -263,12 +263,18 @@ void initialize(int& argc, char* argv[])
     #ifdef GRACE_ENABLE_VTK
     grace::IO::detail::init_auxiliaries()  ;
     #endif 
-    grace::amr_ghosts::initialize() ; 
-    auto& ghost = grace::amr_ghosts::get() ; 
-    ghost.update() ; 
-    if ( started_from_checkpoint ) {
-        amr::apply_boundary_conditions() ; 
-    }
+    grace::amr_ghosts::initialize() ;
+    auto& ghost = grace::amr_ghosts::get() ;
+    ghost.update() ;
+    // NOTE: deliberately do NOT call apply_boundary_conditions() here for
+    // checkpoint restarts. The no-arg form passes dt=0; for runs with
+    // reflection_symmetries enabled, the BC dispatch chain reads from
+    // ghost cells just written by earlier kernels in the chain, so
+    // re-applying the chain on a state that already holds the result of
+    // a previous chain (the loaded ghost cells) perturbs the overlap
+    // cells at ulp level and breaks restart bit-exactness. The first
+    // evolve substep applies BCs itself with proper dt, which is
+    // consistent for both from-scratch and load paths.
     /**********************************************************************************/
     /*                                 Initial data                                   */
     /**********************************************************************************/

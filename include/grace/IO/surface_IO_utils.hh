@@ -33,6 +33,7 @@
 
 #include <grace/amr/grace_amr.hh>
 #include <grace/utils/grace_utils.hh>
+#include <grace/coordinates/cell_locations.hh>
 
 
 
@@ -51,7 +52,7 @@ namespace amr { namespace detail {
 
 inline static std::array<double, 3>
 get_quad_coord_lbounds(quadrant_t quad, size_t itree) {
-    auto const dx_quad  = 1./(1<<quad.level()) ; 
+    auto const dx_quad  = 1./(1<<quad.level()) ;
     auto const qcoords = quad.qcoords();
     auto quad_coords = std::array<double, 3>{
         qcoords[0] * dx_quad,
@@ -59,14 +60,23 @@ get_quad_coord_lbounds(quadrant_t quad, size_t itree) {
         qcoords[2] * dx_quad
     };
 
-    auto tree_coords = amr::get_tree_vertex(itree, 0) ; 
-    auto dx_tree = amr::get_tree_spacing(itree) ; 
+    auto tree_min = amr::get_tree_vertex(itree, 0) ;
+    auto dx_tree  = amr::get_tree_spacing(itree) ;
 
+    // FP-symmetric grouping (see include/grace/coordinates/cell_locations.hh).
+    // Keeps quad-lbound coords bit-exactly mirror-symmetric about the tree
+    // midpoint for FP-exact tree extents, regardless of npoints_block. Used
+    // by octree_search_class.cpp (plane slicing) and hdf5_surface_output.cpp
+    // (vertex stamping); both benefit from the symmetric grouping.
+    using grace::coordinates::fp_symmetric_phys_from_logical;
     return std::array<double, 3>{
-                quad_coords[0] * dx_tree[0] + tree_coords[0],
-                quad_coords[1] * dx_tree[1] + tree_coords[1],
-                quad_coords[2] * dx_tree[2] + tree_coords[2]
-            };
+        fp_symmetric_phys_from_logical(quad_coords[0],
+                                       tree_min[0], tree_min[0] + dx_tree[0]),
+        fp_symmetric_phys_from_logical(quad_coords[1],
+                                       tree_min[1], tree_min[1] + dx_tree[1]),
+        fp_symmetric_phys_from_logical(quad_coords[2],
+                                       tree_min[2], tree_min[2] + dx_tree[2])
+    };
 }
 
 inline static std::array<double, 3>
