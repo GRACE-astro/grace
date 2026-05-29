@@ -858,29 +858,27 @@ struct grmhd_equations_system_t
                  * GRMHD literature. The result is less diffusive than the    *
                  * fixed-c LLF and more diffusive than upwind HLL.            *
                  *                                                            *
-                 * Wavespeed floor: in atmosphere / near-vacuum the physical  *
-                 * fast-magnetosonic speed collapses to ~c_s ~ 1e-3 and the   *
-                 * Rusanov dissipation budget along with it, letting sub-grid *
-                 * noise grow into blastwaves at high resolution.  Flooring   *
-                 * cmin=cmax >= rusanov_wavespeed_floor restores LLF-like     *
-                 * artificial viscosity where the physical wavespeed is too   *
-                 * small to provide it. Default 0 preserves bit-for-bit       *
-                 * legacy behavior; opt in via grmhd.riemann.                 *
-                 * rusanov_wavespeed_floor.                                   */
+                 * GR-consistent wavespeed floor: in atmosphere / near-vacuum *
+                 * the physical fast-magnetosonic speed collapses to          *
+                 * ~c_s ~ 1e-3 and the Rusanov dissipation budget along with  *
+                 * it, letting sub-grid noise grow into blastwaves.  When     *
+                 * min(rho_L, rho_R) is below rusanov_use_c_limit we floor    *
+                 * cmax at the coordinate-frame light-cone speed              *
+                 *     c_grid = alpha * sqrt(gamma^{ii}) + |beta^i|,          *
+                 * which is the maximally diffusive choice that remains       *
+                 * causally consistent in GR.  Reduces to 1 in Minkowski with *
+                 * no shift, so it generalises the flat "c = 1" limit to      *
+                 * strong-field zones (lapse collapse, super-shifted regions  *
+                 * near horizons).  Default rusanov_use_c_limit = 0 disables  *
+                 * (bit-for-bit legacy behaviour); opt in via grmhd.riemann.  */
                 cmax = Kokkos::max(
                     Kokkos::max(Kokkos::fabs(cml), Kokkos::fabs(cmr)),
                     Kokkos::max(Kokkos::fabs(cpl), Kokkos::fabs(cpr))
                 ) ;
-                /* Density-gated floor: only inject extra dissipation when the
-                 * face is in atmosphere territory (min(rho_L, rho_R) below the
-                 * threshold). This restores LLF-like atmosphere safety without
-                 * smearing B-field structure at the NS surface / disk fluff,
-                 * which has physical wavespeeds and shouldn't be over-diffused.
-                 * Setting rusanov_floor_rho_threshold = 0 disables the gate
-                 * (no floor anywhere); setting it large applies the floor
-                 * unconditionally (legacy ungated behaviour). */
-                if (Kokkos::min(rhol, rhor) < this->riemann_params.rusanov_floor_rho_threshold) {
-                    cmax = Kokkos::max(cmax, this->riemann_params.rusanov_wavespeed_floor) ;
+                if (Kokkos::min(rhol, rhor) < this->riemann_params.rusanov_use_c_limit) {
+                    double const c_grid = alp * Kokkos::sqrt(guu[metric_comps[idir]])
+                                        + Kokkos::fabs(betau[idir]) ;
+                    cmax = Kokkos::max(cmax, c_grid) ;
                 }
                 cmin = cmax ;
             } else {
