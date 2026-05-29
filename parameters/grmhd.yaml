@@ -130,35 +130,28 @@ grmhd:
     type: schema
     description: >
       Riemann-solver parameters
-    rusanov_wavespeed_floor:
+    rusanov_use_c_limit:
       type: double
       range: "[0,*)"
       default: 0.0
       description: >
-        Floor on cmin = cmax in the Rusanov / LLF flux.  In atmosphere /
-        near-vacuum the physical fast-magnetosonic speed collapses to
-        ~c_s ~ 1e-3 and the Rusanov dissipation budget along with it,
-        letting sub-grid noise grow into blastwaves at high resolution.
-        Flooring cmax at a small physical scale (e.g. 1.0) restores
-        LLF-like artificial viscosity, but only where the density-gate
-        below allows.  Default 0 preserves bit-for-bit legacy behavior.
-        Only applies to the Rusanov path (FOFC LLF fallback in HLLD bulk
-        runs); HLLE is unchanged (its cmin, cmax carry upwind direction
-        info).
-    rusanov_floor_rho_threshold:
-      type: double
-      range: "[0,*)"
-      default: 0.0
-      description: >
-        Density gate for rusanov_wavespeed_floor.  The floor is only
-        applied when min(rho_L, rho_R) at the face is BELOW this value,
-        so dissipation is injected only at atmosphere / near-vacuum
-        faces and the B-field / disk-fluff structure at higher density
-        is left untouched (those faces use the natural Rusanov-max|lambda|).
-        A sensible production setting is ~10 * atmosphere.rho_fl so that
-        only true atmosphere faces are floored.  Default 0 disables the
-        gate (no floor applied anywhere); set very large to recover the
-        ungated behaviour where the floor applies unconditionally.
+        Density gate for the GR-consistent Rusanov / LLF wavespeed floor.
+        When min(rho_L, rho_R) at a face is below this threshold, cmax
+        is floored at the coordinate-frame light-cone speed
+            c_grid = alpha * sqrt(gamma^{ii}) + |beta^i|,
+        which is the maximally diffusive choice that remains causally
+        consistent in GR (reduces to 1 in Minkowski with no shift).  In
+        atmosphere / near-vacuum the physical fast-magnetosonic speed
+        collapses to ~c_s ~ 1e-3 and the Rusanov dissipation budget along
+        with it, letting sub-grid noise grow into blastwaves; this floor
+        restores LLF-like artificial viscosity exactly where the physical
+        wavespeed is too small to provide it, without smearing structure
+        at higher density.  A sensible production setting is ~10 *
+        atmosphere.rho_fl so that only true atmosphere faces are floored.
+        Default 0 disables the gate (preserves bit-for-bit legacy
+        behavior, no floor applied anywhere).  Only applies to the
+        Rusanov path (FOFC LLF fallback in HLLD bulk runs); HLLE is
+        unchanged (its cmin, cmax carry upwind direction info).
 
   fofc:
     type: schema

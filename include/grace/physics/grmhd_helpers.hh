@@ -73,14 +73,14 @@ struct fofc_params_t {
  * Only the Rusanov / LLF flux gets a wavespeed floor: in atmosphere / near-
  * vacuum the local fast-magnetosonic speed collapses to ~c_s ~ 1e-3 and the
  * Rusanov dissipation budget along with it, letting sub-grid noise grow into
- * blastwaves at high resolution. Flooring cmin = cmax >= rusanov_wavespeed_floor
- * restores LLF-like artificial viscosity exactly where the physical wavespeed
- * is too small to provide it, without touching HLLE (where cmin, cmax carry
- * upwind direction info).
+ * blastwaves at high resolution.  Below rusanov_use_c_limit the floor is the
+ * GR-coordinate light-cone speed alpha*sqrt(gamma^{ii}) + |beta^i|, which is
+ * the maximally diffusive choice that remains causally consistent in GR
+ * (reduces to 1 in Minkowski with no shift).
  */
 struct riemann_params_t {
-  double rusanov_wavespeed_floor ;        //!< Floor value on cmin=cmax in the Rusanov flux
-  double rusanov_floor_rho_threshold ;    //!< Only apply the floor when min(rhoL,rhoR) < this
+  double rusanov_use_c_limit ;            //!< Density gate: below this, floor cmax at the
+                                          //!  GR-coordinate light-cone speed.  0 disables.
 } ;
 /**
  * @brief Excision parameters
@@ -237,10 +237,8 @@ GRACE_ALWAYS_INLINE
 riemann_params_t get_riemann_params()
 {
   riemann_params_t riemann_params ;
-  riemann_params.rusanov_wavespeed_floor =
-    grace::get_param<double>("grmhd","riemann","rusanov_wavespeed_floor") ;
-  riemann_params.rusanov_floor_rho_threshold =
-    grace::get_param<double>("grmhd","riemann","rusanov_floor_rho_threshold") ;
+  riemann_params.rusanov_use_c_limit =
+    grace::get_param<double>("grmhd","riemann","rusanov_use_c_limit") ;
   return riemann_params ;
 }
 
