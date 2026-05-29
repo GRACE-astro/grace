@@ -8,7 +8,7 @@ links to the configuration and analysis tooling used so the figure can
 be reproduced.
 
 
-Post-merger of an SFHo binary neutron star
+Merger of a magnetized binary neutron star
 ------------------------------------------
 
 .. figure:: /_static/images/sfho_bns_merger.png
