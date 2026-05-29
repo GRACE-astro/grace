@@ -11,21 +11,12 @@ be reproduced.
 Post-merger of an SFHo binary neutron star
 ------------------------------------------
 
-.. figure:: /_static/images/sfho_bns_postmerger.png
-   :alt: 3D rendering of the SFHo BNS post-merger remnant, disk, and
-         polar funnel around the central black hole.
+.. figure:: /_static/images/sfho_bns_merger.png
+   :alt: 3D rendering of the merger of a BNS described by the SFHo EOS.
    :align: center
    :width: 90%
 
-   Post-merger state of an equal-mass SFHo binary neutron star
-   simulation, :math:`t \approx 25\;\mathrm{ms}` after merger.
-   Nested log-density isosurfaces trace the disk and the diffuse
-   envelope; the bipolar mint-coloured cone is a high-entropy
-   (:math:`s/k_\mathrm{B} = 25`) iso outlining the hot, low-density
-   polar funnel.  The opaque black sphere at the centre is a lapse
-   isosurface (:math:`\alpha = 0.35`), used as a visual proxy for the
-   apparent horizon.  Cyan tubes are field lines of the magnetic field
-   threading the remnant.
+   Rendering of a magnetized BNS system around the time of merger. 
 
 Rendered with `PyVista`_ from a native GRACE HDF5 volume dump
 (``volume_out_*.h5``).  Source data is an asymmetric binary
