@@ -1,7 +1,7 @@
 /**
  * @file prolongation_task_factories.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief Factories that assemble prolongation task descriptors (including the Tóth-Ryu divergence-preserving variant for face-staggered B) for each ghost-zone element kind.
+ * @brief Factories that assemble prolongation task descriptors (including the Tóth-Roe divergence-preserving variant for face-staggered B) for each ghost-zone element kind.
  * @date 2025-09-05
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

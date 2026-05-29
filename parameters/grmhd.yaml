@@ -168,7 +168,7 @@ grmhd:
       type: bool
       default: true
       description: >
-        Enforce a discrete maximum principle (Felker & Stone 2018) on the
+        Enforce a discrete maximum principle (Fields et al. 2025) on the
         tentative post-substep cons during flag_fofc_cells: cells where the
         tentative D or tau would create a new extremum relative to their
         27-cell neighborhood (with slack dmp_M) are flagged for FOFC even if

@@ -22,6 +22,7 @@ and on the `p4est`_ adaptive mesh refinement library.
    code_building_guide/index.rst
    userguide/index.rst
    gallery/index.rst
+   developer_guide/index.rst
    python_interface/index.rst
    contributing/index.rst
    code_of_conduct/index.rst
